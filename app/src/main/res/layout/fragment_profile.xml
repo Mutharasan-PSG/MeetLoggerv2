@@ -1,0 +1,127 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <TextView
+        android:id="@+id/Profile"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PROFILE"
+        android:layout_marginStart="10dp"
+        android:fontFamily="@font/poppins_medium"
+        android:textSize="28sp"
+        android:textColor="@color/BLUE"
+        android:elevation="30dp"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="9dp"/>
+
+    <ImageView
+        android:id="@+id/profile_image"
+        android:layout_width="115dp"
+        android:layout_height="115dp"
+        android:layout_below="@id/Profile"
+        android:layout_marginTop="16dp"
+        android:src="@drawable/default_profile_pic"
+        android:contentDescription="Profile Image"
+        android:layout_centerHorizontal="true"
+        android:scaleType="centerCrop"
+        android:background="@drawable/rounded_image_background"
+        android:clipToOutline="true" />
+
+    <TextView
+        android:id="@+id/profile_name_placeholder"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/profile_image"
+        android:layout_marginTop="16dp"
+        android:text="Name"
+        android:fontFamily="@font/poppins"
+        android:layout_marginStart="15dp"
+        android:textSize="19sp"
+        android:textColor="@color/BLUE"/>
+
+    <TextView
+        android:id="@+id/profile_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/profile_name_placeholder"
+        android:layout_marginTop="4dp"
+        android:text="Actual Name"
+        android:fontFamily="@font/poppins"
+        android:layout_marginStart="15dp"
+        android:textColor="@color/black"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/profile_email_placeholder"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/profile_name"
+        android:layout_marginTop="16dp"
+        android:text="Email"
+        android:fontFamily="@font/poppins"
+        android:layout_marginStart="15dp"
+        android:textSize="19sp"
+        android:textColor="@color/BLUE"/>
+
+    <TextView
+        android:id="@+id/profile_email"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/profile_email_placeholder"
+        android:layout_marginTop="4dp"
+        android:layout_marginStart="15dp"
+        android:textColor="@color/black"
+        android:fontFamily="@font/poppins"
+        android:text="user@example.com"
+        android:textSize="18sp" />
+
+    <LinearLayout
+        android:id="@+id/btn_sign_out"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/profile_email"
+        android:layout_marginStart="124dp"
+        android:layout_marginTop="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:fontFamily="@font/poppins_medium"
+        android:background="@drawable/rounded_button"
+        android:padding="12dp"
+        android:elevation="10dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:id="@+id/sign_out_image"
+            android:layout_width="20dp"
+            android:layout_height="22dp"
+            android:src="@drawable/signout"
+            android:scaleType="fitCenter"
+            android:contentDescription="Sign Out" />
+
+        <TextView
+            android:id="@+id/sign_out_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sign out"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:layout_marginEnd="3dp"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/version"
+        android:layout_width="90dp"
+        android:layout_height="20dp"
+        android:layout_below="@id/btn_sign_out"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="145dp"
+        android:layout_marginTop="350dp"
+        android:text="version 1.0"
+        android:textColor="@color/black"
+        android:textSize="14sp" />
+</RelativeLayout>

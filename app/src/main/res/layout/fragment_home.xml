@@ -1,0 +1,201 @@
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:background="@color/white"
+    android:padding="16dp">
+
+    <!-- Top App Name Logo -->
+    <ImageView
+        android:id="@+id/appLogo"
+        android:layout_width="169dp"
+        android:layout_height="67dp"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="5dp"
+        android:contentDescription="App Logo"
+        android:scaleType="fitCenter"
+        android:src="@drawable/splashlogo" />
+
+    <!-- Top Profile Picture -->
+    <ImageView
+        android:id="@+id/profilePic"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:src="@drawable/default_profile_pic"
+        android:scaleType="centerCrop"
+        android:elevation="9dp"
+        android:background="@drawable/round_border"
+        android:clickable="true"
+        android:focusable="true"
+        android:contentDescription="User Profile Picture" />
+
+    <!-- Placeholder for Recent Meetings -->
+    <TextView
+        android:id="@+id/placeholderText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Recent meetings appear here..."
+        android:textSize="16sp"
+        android:textColor="@android:color/darker_gray"
+        android:fontFamily="@font/poppins"
+        android:gravity="center"
+        android:layout_centerInParent="true"
+        android:visibility="visible"/>
+
+    <ListView
+        android:id="@+id/meetingsListView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/appLogo"
+        android:layout_marginTop="20dp"
+        android:padding="10dp"
+        android:divider="@android:color/darker_gray"
+        android:dividerHeight="1dp"
+        android:visibility="gone"/>
+
+
+
+    <!-- Meet Button -->
+    <LinearLayout
+        android:id="@+id/meetButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="92dp"
+        android:layout_marginEnd="16dp"
+        android:layout_alignParentEnd="true"
+        android:orientation="horizontal"
+        android:elevation="9dp"
+        android:padding="11dp"
+        android:background="@drawable/button_background"
+        android:layout_above="@id/bottomNavBar"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:id="@+id/meetIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/audio"
+            android:contentDescription="Meet Icon"
+            app:tint="@color/white" />
+
+        <TextView
+            android:id="@+id/meetText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="5dp"
+            android:layout_marginEnd="3dp"
+            android:gravity="center_vertical"
+            android:fontFamily="@font/poppins_medium"
+            android:text="Audio"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <!-- Bottom Navigation Bar -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="@color/white"
+        app:menu="@menu/bottom_navigation_menu"
+        app:itemIconTint="@color/nav_icon_colors"
+        app:itemTextColor="@color/nav_text_colors"
+        app:labelVisibilityMode="labeled" />
+
+    <!-- Meet Options Popup -->
+    <LinearLayout
+        android:id="@+id/meetOptionsLayout"
+        android:layout_width="195dp"
+        android:layout_height="180dp"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="16dp"
+        android:layout_above="@id/meetButton"
+        android:orientation="vertical"
+        android:layout_marginBottom="4dp"
+        android:visibility="gone"
+        android:background="@color/white">
+
+
+        <!-- Join a Meet Option -->
+        <LinearLayout
+            android:id="@+id/RecordAudio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="10dp"
+            android:focusable="true"
+            android:gravity="end">  <!-- Right-aligning the content -->
+
+            <TextView
+                android:id="@+id/btnRecordAudio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins"
+                android:text="Record live audio"
+                android:textColor="@android:color/black"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="1dp"
+                android:textSize="16sp" />
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="10dp"
+                android:src="@drawable/live_record" />
+        </LinearLayout>
+
+        <!-- Create a New Meet Option -->
+        <LinearLayout
+            android:id="@+id/UploadAudio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="10dp"
+            android:focusable="true"
+            android:gravity="end">  <!-- Right-aligning the content -->
+
+            <TextView
+                android:id="@+id/btnUploadAudio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins"
+                android:text="Upload audio"
+                android:textColor="@android:color/black"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="1dp"
+                android:textSize="16sp" />
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="10dp"
+                android:src="@drawable/upload" />
+        </LinearLayout>
+
+
+        <!-- Close Button -->
+        <ImageView
+            android:id="@+id/closeButton"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignParentEnd="true"
+            android:layout_marginTop="2dp"
+            android:layout_gravity="end"
+            android:src="@drawable/ic_close"
+            android:contentDescription="Close"
+            android:background="@drawable/circle_border" />
+
+    </LinearLayout>
+
+</RelativeLayout>
+

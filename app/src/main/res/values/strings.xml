@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">MeetLogger</string>
+
+    <string name="default_web_client_id">687079496758-sikpp68be4qbgba37pfuf2slrdjn1j7c.apps.googleusercontent.com</string>
+    <string name="sign_in_with_google">sign_in_with_google</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+
+</resources>

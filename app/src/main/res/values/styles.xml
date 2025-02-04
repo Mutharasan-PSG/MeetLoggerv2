@@ -1,0 +1,11 @@
+
+<resources>
+<style name="Theme.MeetLoggerv2" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <!-- Customize your theme here -->
+    <item name="colorPrimary">#FFFFFF</item> <!-- Action bar background color -->
+    <item name="colorPrimaryVariant">#FFFFFF</item>
+    <item name="colorOnPrimary">#000000</item> <!-- Action bar text/icons color -->
+    <item name="android:statusBarColor">#FFFFFF</item> <!-- Status bar background color -->
+    <item name="android:windowLightStatusBar">true</item> <!-- Ensures status bar icons are dark -->
+</style>
+</resources>

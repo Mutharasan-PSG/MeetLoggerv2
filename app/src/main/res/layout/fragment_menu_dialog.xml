@@ -1,0 +1,27 @@
+<!-- fragment_meet_options.xml -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp"
+    >
+
+    <Button
+        android:id="@+id/btn_join_meet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Join a Meet"/>
+
+    <Button
+        android:id="@+id/btn_create_meet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Create New Meet"/>
+
+    <Button
+        android:id="@+id/btn_schedule_meet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Schedule a Meet"/>
+</LinearLayout>
