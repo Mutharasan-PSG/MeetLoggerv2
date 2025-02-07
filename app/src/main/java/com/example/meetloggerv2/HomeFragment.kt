@@ -23,14 +23,11 @@ class HomeFragment : Fragment() {
 
     private lateinit var profilePic: ImageView
     private lateinit var bottomNavBar: BottomNavigationView
-    private lateinit var meetButton: LinearLayout // The LinearLayout you click to open the options
-    private lateinit var meetOptionsLayout: LinearLayout // The options popup menu
+    private lateinit var AudioButton: LinearLayout // The LinearLayout you click to open the options
+    private lateinit var AudioOptionsLayout: LinearLayout // The options popup menu
     private lateinit var closeButton: ImageView // Close button (X)
     private lateinit var firestore: FirebaseFirestore
     private lateinit var auth: FirebaseAuth
-    private lateinit var meetingsListView: ListView
-    private lateinit var meetingsAdapter: ArrayAdapter<String>
-    private val meetingsList = mutableListOf<String>() // Store meeting details
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -40,65 +37,48 @@ class HomeFragment : Fragment() {
 
         firestore = FirebaseFirestore.getInstance()
         auth = FirebaseAuth.getInstance()
-        meetingsListView = view.findViewById(R.id.meetingsListView)
 
         profilePic = view.findViewById(R.id.profilePic)
         bottomNavBar = view.findViewById(R.id.bottomNavBar)
-        meetButton = view.findViewById(R.id.meetButton) // Assuming there's a "Meet" button
-        meetOptionsLayout = view.findViewById(R.id.meetOptionsLayout)
+        AudioButton = view.findViewById(R.id.AudioButton)
+        AudioOptionsLayout = view.findViewById(R.id.AudioOptionsLayout)
         closeButton = view.findViewById(R.id.closeButton)
 
         // Set Home as the default selected item
         bottomNavBar.selectedItemId = R.id.menu_home // This makes Home selected first and blue
 
-        meetingsAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_2, android.R.id.text1, meetingsList)
-        meetingsListView.adapter = meetingsAdapter
-
-       // fetchUserMeetings() // Fetch meetings when fragment is opened
-
         // Set onClickListener to show or hide the Meet Options popup when Meet button is clicked
-        meetButton.setOnClickListener {
+        AudioButton.setOnClickListener {
             // If the options are hidden, show it, else hide it
-            if (meetOptionsLayout.visibility == View.GONE) {
-                meetOptionsLayout.visibility = View.VISIBLE
-                meetButton.visibility = View.GONE // Hide Meet button when options are visible
+            if (AudioOptionsLayout.visibility == View.GONE) {
+                AudioOptionsLayout.visibility = View.VISIBLE
+                AudioButton.visibility = View.GONE // Hide Meet button when options are visible
             } else {
-                meetOptionsLayout.visibility = View.GONE
-                meetButton.visibility = View.VISIBLE // Show Meet button when options are hidden
+                AudioOptionsLayout.visibility = View.GONE
+                AudioButton.visibility = View.VISIBLE // Show Meet button when options are hidden
             }
         }
 
         closeButton.setOnClickListener {
             // Close the Meet options and show the Meet button again
-            meetOptionsLayout.visibility = View.GONE
-            meetButton.visibility = View.VISIBLE // Show Meet button when options are closed
+            AudioOptionsLayout.visibility = View.GONE
+            AudioButton.visibility = View.VISIBLE // Show Meet button when options are closed
         }
-/*
+
         // Handle the actions of the options buttons
-        val joinMeetLayout: LinearLayout = view.findViewById(R.id.RecordAudio)
-        val createMeetLayout: LinearLayout= view.findViewById(R.id.UploadAudio)
-       // val scheduleMeetLayout: LinearLayout= view.findViewById(R.id.ScheduleMeet)
+        val RecordAudioLayout: LinearLayout = view.findViewById(R.id.RecordAudio)
+        val UploadAudioLayout: LinearLayout= view.findViewById(R.id.UploadAudio)
 
-        joinMeetLayout.setOnClickListener {
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, JoinMeetFragment())
-                .addToBackStack(null) // Allows users to press back to return
-                .commit()
+
+        RecordAudioLayout.setOnClickListener {
+            val RecordAudioSheet = RecordAudioBottomsheetFragment()
+            RecordAudioSheet.show(parentFragmentManager, "RecordAudioSheet")
         }
 
-        createMeetLayout.setOnClickListener {
-            val createMeetBottomSheet = CreateMeetBottomSheetFragment()
-            createMeetBottomSheet.show(parentFragmentManager, "CreateMeetBottomSheet")
+        UploadAudioLayout.setOnClickListener {
+            val UploadAudioSheet = UploadAudioBottomsheetFragment()
+            UploadAudioSheet.show(parentFragmentManager, "UploadAudioSheet")
         }
-
-        scheduleMeetLayout.setOnClickListener {
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, ScheduleMeetFragment())
-                .addToBackStack(null)
-                .commit()
-        }
-
- */
 
         // Setup BottomNavigationView to manage fragment switching
         setupBottomNavigation()
@@ -160,43 +140,4 @@ class HomeFragment : Fragment() {
             }
     }
 
-
-    private fun fetchUserMeetings() {
-        val currentUser = auth.currentUser
-        val userId = currentUser?.uid ?: return
-
-        firestore.collection("MeetingInfo")
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .get()
-            .addOnSuccessListener { documents ->
-                meetingsList.clear()
-                for (document in documents) {
-                    val meetingId = document.getString("meetingId") ?: continue
-                    val createdAtTimestamp = document.getTimestamp("createdAt") ?: continue
-                    val createdAt = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(createdAtTimestamp.toDate())
-
-                    val creatorId = document.getString("creatorId") ?: ""
-                    val participants = document.get("participants") as? List<Map<String, Any>> ?: emptyList()
-
-                    val isParticipant = participants.any { it["userId"] == userId }
-                    val isCreator = creatorId == userId
-
-                    if (isParticipant || isCreator) {
-                        meetingsList.add("Meeting ID: $meetingId\nCreated: $createdAt")
-                    }
-                }
-                if (meetingsList.isEmpty()) {
-                    meetingsListView.visibility = View.GONE
-                    view?.findViewById<MaterialTextView>(R.id.placeholderText)?.visibility = View.VISIBLE
-                } else {
-                    meetingsListView.visibility = View.VISIBLE
-                    view?.findViewById<MaterialTextView>(R.id.placeholderText)?.visibility = View.GONE
-                }
-
-                meetingsAdapter.notifyDataSetChanged()
-            }
-            .addOnFailureListener {
-                Toast.makeText(context, "Failed to fetch meetings", Toast.LENGTH_SHORT).show()
-            }
-    }
 }

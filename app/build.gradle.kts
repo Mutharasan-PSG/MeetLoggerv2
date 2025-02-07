@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id ("kotlin-kapt")
     id("com.google.gms.google-services")
 }
 
@@ -77,9 +78,12 @@ dependencies {
     implementation ("androidx.navigation:navigation-fragment-ktx:2.8.5")
     implementation ("androidx.navigation:navigation-ui-ktx:2.8.5")
     implementation(libs.firebase.auth.ktx)
+    implementation(libs.androidx.legacy.support.v4)
+    implementation(libs.androidx.recyclerview)
     // implementation(libs.volley)
 
     annotationProcessor ("com.github.bumptech.glide:compiler:4.15.1")
+    implementation ("com.google.firebase:firebase-storage:21.0.1")
 
     implementation ("com.google.firebase:firebase-firestore:25.1.1")
     implementation(libs.androidx.core.ktx)

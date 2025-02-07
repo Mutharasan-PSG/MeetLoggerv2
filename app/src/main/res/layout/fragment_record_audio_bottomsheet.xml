@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@android:color/white">
+
+    <!-- Recording Status Image -->
+    <ImageView
+        android:id="@+id/recordImageView"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:scaleType="fitXY"
+        android:layout_margin="20dp"
+        android:src="@drawable/record"
+        android:layout_gravity="center"
+        android:contentDescription="Record Icon" />
+
+    <!-- Start/Resume & Stop Buttons -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_gravity="center"
+        android:paddingTop="10dp">
+
+        <Button
+            android:id="@+id/startButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/Grey"
+            android:textColor="@color/white"
+            android:layout_marginEnd="15dp"
+            android:fontFamily="@font/poppins_medium"
+            android:text="START"
+            android:drawableStart="@drawable/start"
+            android:padding="10dp" />
+
+        <Button
+            android:id="@+id/stopButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/Grey"
+            android:fontFamily="@font/poppins_medium"
+            android:text="STOP"
+            android:textColor="@color/white"
+            android:drawableStart="@drawable/stop"
+            android:padding="10dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Recorded Audio File Display -->
+    <LinearLayout
+        android:id="@+id/audioPlayerLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        android:gravity="center"
+        android:paddingTop="10dp">
+
+        <TextView
+            android:id="@+id/recordedFileNameTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No file recorded"
+            android:fontFamily="@font/poppins_medium"
+            android:textSize="14sp"
+            android:padding="10dp"
+            android:textColor="@android:color/black" />
+
+        <Button
+            android:id="@+id/playButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/Grey"
+            android:layout_marginEnd="15dp"
+            android:text="PLAY"    
+            android:fontFamily="@font/poppins_medium"
+            
+            android:textColor="@color/white"
+            android:drawableStart="@drawable/play"
+            android:padding="10dp" />
+
+        <Button
+            android:id="@+id/deleteButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/Grey"
+            android:text="DELETE"
+            android:fontFamily="@font/poppins_medium"
+            android:textColor="@color/white"
+            android:drawableStart="@drawable/delete"
+            android:padding="10dp"
+            android:visibility="gone"
+            android:layout_gravity="center" />
+
+
+        <Button
+            android:id="@+id/stopPlayButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/Grey"
+            android:text="STOP"
+            android:fontFamily="@font/poppins_medium"
+            android:textColor="@color/white"
+            android:drawableStart="@drawable/stop"
+            android:padding="10dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Process Audio Button -->
+    <Button
+        android:id="@+id/processAudioButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="@color/BLUE"
+        android:layout_margin="15dp"
+        android:text="PROCESS AUDIO"
+        android:fontFamily="@font/poppins_medium"
+        android:textColor="@color/white"
+        android:drawableStart="@drawable/process"
+        android:padding="10dp"
+        android:visibility="gone"
+        android:layout_gravity="center" />
+
+</LinearLayout>

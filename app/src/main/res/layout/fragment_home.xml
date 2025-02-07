@@ -19,6 +19,8 @@
         android:scaleType="fitCenter"
         android:src="@drawable/splashlogo" />
 
+
+
     <!-- Top Profile Picture -->
     <ImageView
         android:id="@+id/profilePic"
@@ -63,7 +65,7 @@
 
     <!-- Meet Button -->
     <LinearLayout
-        android:id="@+id/meetButton"
+        android:id="@+id/AudioButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
@@ -79,7 +81,7 @@
         android:focusable="true">
 
         <ImageView
-            android:id="@+id/meetIcon"
+            android:id="@+id/AudioIcon"
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:scaleType="fitCenter"
@@ -88,7 +90,7 @@
             app:tint="@color/white" />
 
         <TextView
-            android:id="@+id/meetText"
+            android:id="@+id/AudioText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="5dp"
@@ -114,12 +116,12 @@
 
     <!-- Meet Options Popup -->
     <LinearLayout
-        android:id="@+id/meetOptionsLayout"
+        android:id="@+id/AudioOptionsLayout"
         android:layout_width="195dp"
         android:layout_height="180dp"
         android:layout_alignParentEnd="true"
         android:layout_marginEnd="16dp"
-        android:layout_above="@id/meetButton"
+        android:layout_above="@id/AudioButton"
         android:orientation="vertical"
         android:layout_marginBottom="4dp"
         android:visibility="gone"
