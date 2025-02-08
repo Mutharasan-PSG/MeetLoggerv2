@@ -65,6 +65,7 @@
         android:id="@+id/processAudioButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:drawableStart="@drawable/process"
         android:text="Process Audio"
         android:backgroundTint="@color/BLUE"
         android:fontFamily="@font/poppins_medium"

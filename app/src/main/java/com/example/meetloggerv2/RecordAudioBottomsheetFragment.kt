@@ -8,6 +8,7 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,12 +19,24 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import com.bumptech.glide.Glide
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageReference
 import com.example.meetloggerv2.databinding.FragmentRecordAudioBottomsheetBinding
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.storageMetadata
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.Response
+import org.json.JSONObject
 import java.io.File
+import java.io.IOException
+
 
 class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
@@ -63,6 +76,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             } else {
                 requestMicrophonePermission()
             }
+
         }
 
         binding.stopButton.setOnClickListener {
@@ -82,8 +96,21 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         }
 
         binding.processAudioButton.setOnClickListener {
-            // Handle Process Audio action
+            val firebaseUser = FirebaseAuth.getInstance().currentUser
+            if (firebaseUser == null) {
+                Toast.makeText(context, "User not logged in!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (audioFile == null || !audioFile!!.exists()) {
+                Toast.makeText(context, "No recorded audio file found!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val userId = firebaseUser.uid
+            uploadAudioToBackend(audioFile!!, userId)
         }
+
 
         // Add listener for Delete button
         binding.deleteButton.setOnClickListener {
@@ -98,8 +125,8 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
             mediaRecorder = MediaRecorder().apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
                 setOutputFile(fileName)
                 prepare()
                 start()
@@ -209,6 +236,50 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         dialog.show()
     }
 
+
+    private fun uploadAudioToBackend(file: File, userId: String) {
+        val serverUrl = "http://192.168.0.112:5000/upload"
+
+        val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("file", file.name, file.asRequestBody("audio/mpeg".toMediaTypeOrNull()))
+            .addFormDataPart("userId", userId)
+            .addFormDataPart("fileName", file.name)
+            .build()
+
+        val request = Request.Builder()
+            .url(serverUrl)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("UploadAudio", "Upload failed: ${e.message}", e)
+                requireActivity().runOnUiThread {
+                    Toast.makeText(context, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                requireActivity().runOnUiThread {
+                    if (response.isSuccessful) {
+                        val responseBody = response.body?.string()
+                        Log.d("UploadAudio", "Upload successful! Response: $responseBody")
+
+                        val jsonResponse = JSONObject(responseBody)
+                        val text = jsonResponse.optString("text", "Transcription unavailable")
+
+                        // Handle the transcription result if needed
+                    } else {
+                        Log.e("UploadAudio", "Upload failed! Response Code: ${response.code}, Message: ${response.message}")
+                    }
+                }
+            }
+        })
+    }
+
+
     private fun uploadToFirebaseStorage(file: File, fileName: String) {
         val firebaseUser = FirebaseAuth.getInstance().currentUser
         if (firebaseUser == null) {
@@ -217,20 +288,44 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         }
 
         val userId = firebaseUser.uid
-        val userName = firebaseUser.displayName ?: "Unknown"
-        val userEmail = firebaseUser.email ?: "Unknown"
-
         val storageRef = FirebaseStorage.getInstance().reference.child("AudioFiles/$userId/$fileName.mp3")
         val fileUri = Uri.fromFile(file)
 
-        storageRef.putFile(fileUri)
+        val metadata = storageMetadata {
+            contentType = "audio/mpeg"  // Explicitly set MIME type
+        }
+
+        storageRef.putFile(fileUri, metadata)
             .addOnSuccessListener {
-                Toast.makeText(context, "Audio uploaded to Firebase!", Toast.LENGTH_SHORT).show()
+                storageRef.downloadUrl.addOnSuccessListener { uri ->
+                    val audioUrl = uri.toString()
+
+                    // Save metadata in Firestore
+                    val fileData = hashMapOf(
+                        "fileName" to "$fileName.mp3",
+                        "audioUrl" to audioUrl,
+                       // "timestamp" to FieldValue.serverTimestamp()
+                    )
+
+                    FirebaseFirestore.getInstance()
+                        .collection("ProcessedDocs")
+                        .document(userId)
+                        .collection("UserFiles")
+                        .document("$fileName.mp3") // Using filename as document ID
+                        .set(fileData)
+                        .addOnSuccessListener {
+                            Toast.makeText(context, "Audio metadata saved!", Toast.LENGTH_SHORT).show()
+                        }
+                        .addOnFailureListener { e ->
+                            Toast.makeText(context, "Failed to save metadata: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                }
             }
             .addOnFailureListener {
                 Toast.makeText(context, "Failed to upload: ${it.message}", Toast.LENGTH_SHORT).show()
             }
     }
+
 
 
     private fun playAudio() {
