@@ -1,0 +1,32 @@
+<!-- dialog_export_options.xml -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/exportDialog"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="20dp"
+    android:background="@color/white">
+
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select Export Format"
+        android:textSize="18sp"
+        android:gravity="center"
+        android:padding="16dp"
+        android:textColor="@color/black" />
+
+    <Button
+        android:id="@+id/btn_export_pdf"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Export as PDF" />
+
+    <Button
+        android:id="@+id/btn_export_docx"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Export as DOCX" />
+</LinearLayout>

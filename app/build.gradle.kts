@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.meetloggerv2"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -60,6 +60,13 @@ dependencies {
 // Use latest version
 
    //implementation(libs.firebase.auth.ktx)
+
+    implementation ("com.itextpdf:itext7-core:7.1.14")
+
+
+    implementation ("org.apache.poi:poi-ooxml:5.2.3") // Add this line
+
+    implementation ("androidx.cardview:cardview:1.0.0")
 
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
 
