@@ -1,9 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     tools:context=".ReportFragment">
 
     <!-- Placeholder for Recent Meetings -->
@@ -11,30 +9,47 @@
         android:id="@+id/placeholderText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Recent meetings reports appear here..."
+        android:text="Your processed files appear here..."
         android:textSize="16sp"
         android:textColor="@android:color/darker_gray"
         android:fontFamily="@font/poppins"
         android:gravity="center"
-        android:layout_gravity="center"
+        android:layout_centerInParent="true"
         android:visibility="visible"/>
 
     <TextView
+        android:id="@+id/proccessedDocumentsTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:layout_marginBottom="20dp"
         android:layout_marginStart="25dp"
         android:text="PROCESSED DOCUMENTS"
         android:textSize="22sp"
         android:fontFamily="@font/poppins_medium"
         android:textColor="@color/BLUE"
-        />
+        android:layout_marginTop="30dp"/>
 
+    <!-- Search bar with border -->
+    <androidx.appcompat.widget.SearchView
+        android:id="@+id/searchView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Search documents..."
+        android:queryHint="Search documents..."
+        android:iconifiedByDefault="false"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="25dp"
+        android:layout_marginStart="25dp"
+        android:layout_marginEnd="25dp"
+        android:layout_below="@id/proccessedDocumentsTextView"
+        android:visibility="gone"
+        android:background="@drawable/searchview_border"/>
+
+    <!-- ListView -->
     <ListView
         android:id="@+id/listView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_below="@id/searchView"
         android:layout_marginStart="25dp"
         android:layout_marginEnd="25dp"
         android:layout_marginBottom="25dp"
@@ -44,5 +59,4 @@
         android:focusable="true"
         android:visibility="gone"/>
 
-
-</LinearLayout>
+</RelativeLayout>

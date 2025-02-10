@@ -120,7 +120,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
     private fun startRecording() {
         try {
-            fileName = requireContext().externalCacheDir?.absolutePath + "/temp_audio.mp3"
+            fileName = requireContext().externalCacheDir?.absolutePath + "/temp_audio.3gp"
             audioFile = File(fileName)
 
             mediaRecorder = MediaRecorder().apply {
@@ -177,11 +177,11 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         binding.recordImageView.setImageResource(R.drawable.record) // Reset to static icon
         binding.startButton.isVisible = false
         binding.stopButton.isVisible = false
-       /* binding.fileNameEditText.isVisible = true
-        binding.saveButton.isVisible = true
-        setDrawableSize(binding.saveButton, R.drawable.save, 70, 70) // Custom drawable size
-
-        */
+        /* binding.fileNameEditText.isVisible = true
+         binding.saveButton.isVisible = true
+         setDrawableSize(binding.saveButton, R.drawable.save, 70, 70) // Custom drawable size
+ 
+         */
     }
 
     private fun showSaveFileDialog() {
@@ -204,14 +204,14 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             val enteredFileName = fileNameInput.text.toString().trim()
 
             if (enteredFileName.isNotEmpty()) {
-                val newFile = File(requireContext().externalCacheDir, "$enteredFileName.mp3")
+                val newFile = File(requireContext().externalCacheDir, "$enteredFileName.3gp")
                 audioFile?.renameTo(newFile)
                 audioFile = newFile
 
                 uploadToFirebaseStorage(newFile, enteredFileName)
                 // Update UI after saving the file
-             //   binding.fileNameEditText.isVisible = false
-              //  binding.saveButton.isVisible = false
+                //   binding.fileNameEditText.isVisible = false
+                //  binding.saveButton.isVisible = false
                 binding.audioPlayerLayout.isVisible = true
                 binding.recordedFileNameTextView.text = enteredFileName
                 binding.processAudioButton.isVisible = true
@@ -238,7 +238,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
 
     private fun uploadAudioToBackend(file: File, userId: String) {
-        val serverUrl = "http://192.168.0.112:5000/upload"
+        val serverUrl = "http://192.168.159.181:5000/upload"
 
         val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("file", file.name, file.asRequestBody("audio/mpeg".toMediaTypeOrNull()))
@@ -288,7 +288,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         }
 
         val userId = firebaseUser.uid
-        val storageRef = FirebaseStorage.getInstance().reference.child("AudioFiles/$userId/$fileName.mp3")
+        val storageRef = FirebaseStorage.getInstance().reference.child("AudioFiles/$userId/$fileName.3gp")
         val fileUri = Uri.fromFile(file)
 
         val metadata = storageMetadata {
@@ -302,16 +302,16 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
                     // Save metadata in Firestore
                     val fileData = hashMapOf(
-                        "fileName" to "$fileName.mp3",
+                        "fileName" to "$fileName.3gp",
                         "audioUrl" to audioUrl,
-                       // "timestamp" to FieldValue.serverTimestamp()
+                        // "timestamp" to FieldValue.serverTimestamp()
                     )
 
                     FirebaseFirestore.getInstance()
                         .collection("ProcessedDocs")
                         .document(userId)
                         .collection("UserFiles")
-                        .document("$fileName.mp3") // Using filename as document ID
+                        .document("$fileName.3gp") // Using filename as document ID
                         .set(fileData)
                         .addOnSuccessListener {
                             Toast.makeText(context, "Audio metadata saved!", Toast.LENGTH_SHORT).show()
@@ -471,5 +471,3 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         private const val MIC_PERMISSION_REQUEST = 1001
     }
 }
-
-
