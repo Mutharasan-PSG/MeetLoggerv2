@@ -78,33 +78,31 @@ class ReportFragment : Fragment() {
 
             fileNamesList.clear()
             snapshot?.documents?.forEach { document ->
-                val fileName = document.getString("fileName")
-                fileName?.let {
-                    // Add the full file name with extension to the list
-                    fileNamesList.add(it)
-                }
+                val fileName = document.getString("fileName") ?: return@forEach
+                fileNamesList.add(fileName)  // Store full filename with extension in backend list
             }
+
+            // Prepare filteredList for UI (Remove extensions)
+            filteredList.clear()
+            filteredList.addAll(fileNamesList.map { it.substringBeforeLast(".") }) // Remove extension for UI display
 
             val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
 
             if (fileNamesList.isEmpty()) {
-                // No files available → Hide search bar & list, show placeholder
                 placeholderText?.text = "Your processed files appear here..."
                 placeholderText?.visibility = View.VISIBLE
                 searchView.visibility = View.GONE
                 listView.visibility = View.GONE
             } else {
-                // Files exist → Show search bar & list, hide placeholder
                 placeholderText?.visibility = View.GONE
                 searchView.visibility = View.VISIBLE
                 listView.visibility = View.VISIBLE
             }
 
-            filteredList.clear()
-            filteredList.addAll(fileNamesList)
             adapter.notifyDataSetChanged()
         }
     }
+
 
     private fun filterFiles(query: String?) {
         filteredList.clear()
@@ -140,17 +138,17 @@ class ReportFragment : Fragment() {
         adapter.notifyDataSetChanged()
     }
 
-    private fun openFileDetailsFragment(fileName: String) {
+    private fun openFileDetailsFragment(displayedFileName: String) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val db = FirebaseFirestore.getInstance()
         val userFilesRef = db.collection("ProcessedDocs").document(userId).collection("UserFiles")
 
-        // Fetch the full file name with extension
-        val fullFileName = fileName // No need to modify, as file name already includes extension
+        // Find the full filename with extension from the list
+        val fullFileName = fileNamesList.find { it.startsWith(displayedFileName) } ?: return
 
         val fileDetailsFragment = FileDetailsFragment().apply {
             arguments = Bundle().apply {
-                putString("fileName", fullFileName)  // Pass full file name with extension
+                putString("fileName", fullFileName)  // Pass full file name (with extension)
             }
         }
 
@@ -166,4 +164,5 @@ class ReportFragment : Fragment() {
         transaction.addToBackStack(null)
         transaction.commit()
     }
+
 }

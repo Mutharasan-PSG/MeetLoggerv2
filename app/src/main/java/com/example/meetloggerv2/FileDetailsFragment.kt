@@ -239,10 +239,14 @@ class FileDetailsFragment : Fragment() {
         val marginBottom = 50f
         val lineHeight = 20f
 
-        val paint = Paint().apply {
+        val normalPaint = Paint().apply {
             color = Color.BLACK
-            textSize = 16f
+            textSize = 14f
             typeface = Typeface.create("serif", Typeface.NORMAL)
+        }
+
+        val boldPaint = Paint(normalPaint).apply {
+            typeface = Typeface.create("serif", Typeface.BOLD)
         }
 
         var currentY = marginTop
@@ -250,37 +254,108 @@ class FileDetailsFragment : Fragment() {
         var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
         var canvas = page.canvas
 
-        val words = content.split(" ")
-        val maxLineWidth = pageWidth - marginLeft - marginRight
-        val wordBuffer = mutableListOf<String>()
-
-        for (word in words) {
-            val testLine = (wordBuffer + word).joinToString(" ")
-            val textWidth = paint.measureText(testLine)
-
-            if (textWidth > maxLineWidth) {
-                // Justify and draw the line
-                drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, paint)
-                currentY += lineHeight
-                wordBuffer.clear()
-                wordBuffer.add(word)
-            } else {
-                wordBuffer.add(word)
-            }
-
-            // Start a new page if needed
-            if (currentY > pageHeight - marginBottom) {
-                document.finishPage(page)
-                pageNumber++
-                page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
-                canvas = page.canvas
-                currentY = marginTop
-            }
+        // Add bold "TRANSCRIPTION OF AUDIO" at the start if it exists
+        if (content.startsWith("TRANSCRIPTION OF AUDIO")) {
+            // Draw "TRANSCRIPTION OF AUDIO" in bold
+            canvas.drawText("TRANSCRIPTION OF AUDIO", marginLeft, currentY, boldPaint)
+            currentY += lineHeight * 1.5f // Add line space after it
         }
 
-        // Draw the last line without justification
-        if (wordBuffer.isNotEmpty()) {
-            canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, paint)
+        val lines = content.split("\n") // Split by line to process speakers separately
+
+        for (line in lines) {
+            if (line.matches(Regex("^Speaker [A-Z]+:.*"))) {
+                // Speaker name detected, add a new line space
+              //  if (currentY > marginTop) currentY += lineHeight
+
+                val parts = line.split(":", limit = 2)
+                val speaker = parts[0].trim()
+                val text = parts.getOrNull(1)?.trim() ?: ""
+
+                // Draw speaker name in bold
+                canvas.drawText(speaker, marginLeft, currentY, boldPaint)
+                currentY += lineHeight
+
+                val words = text.split(" ")
+                val maxLineWidth = pageWidth - marginLeft - marginRight
+                val wordBuffer = mutableListOf<String>()
+
+                for (word in words) {
+                    val testLine = (wordBuffer + word).joinToString(" ")
+                    val textWidth = normalPaint.measureText(testLine)
+
+                    if (textWidth > maxLineWidth) {
+                        // Check if the line is the last one or too short to justify
+                        if (wordBuffer.size > 7 && currentY < pageHeight - marginBottom) {
+                            drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
+                        } else {
+                            // If it's the last line or too short, don't justify, just draw normally
+                            canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
+                        }
+                        currentY += lineHeight
+                        wordBuffer.clear()
+                    }
+
+                    wordBuffer.add(word)
+
+                    // Start a new page if needed
+                    if (currentY > pageHeight - marginBottom) {
+                        document.finishPage(page)
+                        pageNumber++
+                        page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                        canvas = page.canvas
+                        currentY = marginTop
+                    }
+                }
+
+                // Draw remaining words without justification if it's the last line or too short
+                if (wordBuffer.isNotEmpty()) {
+                    if (wordBuffer.size > 7) {
+                        drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
+                    } else {
+                        canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
+                    }
+                    currentY += lineHeight
+                }
+            } else {
+                // Normal paragraph processing without speaker name
+                val words = line.split(" ")
+                val maxLineWidth = pageWidth - marginLeft - marginRight
+                val wordBuffer = mutableListOf<String>()
+
+                for (word in words) {
+                    val testLine = (wordBuffer + word).joinToString(" ")
+                    val textWidth = normalPaint.measureText(testLine)
+
+                    if (textWidth > maxLineWidth) {
+                        // Check if the line is the last one or too short to justify
+                        if (wordBuffer.size > 7) {
+                            canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
+                        } else {
+                            canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
+                        }
+                        currentY += lineHeight
+                        wordBuffer.clear()
+                    }
+
+                    wordBuffer.add(word)
+
+                    // Start a new page if needed
+                    if (currentY > pageHeight - marginBottom) {
+                        document.finishPage(page)
+                        pageNumber++
+                        page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                        canvas = page.canvas
+                        currentY = marginTop
+                    }
+                }
+
+                // Draw remaining words without justification if it's the last line or too short
+                if (wordBuffer.isNotEmpty()) {
+                    canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
+                    currentY += lineHeight
+                }
+            }
         }
 
         document.finishPage(page)
@@ -305,48 +380,44 @@ class FileDetailsFragment : Fragment() {
     }
 
 
-
-
     private fun saveAsDocx(content: String, outputStream: OutputStream?) {
         if (outputStream == null) return
 
         val document = XWPFDocument()
+        val lines = content.split("\n")
 
-        // Set page size to A4
-        val sectPr = document.document.body.addNewSectPr()
-        val pageSize = sectPr.addNewPgSz()
-        pageSize.w = BigInteger.valueOf(11907) // A4 width in twips
-        pageSize.h = BigInteger.valueOf(16840) // A4 height in twips
+        for (line in lines) {
+            if (line.isBlank()) continue
 
-        // Split content into paragraphs
-        val paragraphs = content.split("\n")
+            val para = document.createParagraph()
+            para.alignment = ParagraphAlignment.BOTH  // Justify text
 
-        var lineCount = 0
-        val maxLinesPerPage = 40 // Approximate lines per A4 page
+            val speakerPattern = Regex("^(Speaker \\w+:)")
+            val matchResult = speakerPattern.find(line)
 
-        for (paragraphText in paragraphs) {
-            val paragraph = document.createParagraph()
-            paragraph.alignment = ParagraphAlignment.BOTH // Full justification
+            if (matchResult != null) {
+                para.spacingBefore = 200  // Add space before new speaker
 
-            val run = paragraph.createRun()
-            run.setText(paragraphText)
-            run.fontSize = 12
-            run.fontFamily = "Times New Roman" // Set font to Times New Roman
+                val speakerName = matchResult.value
+                val remainingText = line.removePrefix(speakerName).trim()
 
-            lineCount++
+                val speakerRun = para.createRun()
+                speakerRun.isBold = true
+                speakerRun.setText(speakerName)
 
-            // Add a manual page break if maxLinesPerPage is exceeded
-            if (lineCount >= maxLinesPerPage) {
-                val pageBreak = document.createParagraph()
-                pageBreak.isPageBreak = true // Insert page break
-                lineCount = 0 // Reset line count for the next page
+                val contentRun = para.createRun()
+                contentRun.setText(" $remainingText")
+            } else {
+                val run = para.createRun()
+                run.setText(line)
             }
         }
 
-        // Write document to output stream
         document.write(outputStream)
-        outputStream.close()
+        document.close()
     }
+
+
 
 
     private fun setupScrollListener() {

@@ -168,7 +168,7 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
         Log.d("UploadAudio", "File Name: ${file.name}")
         Log.d("UploadAudio", "User ID: $userId")
 
-        val serverUrl = "http://192.168.159.181:5000/upload"
+        val serverUrl = "http://192.168.0.112:5000/upload"
 
         val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("file", file.name, file.asRequestBody("audio/mpeg".toMediaTypeOrNull()))

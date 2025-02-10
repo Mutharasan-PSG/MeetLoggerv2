@@ -238,7 +238,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
 
     private fun uploadAudioToBackend(file: File, userId: String) {
-        val serverUrl = "http://192.168.159.181:5000/upload"
+        val serverUrl = "http://192.168.0.112:5000/upload"
 
         val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("file", file.name, file.asRequestBody("audio/mpeg".toMediaTypeOrNull()))
