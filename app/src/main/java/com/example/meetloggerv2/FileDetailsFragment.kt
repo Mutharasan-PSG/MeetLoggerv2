@@ -1,8 +1,12 @@
 package com.example.meetloggerv2
 
+import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,15 +17,16 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import org.apache.poi.xwpf.usermodel.ParagraphAlignment
 import org.apache.poi.xwpf.usermodel.XWPFDocument
-import android.content.Intent
-import android.graphics.Canvas
-import android.graphics.Typeface
-import android.net.Uri
+import java.io.File
+import java.io.FileOutputStream
 import java.io.OutputStream
+import java.math.BigInteger
 
 class FileDetailsFragment : Fragment() {
 
@@ -98,7 +103,9 @@ class FileDetailsFragment : Fragment() {
                     // Show the export dialog
                     showExportDialog()
                 }
-                R.id.sharelayout -> Toast.makeText(requireContext(), "Share Clicked", Toast.LENGTH_SHORT).show()
+                R.id.sharelayout -> {
+                    showShareDialog()
+                }
             }
         }
     }
@@ -122,6 +129,59 @@ class FileDetailsFragment : Fragment() {
         dialog.show()
     }
 
+    private fun showShareDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_export_options, null)
+        val dialog = android.app.AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .create()
+
+        dialogView.findViewById<Button>(R.id.btn_export_pdf).setOnClickListener {
+            dialog.dismiss()
+            exportAndShareContent("PDF")
+        }
+
+        dialogView.findViewById<Button>(R.id.btn_export_docx).setOnClickListener {
+            dialog.dismiss()
+            exportAndShareContent("DOCX")
+        }
+
+        dialog.show()
+    }
+
+    private fun exportAndShareContent(format: String) {
+        val content = responseTextView.text.toString()
+
+        if (content.isEmpty()) {
+            Toast.makeText(requireContext(), "No content to export", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        try {
+            // Create a temporary file
+            val tempFile = File(requireContext().cacheDir, "$fileName.${if (format == "PDF") "pdf" else "docx"}")
+
+            val outputStream = FileOutputStream(tempFile)
+            when (format) {
+                "PDF" -> saveAsPdf(content, outputStream)
+                "DOCX" -> saveAsDocx(content, outputStream)
+            }
+            outputStream.close()
+
+            // Now, share the file using Intent
+            val uri = FileProvider.getUriForFile(requireContext(), "com.example.meetloggerv2.fileprovider", tempFile)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = if (format == "PDF") "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(shareIntent, "Share Document"))
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Error during file sharing: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
+
     private fun exportContent(format: String) {
         val content = responseTextView.text.toString()
 
@@ -134,7 +194,7 @@ class FileDetailsFragment : Fragment() {
             // Create a file chooser intent to let user pick the directory
             val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
             intent.type = if (format == "PDF") "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            intent.putExtra(Intent.EXTRA_TITLE, "export.${if (format == "PDF") "pdf" else "docx"}")
+            intent.putExtra(Intent.EXTRA_TITLE, "$fileName.${if (format == "PDF") "pdf" else "docx"}")
             startActivityForResult(intent, 100)
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Failed to save file", Toast.LENGTH_SHORT).show()
@@ -168,126 +228,124 @@ class FileDetailsFragment : Fragment() {
     }
 
     private fun saveAsPdf(content: String, outputStream: OutputStream?) {
-        // Create a PdfDocument
-        val document = PdfDocument()
+        if (outputStream == null) return
 
-        // Page dimensions and margins
+        val document = PdfDocument()
         val pageWidth = 500
         val pageHeight = 700
-        val marginTop = 30f  // Top margin
-        val marginBottom = 40f  // Bottom margin
-        val marginLeft = 40f  // Left margin
-        val marginRight = 40f  // Right margin
-        val lineHeight = 20f // Approximate line height for text
-        val maxLinesPerPage = ((pageHeight - marginTop - marginBottom) / lineHeight).toInt() // Max lines per page
+        val marginLeft = 40f
+        val marginRight = 40f
+        val marginTop = 50f
+        val marginBottom = 50f
+        val lineHeight = 20f
 
-        var currentY = marginTop // Initial Y position for text drawing
-        val paint = Paint()
-        paint.color = Color.BLACK
-        paint.textSize = 16f
-        paint.typeface = Typeface.create("sans-serif", Typeface.NORMAL) // Default font style (Times New Roman or similar)
-
-        val words = content.split(" ") // Split content into words
-        var currentLine = StringBuilder()
-        var canvas: Canvas
-        var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create())
-        canvas = page.canvas
-
-        // Function to handle line breaks, justification, and word wrapping
-        fun drawLine(line: String, yPosition: Float) {
-            // Draw the line and move to the next line
-            canvas.drawText(line, marginLeft, yPosition, paint)
-            currentY = yPosition + lineHeight
+        val paint = Paint().apply {
+            color = Color.BLACK
+            textSize = 16f
+            typeface = Typeface.create("serif", Typeface.NORMAL)
         }
 
-        // Function to justify text within the given width
-        fun justifyText(line: String): String {
-            val wordsInLine = line.split(" ")
+        var currentY = marginTop
+        var pageNumber = 1
+        var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+        var canvas = page.canvas
 
-            // Calculate the total width of the words in the line
-            val totalTextWidth = paint.measureText(line)
-            val totalSpacesRequired = pageWidth - marginLeft - marginRight - totalTextWidth
+        val words = content.split(" ")
+        val maxLineWidth = pageWidth - marginLeft - marginRight
+        val wordBuffer = mutableListOf<String>()
 
-            // If the total space required for justification is negative, avoid any adjustment
-            if (totalSpacesRequired < 0) {
-                return line // No justification, just return the line as it is
+        for (word in words) {
+            val testLine = (wordBuffer + word).joinToString(" ")
+            val textWidth = paint.measureText(testLine)
+
+            if (textWidth > maxLineWidth) {
+                // Justify and draw the line
+                drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, paint)
+                currentY += lineHeight
+                wordBuffer.clear()
+                wordBuffer.add(word)
+            } else {
+                wordBuffer.add(word)
             }
 
-            // Space between words to distribute
-            val spaceBetweenWords = totalSpacesRequired / (wordsInLine.size - 1)
-
-            val justifiedLine = StringBuilder()
-            for (i in 0 until wordsInLine.size) {
-                justifiedLine.append(wordsInLine[i])
-                if (i < wordsInLine.size - 1) {
-                    justifiedLine.append(" ".padEnd(spaceBetweenWords.toInt())) // Add calculated space between words
-                }
-            }
-            return justifiedLine.toString()
-        }
-
-        // Word wrapping and breaking logic based on a word count limit
-        val wordLimitPerLine = 12 // Maximum words per line (adjust this number as needed)
-        var currentLineText = StringBuilder()
-
-        // Iterate over all words
-        for (i in words.indices) {
-            val word = words[i]
-
-            // Add the word to the current line
-            currentLineText.append("$word ")
-
-            // If the number of words in the current line exceeds the limit, break it to the next line
-            if (currentLineText.toString().split(" ").size > wordLimitPerLine) {
-                // Justify and draw the current line
-                drawLine(justifyText(currentLineText.toString().trim()), currentY)
-
-                // Reset the current line and continue with the next word (avoid repeating the last word)
-                currentLineText = StringBuilder("$word ") // Start the new line with the word that caused the overflow
-            }
-
-            // If the current Y position exceeds the page height, start a new page
+            // Start a new page if needed
             if (currentY > pageHeight - marginBottom) {
                 document.finishPage(page)
-                page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 2).create())
+                pageNumber++
+                page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
                 canvas = page.canvas
-                currentY = marginTop // Reset Y position for the new page
+                currentY = marginTop
             }
         }
 
-        // Draw the last line if any content is remaining
-        if (currentLineText.isNotEmpty()) {
-            drawLine(justifyText(currentLineText.toString().trim()), currentY)
+        // Draw the last line without justification
+        if (wordBuffer.isNotEmpty()) {
+            canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, paint)
         }
 
-        // Finish the last page
         document.finishPage(page)
+        document.writeTo(outputStream)
+        document.close()
+        outputStream.close()
+    }
 
-        try {
-            // Write the document to the output stream
-            document.writeTo(outputStream)
-            Toast.makeText(requireContext(), "File saved as PDF", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Failed to save PDF", Toast.LENGTH_SHORT).show()
-        } finally {
-            document.close()
+    private fun drawJustifiedText(canvas: Canvas, words: List<String>, x: Float, y: Float, maxWidth: Float, paint: Paint) {
+        if (words.isEmpty()) return
+
+        val totalWords = words.size
+        val textWithoutSpacing = words.joinToString("") { it }
+        val textWidth = paint.measureText(textWithoutSpacing)
+        val extraSpacing = (maxWidth - textWidth) / (totalWords - 1).coerceAtLeast(1)
+
+        var currentX = x
+        for ((index, word) in words.withIndex()) {
+            canvas.drawText(word, currentX, y, paint)
+            currentX += paint.measureText(word) + if (index < words.lastIndex) extraSpacing else 0f
         }
     }
 
 
 
+
     private fun saveAsDocx(content: String, outputStream: OutputStream?) {
-        // Use Apache POI to create a DOCX file
+        if (outputStream == null) return
+
         val document = XWPFDocument()
-        val paragraphs = content.split("\n") // Split content into paragraphs
+
+        // Set page size to A4
+        val sectPr = document.document.body.addNewSectPr()
+        val pageSize = sectPr.addNewPgSz()
+        pageSize.w = BigInteger.valueOf(11907) // A4 width in twips
+        pageSize.h = BigInteger.valueOf(16840) // A4 height in twips
+
+        // Split content into paragraphs
+        val paragraphs = content.split("\n")
+
+        var lineCount = 0
+        val maxLinesPerPage = 40 // Approximate lines per A4 page
 
         for (paragraphText in paragraphs) {
             val paragraph = document.createParagraph()
-            paragraph.createRun().setText(paragraphText)
+            paragraph.alignment = ParagraphAlignment.BOTH // Full justification
+
+            val run = paragraph.createRun()
+            run.setText(paragraphText)
+            run.fontSize = 12
+            run.fontFamily = "Times New Roman" // Set font to Times New Roman
+
+            lineCount++
+
+            // Add a manual page break if maxLinesPerPage is exceeded
+            if (lineCount >= maxLinesPerPage) {
+                val pageBreak = document.createParagraph()
+                pageBreak.isPageBreak = true // Insert page break
+                lineCount = 0 // Reset line count for the next page
+            }
         }
 
+        // Write document to output stream
         document.write(outputStream)
-        outputStream?.close()
+        outputStream.close()
     }
 
 

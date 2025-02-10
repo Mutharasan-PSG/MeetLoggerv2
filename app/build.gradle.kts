@@ -41,6 +41,10 @@ android {
         dataBinding = true
     }
 
+    packagingOptions {
+        exclude ("META-INF/DEPENDENCIES")
+    }
+
 }
 
 dependencies {
@@ -89,6 +93,7 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.androidx.legacy.support.v4)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.firebase.crashlytics.buildtools)
     // implementation(libs.volley)
 
     annotationProcessor ("com.github.bumptech.glide:compiler:4.15.1")
