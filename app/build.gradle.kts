@@ -50,7 +50,6 @@ android {
 dependencies {
     //  implementation ("com.google.cloud:google-cloud-speech:4.50.0")
 
-
 // https://mvnrepository.com/artifact/io.github.webrtc-sdk/android
     implementation("io.github.webrtc-sdk:android:125.6422.06.1")
     //  implementation ("io.agora.rtc:full-sdk:4.5.0") // Agora SDK
@@ -94,6 +93,7 @@ dependencies {
     implementation(libs.androidx.legacy.support.v4)
     implementation(libs.androidx.recyclerview)
     implementation(libs.firebase.crashlytics.buildtools)
+    implementation(libs.firebase.messaging.ktx)
     // implementation(libs.volley)
 
     annotationProcessor ("com.github.bumptech.glide:compiler:4.15.1")

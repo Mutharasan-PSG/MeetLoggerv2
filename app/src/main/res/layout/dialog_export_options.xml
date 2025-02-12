@@ -1,32 +1,91 @@
 <!-- dialog_export_options.xml -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/exportDialog"
-    android:layout_width="match_parent"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="20dp"
+    android:padding="25dp"
     android:background="@color/white">
 
 
     <TextView
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Select Export Format"
-        android:textSize="18sp"
+        android:text="Select desired Format"
+        android:fontFamily="@font/poppins_bold"
+        android:textSize="20sp"
         android:gravity="center"
-        android:padding="16dp"
+        android:padding="10dp"
         android:textColor="@color/black" />
 
-    <Button
-        android:id="@+id/btn_export_pdf"
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Export as PDF" />
+        android:layout_margin="7dp"
+        android:orientation="horizontal">
 
-    <Button
-        android:id="@+id/btn_export_docx"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Export as DOCX" />
+        <LinearLayout
+            android:id="@+id/pdfButtonLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:gravity="center"
+            android:elevation="12dp"
+            android:layout_marginEnd="30dp"
+            android:background="@drawable/button_bg_export">
+
+            <!-- Image for PDF -->
+            <ImageView
+                android:id="@+id/pdfImage"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/pdf"
+            android:contentDescription="PDF Icon"
+            android:layout_marginEnd="8dp" />
+
+            <!-- Text for PDF -->
+            <TextView
+                android:id="@+id/pdfText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PDF"
+                android:textSize="16sp"
+                android:textColor="@color/white" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/docxButtonLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:elevation="12dp"
+            android:padding="8dp"
+            android:gravity="center"
+            android:background="@drawable/button_bg_export">
+
+            <!-- Image for DOCX -->
+            <ImageView
+                android:id="@+id/docxImage"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/doc_1"
+            android:contentDescription="DOCX Icon"
+            android:layout_marginEnd="8dp" />
+
+            <!-- Text for DOCX -->
+            <TextView
+                android:id="@+id/docxText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DOCX"
+                android:textSize="16sp"
+                android:textColor="@color/white" />
+
+        </LinearLayout>
+
+
+    </LinearLayout>
 </LinearLayout>

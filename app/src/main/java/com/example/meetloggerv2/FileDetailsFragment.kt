@@ -116,12 +116,12 @@ class FileDetailsFragment : Fragment() {
             .setView(dialogView)
             .create()
 
-        dialogView.findViewById<Button>(R.id.btn_export_pdf).setOnClickListener {
+        dialogView.findViewById<LinearLayout>(R.id.pdfButtonLayout).setOnClickListener {
             dialog.dismiss()
             exportContent("PDF")
         }
 
-        dialogView.findViewById<Button>(R.id.btn_export_docx).setOnClickListener {
+        dialogView.findViewById<LinearLayout>(R.id.docxButtonLayout).setOnClickListener {
             dialog.dismiss()
             exportContent("DOCX")
         }
@@ -135,12 +135,12 @@ class FileDetailsFragment : Fragment() {
             .setView(dialogView)
             .create()
 
-        dialogView.findViewById<Button>(R.id.btn_export_pdf).setOnClickListener {
+        dialogView.findViewById<LinearLayout>(R.id.pdfButtonLayout).setOnClickListener {
             dialog.dismiss()
             exportAndShareContent("PDF")
         }
 
-        dialogView.findViewById<Button>(R.id.btn_export_docx).setOnClickListener {
+        dialogView.findViewById<LinearLayout>(R.id.docxButtonLayout).setOnClickListener {
             dialog.dismiss()
             exportAndShareContent("DOCX")
         }

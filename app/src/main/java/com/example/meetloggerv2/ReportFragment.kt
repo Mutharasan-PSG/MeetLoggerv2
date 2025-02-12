@@ -63,6 +63,7 @@ class ReportFragment : Fragment() {
             openFileDetailsFragment(selectedFileName)
         }
 
+
         return view
     }
 

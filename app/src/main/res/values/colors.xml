@@ -5,6 +5,8 @@
     <color name="green">#4CAF50</color>
 
     <color name="BLUE">#2B8CFF</color>
+    <color name="LIGHT_BLUE">#E8F9FF</color>
+    <color name="Pale_white">#FBFBFB</color>
     <color name="Grey">#808080</color>
     <color name="LightGrey">#F5F5F5</color>
     <color name="DarkGrey">#71797E</color>

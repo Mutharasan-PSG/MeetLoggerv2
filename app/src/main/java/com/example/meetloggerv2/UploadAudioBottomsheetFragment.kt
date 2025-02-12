@@ -1,12 +1,19 @@
 package com.example.meetloggerv2
 
 import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
 import android.database.Cursor
 import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.OpenableColumns
 import android.util.DisplayMetrics
 import android.util.Log
@@ -14,12 +21,14 @@ import android.view.*
 import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.meetloggerv2.databinding.FragmentUploadAudioBottomsheetBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
@@ -187,7 +196,7 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e("UploadAudio", "Upload failed: ${e.message}", e)
                 requireActivity().runOnUiThread {
-                    Toast.makeText(context, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    //Toast.makeText(context, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
 
@@ -195,17 +204,24 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 requireActivity().runOnUiThread {
                     if (response.isSuccessful) {
                         val responseBody = response.body?.string()
-                        Log.d("UploadAudio", "Upload successful! Response: $responseBody")
+                        Log.d("UploadAudio", "Server Response: $responseBody")
 
-                        val jsonResponse = JSONObject(responseBody)
-                        val text = jsonResponse.optString("text", "Transcription unavailable")
+                        showToast("Once file ready, you get notified")
 
-                        // Handle the transcription result if needed
+                     /*   // ✅ **Trigger the notification after 15 seconds**
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            sendNotification(requireContext(), file.name)
+                        }, 30_000) // 10 seconds
+
+                      */
+
+
                     } else {
                         Log.e("UploadAudio", "Upload failed! Response Code: ${response.code}, Message: ${response.message}")
                     }
                 }
             }
+
         })
     }
 
@@ -223,7 +239,7 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
         val audioRef = storageReference.child("AudioFiles/$userId/$fileName")
 
         binding.processAudioButton.isEnabled = false
-        binding.processAudioButton.text = "Uploading..."
+        binding.processAudioText.text = "Uploading..."
 
         audioRef.putFile(fileUri)
             .addOnSuccessListener {
@@ -234,7 +250,8 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
                     val fileData = hashMapOf(
                         "fileName" to fileName,
                         "audioUrl" to audioUrl,
-                       // "timestamp" to FieldValue.serverTimestamp()
+                        "status" to "processing",
+                        "timestamp_clientUpload" to FieldValue.serverTimestamp()
                     )
 
                     FirebaseFirestore.getInstance()
@@ -245,6 +262,7 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         .set(fileData)
                         .addOnSuccessListener {
                             showToast("Audio metadata saved successfully!")
+
                         }
                         .addOnFailureListener { e ->
                             showToast("Failed to save metadata: ${e.message}")
@@ -256,9 +274,50 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
             }
             .addOnCompleteListener {
                 binding.processAudioButton.isEnabled = true
-                binding.processAudioButton.text = "Process Audio"
+                binding.processAudioText.text = "Process Audio"
             }
     }
+
+    private fun sendNotification(context: Context, fileName: String) {
+        val channelId = "audio_upload_channel"
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Ensure filename has an extension
+        val displayName = fileName.substringBeforeLast(".") // Default to .mp3 if no extension
+
+        // Create a PendingIntent to open ReportFragment
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Create notification channel for Android O and above
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Audio Upload Notifications",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.launchlogo)  // Change to your app's icon
+            .setContentText("$displayName audio file successfully documented.")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent) // Set the PendingIntent
+            .setAutoCancel(true) // Remove notification when clicked
+            .build()
+
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+    }
+
 
 
     private fun setDrawableSize(button: Button, drawableResId: Int, width: Int, height: Int) {

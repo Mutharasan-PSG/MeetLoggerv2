@@ -1,0 +1,45 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="5dp">
+
+    <LinearLayout
+        android:id="@+id/listItemLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="14dp"
+        android:elevation="7dp"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/list_item_background"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:scaleType="fitXY"
+            android:src="@drawable/audio_file"
+            android:layout_marginEnd="10dp"
+            android:contentDescription="AudioFileImage"/>
+
+        <TextView
+            android:id="@+id/textViewFileName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="3"
+            android:fontFamily="@font/poppins"
+            android:textSize="15sp"
+            android:textColor="@android:color/black"
+            android:ellipsize="end"/>
+
+        <TextView
+            android:id="@+id/textViewStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins"
+            android:textSize="15sp"
+            android:layout_marginStart="10dp"
+            android:textColor="@android:color/holo_red_dark" />
+    </LinearLayout>
+
+</FrameLayout>
