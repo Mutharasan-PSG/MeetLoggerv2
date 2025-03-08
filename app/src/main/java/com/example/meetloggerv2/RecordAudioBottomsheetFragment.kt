@@ -2,21 +2,18 @@ package com.example.meetloggerv2
 
 import android.Manifest
 import android.app.AlertDialog
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.LayoutInflater
@@ -25,11 +22,12 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.isVisible
 import com.bumptech.glide.Glide
 import com.example.meetloggerv2.databinding.FragmentRecordAudioBottomsheetBinding
@@ -41,6 +39,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.storageMetadata
+import com.google.gson.Gson
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -49,7 +48,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.Response
-import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 
@@ -66,6 +64,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private var isPlaying = false
     private var isPaused = false
     private var fileName = ""
+    private var selectedAudioUri: Uri? = null
 
     private val REQUEST_MICROPHONE_PERMISSION = 1001
 
@@ -154,9 +153,8 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 return@setOnClickListener
             }
 
-            val userId = firebaseUser.uid
-            binding.processAudioButton.text="Uploading..."
-            uploadAudioToBackend(audioFile!!, userId)
+            selectedAudioUri = Uri.fromFile(audioFile)
+            showSpeakerSelectionDialog()
         }
 
 
@@ -225,11 +223,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         binding.recordImageView.setImageResource(R.drawable.record) // Reset to static icon
         binding.startButton.isVisible = false
         binding.stopButton.isVisible = false
-        /* binding.fileNameEditText.isVisible = true
-         binding.saveButton.isVisible = true
-         setDrawableSize(binding.saveButton, R.drawable.save, 80, 80) // Custom drawable size
 
-         */
     }
 
     private fun showSaveFileDialog() {
@@ -256,7 +250,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 audioFile?.renameTo(newFile)
                 audioFile = newFile
 
-                uploadToFirebaseStorage(newFile, enteredFileName)
+               // uploadToFirebaseStorage(newFile, enteredFileName)
                 // Update UI after saving the file
                 //   binding.fileNameEditText.isVisible = false
                 //  binding.saveButton.isVisible = false
@@ -284,14 +278,200 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         dialog.show()
     }
 
+    private fun showSpeakerSelectionDialog() {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setMessage("Do you want to include the speaker name?")
+            .setPositiveButton("Yes, include speaker name") { _, _ ->
+                Log.d("SpeakerSelection", "User selected to include speaker name.")
+                showSpeakerInputDialog()
+            }
+            .setNegativeButton("No, proceed without name") { dialog, _ ->
+                Log.d("SpeakerSelection", "User proceeded without speaker name.")
+                dialog.dismiss()
+                processAudio(emptyList())
+            }
+            .create()
 
-    private fun uploadAudioToBackend(file: File, userId: String) {
-        val serverUrl = "http://192.168.0.112:5000/upload"
+        dialog.setOnShowListener {
+            val poppinsTypeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_regular)
+            dialog.findViewById<TextView>(android.R.id.message)?.typeface = poppinsTypeface
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
+                typeface = poppinsTypeface
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.BLUE))
+            }
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).apply {
+                typeface = poppinsTypeface
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.red))
+            }
+        }
+
+        dialog.show()
+    }
+
+    // Speaker Input Dialog
+    private fun showSpeakerInputDialog() {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_speaker_input, null)
+        val speakerContainer = dialogView.findViewById<LinearLayout>(R.id.speakerContainer)
+        val addSpeakerButton = dialogView.findViewById<Button>(R.id.addSpeakerButton)
+        val proceedButton = dialogView.findViewById<Button>(R.id.proceedButton)
+        val backButton = dialogView.findViewById<Button>(R.id.backButton)
+        val speakerScrollView = dialogView.findViewById<ScrollView>(R.id.speakerScrollView)
+
+        val speakerList = mutableListOf<String>()
+        addSpeakerInput(speakerContainer, speakerList)
+
+        val alertDialog = AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+
+        fun updateDialogHeight() {
+            speakerScrollView.post {
+                val params = alertDialog.window?.attributes
+                params?.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                alertDialog.window?.attributes = params
+            }
+        }
+
+        addSpeakerButton.setOnClickListener {
+            if (speakerList.isNotEmpty() && speakerList.last().isBlank()) {
+                Toast.makeText(requireContext(), "Enter a name before adding another.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (speakerList.size < 10) {
+                addSpeakerInput(speakerContainer, speakerList)
+                updateDialogHeight()
+            } else {
+                Toast.makeText(requireContext(), "Maximum 10 speakers allowed", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        proceedButton.setOnClickListener {
+            val filledSpeakers = speakerList.filter { it.isNotBlank() }
+            Log.d("SpeakerInput", "Proceed clicked with speakers: $filledSpeakers")
+
+            if (filledSpeakers.isEmpty()) {
+                Toast.makeText(requireContext(), "Enter at least one speaker name.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            alertDialog.dismiss()
+            processAudio(filledSpeakers)
+        }
+
+        backButton.setOnClickListener {
+            Log.d("SpeakerInput", "User went back to selection dialog.")
+            alertDialog.dismiss()
+            showSpeakerSelectionDialog()
+        }
+
+        alertDialog.show()
+        updateDialogHeight()
+    }
+
+    private fun addSpeakerInput(container: LinearLayout, speakerList: MutableList<String>) {
+        val speakerIndex = speakerList.size
+        val speakerView = LayoutInflater.from(requireContext()).inflate(R.layout.item_speaker_input, container, false)
+
+        val speakerLabel = speakerView.findViewById<TextView>(R.id.speakerLabel)
+        val speakerNameInput = speakerView.findViewById<EditText>(R.id.speakerNameInput)
+
+        speakerLabel.text = "Speaker ${'A' + speakerIndex} -"
+        speakerList.add("")
+
+        speakerNameInput.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                speakerList[speakerIndex] = s.toString().trim()
+                Log.d("SpeakerInput", "Speaker $speakerIndex updated: ${speakerList[speakerIndex]}")
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        container.addView(speakerView)
+    }
+
+    // Process Audio with Speaker Names
+    private fun processAudio(speakerNames: List<String>) {
+        val filteredSpeakers = speakerNames.filter { it.isNotBlank() }
+        Log.d("ProcessAudio", "Processing audio with speakers: $filteredSpeakers")
+
+        if (filteredSpeakers.isEmpty()) {
+            showToast("No valid speaker names provided.")
+        }
+
+        selectedAudioUri?.let { uri ->
+            Log.d("ProcessAudio", "Uploading audio: $uri")
+            binding.processAudioButton.text = "Uploading..."
+            uploadAudioToFirebase(uri)
+
+            val file = uriToFile(uri)
+            val firebaseUser = FirebaseAuth.getInstance().currentUser
+            val userId = firebaseUser?.uid
+
+            if (file != null && userId != null) {
+                Log.d("ProcessAudio", "Uploading audio to backend...")
+                uploadAudioToBackend(file, userId, filteredSpeakers)
+            } else {
+                showToast("Failed to get file or User ID is null.")
+                Log.e("ProcessAudio", "File is null or User ID is missing")
+            }
+        } ?: showToast("No audio file selected.")
+    }
+
+    private fun uriToFile(uri: Uri): File? {
+        return audioFile // Assuming audioFile is already set correctly
+    }
+
+
+    private fun uploadAudioToFirebase(uri: Uri) {
+        val firebaseUser = FirebaseAuth.getInstance().currentUser ?: return
+        val userId = firebaseUser.uid
+        val fileName = audioFile?.name ?: "temp_audio.mp3"
+        val storageRef = FirebaseStorage.getInstance().reference.child("AudioFiles/$userId/$fileName")
+
+        val metadata = storageMetadata {
+            contentType = "audio/mpeg"
+        }
+
+        storageRef.putFile(uri, metadata)
+            .addOnSuccessListener {
+                storageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                    val audioUrl = downloadUri.toString()
+                    val fileData = hashMapOf(
+                        "fileName" to fileName,
+                        "audioUrl" to audioUrl,
+                        "status" to "processing",
+                        "timestamp_clientUpload" to FieldValue.serverTimestamp()
+                    )
+
+                    FirebaseFirestore.getInstance()
+                        .collection("ProcessedDocs")
+                        .document(userId)
+                        .collection("UserFiles")
+                        .document(fileName)
+                        .set(fileData)
+                }
+            }
+            .addOnFailureListener {
+                showToast("Failed to upload to Firebase: ${it.message}")
+            }
+    }
+
+    private fun uploadAudioToBackend(file: File, userId: String, speakerNames: List<String> = emptyList()) {
+
+        Log.d("UploadAudio", "Audio File Path: ${file.absolutePath}")
+        Log.d("UploadAudio", "File Name: ${file.name}")
+        Log.d("UploadAudio", "User ID: $userId")
+        Log.d("UploadAudio", "Speakers: $speakerNames")
+
+        val serverUrl = "http://192.168.0.108:5000/upload"
 
         val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("file", file.name, file.asRequestBody("audio/mp3".toMediaTypeOrNull()))
             .addFormDataPart("userId", userId)
             .addFormDataPart("fileName", file.name)
+            .addFormDataPart("speakers", Gson().toJson(speakerNames))
             .build()
 
         val request = Request.Builder()
@@ -300,12 +480,11 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .build()
 
         val client = OkHttpClient()
-
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("UploadAudio", "Upload failed: ${e.message}", e)
                 requireActivity().runOnUiThread {
-                    Toast.makeText(context, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    showToast("Upload failed: ${e.message}")
+                    binding.processAudioButton.text = "Process Audio"
                 }
             }
 
@@ -314,120 +493,22 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                     if (response.isSuccessful) {
                         val responseBody = response.body?.string()
                         Log.d("UploadAudio", "Upload successful! Response: $responseBody")
-
-
                         Handler(Looper.getMainLooper()).postDelayed({
-                            binding.processAudioButton.text="Process Audio"
-                        }, 2_000) // 10 seconds
-
-                        Toast.makeText(context, "Once the file ready, you will get notified", Toast.LENGTH_SHORT).show()
-
-                   /*     // ✅ **Trigger the notification after 15 seconds**
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            sendNotification(requireContext(), file.name)
-                        }, 30_000) // 10 seconds
-
-                    */
-
-                        // Handle the transcription result if needed
+                            binding.processAudioButton.text = "Process Audio"
+                        }, 2000)
+                        showToast("Once the file is ready, you will get notified")
                     } else {
-                        Log.e("UploadAudio", "Upload failed! Response Code: ${response.code}, Message: ${response.message}")
+                        Log.e("UploadAudio", "Upload failed! Response Code: ${response.code}")
+                        binding.processAudioButton.text = "Process Audio"
                     }
                 }
             }
         })
     }
 
-
-    private fun uploadToFirebaseStorage(file: File, fileName: String) {
-        val firebaseUser = FirebaseAuth.getInstance().currentUser
-        if (firebaseUser == null) {
-            Toast.makeText(context, "User not logged in!", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val userId = firebaseUser.uid
-        val storageRef = FirebaseStorage.getInstance().reference.child("AudioFiles/$userId/$fileName.mp3")
-        val fileUri = Uri.fromFile(file)
-
-        val metadata = storageMetadata {
-            contentType = "audio/mpeg"  // Explicitly set MIME type
-        }
-
-        storageRef.putFile(fileUri, metadata)
-            .addOnSuccessListener {
-                storageRef.downloadUrl.addOnSuccessListener { uri ->
-                    val audioUrl = uri.toString()
-
-                    // Save metadata in Firestore
-                    val fileData = hashMapOf(
-                        "fileName" to "$fileName.mp3",
-                        "audioUrl" to audioUrl,
-                        "status" to "processing",
-                         "timestamp_clientUpload" to FieldValue.serverTimestamp()
-                    )
-
-                    FirebaseFirestore.getInstance()
-                        .collection("ProcessedDocs")
-                        .document(userId)
-                        .collection("UserFiles")
-                        .document("$fileName.mp3") // Using filename as document ID
-                        .set(fileData)
-                        .addOnSuccessListener {
-                            Toast.makeText(context, "Audio metadata saved!", Toast.LENGTH_SHORT).show()
-
-                        }
-                        .addOnFailureListener { e ->
-                            Toast.makeText(context, "Failed to save metadata: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                }
-            }
-            .addOnFailureListener {
-                Toast.makeText(context, "Failed to upload: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
+    private fun showToast(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
-
-
-    private fun sendNotification(context: Context, fileName: String) {
-        val channelId = "audio_upload_channel"
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        // Ensure filename has an extension
-        val displayName = fileName.substringBeforeLast(".") // Default to .mp3 if no extension
-
-        // Create a PendingIntent to open ReportFragment
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Create notification channel for Android O and above
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "Audio Upload Notifications",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
-
-        val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.launchlogo)  // Change to your app's icon
-            .setContentText("$displayName audio file successfully documented.")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(pendingIntent) // Set the PendingIntent
-            .setAutoCancel(true) // Remove notification when clicked
-            .build()
-
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
-    }
-
 
     private fun playAudio() {
         if (audioFile?.exists() == true) {

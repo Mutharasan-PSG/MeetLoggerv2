@@ -1,0 +1,74 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp">
+
+    <!-- Back Button at the Top Left -->
+    <Button
+        android:id="@+id/backButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_alignParentStart="true"
+        android:text="Go Back"
+        android:elevation="7dp"
+        android:textColor="@color/white"
+        android:backgroundTint="@color/BLUE"
+        android:fontFamily="@font/poppins_medium"
+        android:contentDescription="Back"/>
+
+    <!-- Scrollable Speaker List -->
+    <ScrollView
+        android:id="@+id/speakerScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/backButton"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/speakerContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"/>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_margin="10dp"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/speakerScrollView">
+
+    <Button
+        android:id="@+id/addSpeakerButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/speakerScrollView"
+        android:gravity="center"
+        android:layout_margin="10dp"
+        android:layout_marginEnd="15dp"
+        android:layout_gravity="center"
+        android:elevation="7dp"
+        android:backgroundTint="@color/BLUE"
+        android:textColor="@color/white"
+        android:text="ADD SPEAKER"
+        android:fontFamily="@font/poppins_medium"
+        android:contentDescription="Add Speaker"/>
+
+    <Button
+        android:id="@+id/proceedButton"
+        android:fontFamily="@font/poppins_medium"
+        android:layout_below="@id/addSpeakerButton"
+        android:layout_gravity="center"
+        android:layout_margin="10dp"
+        android:gravity="center"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:elevation="7dp"
+        android:backgroundTint="@color/BLUE"
+        android:textColor="@color/white"
+        android:text="PROCEED"/>
+
+    </LinearLayout>
+</RelativeLayout>
