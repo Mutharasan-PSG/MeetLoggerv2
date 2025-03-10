@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
@@ -25,14 +26,15 @@ class HomeFragment : Fragment() {
 
     private lateinit var profilePic: ImageView
     private lateinit var bottomNavBar: BottomNavigationView
-    private lateinit var AudioButton: LinearLayout
-    private lateinit var AudioOptionsLayout: LinearLayout
+    private lateinit var audioButton: LinearLayout
+    private lateinit var audioOptionsLayout: LinearLayout
+    private lateinit var audioOptionsOverlay: FrameLayout
     private lateinit var closeButton: ImageView
     private lateinit var firestore: FirebaseFirestore
     private lateinit var auth: FirebaseAuth
     private lateinit var listView: ListView
     private lateinit var searchView: SearchView
-    private lateinit var fileList: ArrayList<Pair<String, String>>  // Stores (FileName, Status)
+    private lateinit var fileList: ArrayList<Pair<String, String>>
     private lateinit var filteredList: ArrayList<Pair<String, String>>
     private lateinit var adapter: FileListAdapter
 
@@ -47,12 +49,12 @@ class HomeFragment : Fragment() {
 
         profilePic = view.findViewById(R.id.profilePic)
         bottomNavBar = view.findViewById(R.id.bottomNavBar)
-        AudioButton = view.findViewById(R.id.AudioButton)
-        AudioOptionsLayout = view.findViewById(R.id.AudioOptionsLayout)
+        audioButton = view.findViewById(R.id.AudioButton)
+        audioOptionsLayout = view.findViewById(R.id.AudioOptionsLayout)
+        audioOptionsOverlay = view.findViewById(R.id.audioOptionsOverlay)
         closeButton = view.findViewById(R.id.closeButton)
 
-        // Set Home as the default selected item
-        bottomNavBar.selectedItemId = R.id.menu_home // This makes Home selected first and blue
+        bottomNavBar.selectedItemId = R.id.menu_home
 
         listView = view.findViewById(R.id.listView)
         searchView = view.findViewById(R.id.searchView)
@@ -64,7 +66,6 @@ class HomeFragment : Fragment() {
 
         fetchFileNamesAndStatus()
 
-        // Set up search functionality
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 filterFiles(query)
@@ -77,48 +78,47 @@ class HomeFragment : Fragment() {
             }
         })
 
-        // Set onClickListener to show or hide the Meet Options popup when Meet button is clicked
-        AudioButton.setOnClickListener {
-            // If the options are hidden, show it, else hide it
-            if (AudioOptionsLayout.visibility == View.GONE) {
-                AudioOptionsLayout.visibility = View.VISIBLE
-                AudioButton.visibility = View.GONE // Hide Meet button when options are visible
-            } else {
-                AudioOptionsLayout.visibility = View.GONE
-                AudioButton.visibility = View.VISIBLE // Show Meet button when options are hidden
-            }
+        // Audio Button Click - Show overlay and options
+        audioButton.setOnClickListener {
+            audioOptionsOverlay.visibility = View.VISIBLE
+            audioOptionsLayout.visibility = View.VISIBLE
+            audioButton.visibility = View.GONE
         }
 
+        // Close Button Click - Hide overlay and options, show Audio button
         closeButton.setOnClickListener {
-            // Close the Meet options and show the Meet button again
-            AudioOptionsLayout.visibility = View.GONE
-            AudioButton.visibility = View.VISIBLE // Show Meet button when options are closed
+            audioOptionsOverlay.visibility = View.GONE
+            audioOptionsLayout.visibility = View.GONE
+            audioButton.visibility = View.VISIBLE
         }
 
-        // Handle the actions of the options buttons
-        val RecordAudioLayout: LinearLayout = view.findViewById(R.id.RecordAudio)
-        val UploadAudioLayout: LinearLayout= view.findViewById(R.id.UploadAudio)
+        // Handle option clicks
+        val recordAudioLayout: LinearLayout = view.findViewById(R.id.RecordAudio)
+        val uploadAudioLayout: LinearLayout = view.findViewById(R.id.UploadAudio)
 
-
-        RecordAudioLayout.setOnClickListener {
-            val RecordAudioSheet = RecordAudioBottomsheetFragment()
-            RecordAudioSheet.show(parentFragmentManager, "RecordAudioSheet")
+        recordAudioLayout.setOnClickListener {
+            audioOptionsOverlay.visibility = View.GONE
+            audioOptionsLayout.visibility = View.GONE
+            audioButton.visibility = View.VISIBLE
+            val recordAudioSheet = RecordAudioBottomsheetFragment()
+            recordAudioSheet.show(parentFragmentManager, "RecordAudioSheet")
         }
 
-        UploadAudioLayout.setOnClickListener {
-            val UploadAudioSheet = UploadAudioBottomsheetFragment()
-            UploadAudioSheet.show(parentFragmentManager, "UploadAudioSheet")
+        uploadAudioLayout.setOnClickListener {
+            audioOptionsOverlay.visibility = View.GONE
+            audioOptionsLayout.visibility = View.GONE
+            audioButton.visibility = View.VISIBLE
+            val uploadAudioSheet = UploadAudioBottomsheetFragment()
+            uploadAudioSheet.show(parentFragmentManager, "UploadAudioSheet")
         }
 
-        // Setup BottomNavigationView to manage fragment switching
         setupBottomNavigation()
+        loadUserProfile()
 
-        loadUserProfile() // Load the profile data for the user
-        // Set up OnClickListener to navigate to ProfileFragment when the profile image is clicked
         profilePic.setOnClickListener {
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragment_container, ProfileFragment())
-                .addToBackStack(null) // Add this transaction to the back stack so the user can press back
+                .addToBackStack(null)
                 .commit()
         }
 
@@ -128,12 +128,8 @@ class HomeFragment : Fragment() {
     private fun setupBottomNavigation() {
         bottomNavBar.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.menu_home -> {
-                    // No need to switch fragments, HomeFragment is already here
-                    true
-                }
+                R.id.menu_home -> true
                 R.id.menu_profile -> {
-                    // Switch to ProfileFragment
                     parentFragmentManager.beginTransaction()
                         .replace(R.id.fragment_container, ProfileFragment())
                         .addToBackStack(null)
@@ -141,7 +137,6 @@ class HomeFragment : Fragment() {
                     true
                 }
                 R.id.menu_report -> {
-                    // Switch to ReportFragment
                     parentFragmentManager.beginTransaction()
                         .replace(R.id.fragment_container, ReportFragment())
                         .addToBackStack(null)
@@ -165,45 +160,32 @@ class HomeFragment : Fragment() {
                     .placeholder(R.drawable.default_profile_pic)
                     .into(profilePic)
             }
-            .addOnFailureListener {
-                // Handle failure to load profile
-            }
     }
-
 
     private fun fetchFileNamesAndStatus() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val userFilesRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles")
 
         userFilesRef.addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                return@addSnapshotListener
-            }
+            if (error != null) return@addSnapshotListener
 
             fileList.clear()
             snapshot?.documents?.forEach { document ->
                 val fileName = document.getString("fileName") ?: return@forEach
                 val status = document.getString("status") ?: "processing"
                 val notificationStatus = document.getString("Notification") ?: "Off"
+                fileList.add(Pair(fileName, status))
 
-                fileList.add(Pair(fileName, status)) // Store (fileName, status)
-
-                // Check if the status is "processed" and Notification is "On"
                 if (status.equals("processed", ignoreCase = true) && notificationStatus.equals("On", ignoreCase = true)) {
-                    // Trigger notification
                     triggerNotification(fileName)
-
-                    // Update the Notification field to "Off"
                     updateNotificationStatus(document.id)
                 }
             }
 
-            // Update filtered list for UI
             filteredList.clear()
             filteredList.addAll(fileList)
 
             val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
-
             if (fileList.isEmpty()) {
                 placeholderText?.text = "Audio processing status appear here..."
                 placeholderText?.visibility = View.VISIBLE
@@ -214,7 +196,6 @@ class HomeFragment : Fragment() {
                 searchView.visibility = View.VISIBLE
                 listView.visibility = View.VISIBLE
             }
-
             adapter.notifyDataSetChanged()
         }
     }
@@ -223,13 +204,8 @@ class HomeFragment : Fragment() {
         val notificationManager = context?.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "file_notification_channel"
 
-        // Create notification channel for Android 8 and above
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "File Notifications",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
+            val channel = NotificationChannel(channelId, "File Notifications", NotificationManager.IMPORTANCE_DEFAULT)
             notificationManager.createNotificationChannel(channel)
         }
 
@@ -245,23 +221,13 @@ class HomeFragment : Fragment() {
 
     private fun updateNotificationStatus(documentId: String) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val userFileRef = firestore.collection("ProcessedDocs").document(userId)
+        firestore.collection("ProcessedDocs").document(userId)
             .collection("UserFiles").document(documentId)
-
-        userFileRef.update("Notification", "Off")
-            .addOnSuccessListener {
-                // Notification status updated successfully
-            }
-            .addOnFailureListener {
-                // Handle failure
-            }
+            .update("Notification", "Off")
     }
-
-
 
     private fun filterFiles(query: String?) {
         filteredList.clear()
-
         if (query.isNullOrEmpty()) {
             filteredList.addAll(fileList)
         } else {
@@ -274,7 +240,6 @@ class HomeFragment : Fragment() {
         }
 
         val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
-
         if (filteredList.isEmpty()) {
             placeholderText?.text = if (fileList.isEmpty()) "Audio processing status appear here..." else "No files found"
             placeholderText?.visibility = View.VISIBLE
@@ -283,9 +248,6 @@ class HomeFragment : Fragment() {
             placeholderText?.visibility = View.GONE
             listView.visibility = View.VISIBLE
         }
-
         adapter.notifyDataSetChanged()
     }
-
-
 }

@@ -1,6 +1,7 @@
 package com.example.meetloggerv2
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -16,7 +17,9 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
@@ -41,6 +44,7 @@ class FileDetailsFragment : Fragment() {
     private lateinit var responseTextView: TextView
     private lateinit var bottomContainer: LinearLayout
     private lateinit var scrollView: ScrollView
+    private lateinit var progressOverlay: FrameLayout// Add this
     private lateinit var languageSwitchButton: LinearLayout
     private var fileName: String? = null
     private var isBottomContainerVisible = true  // Track visibility
@@ -68,6 +72,11 @@ class FileDetailsFragment : Fragment() {
         responseTextView = view.findViewById(R.id.responseTextView)
         bottomContainer = view.findViewById(R.id.bottomContainer)
         scrollView = view.findViewById(R.id.scrollView)
+        progressOverlay = view.findViewById(R.id.progressOverlay) // Initialize overlay
+
+        // Optionally set ProgressBar color programmatically if not set in XML
+        val progressBar = view.findViewById<ProgressBar>(R.id.translationProgressBar)
+        progressBar.indeterminateTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.black))
         languageSwitchButton = view.findViewById(R.id.languageSwitchButton)
 
         // Store references to buttons
@@ -331,8 +340,11 @@ class FileDetailsFragment : Fragment() {
         }
 
         changeLanguageButton.setOnClickListener {
-            translateContent(selectedLanguageCode)
             dialog.dismiss()
+            progressOverlay.visibility = View.VISIBLE // Show overlay with ProgressBar
+            translateContent(selectedLanguageCode) {
+                progressOverlay.visibility = View.GONE // Hide overlay when done
+            }
         }
 
         cancelButton.setOnClickListener {
@@ -342,15 +354,17 @@ class FileDetailsFragment : Fragment() {
         dialog.show()
     }
 
-    private fun translateContent(targetLanguageCode: String) {
+    private fun translateContent(targetLanguageCode: String, onComplete: () -> Unit) {
         if (targetLanguageCode == "en") {
-            fetchFileDetails() // Reset to original English content
+            fetchFileDetails()
+            onComplete()
             return
         }
 
         val originalContent = responseTextView.text.toString()
         if (originalContent.isEmpty()) {
             Toast.makeText(requireContext(), "No content to translate", Toast.LENGTH_SHORT).show()
+            onComplete()
             return
         }
 
@@ -364,39 +378,38 @@ class FileDetailsFragment : Fragment() {
             .requireWifi()
             .build()
 
-        // Split content into segments while preserving sentence context
         val segments = splitContentIntoSegments(originalContent)
         val translatedSegments = mutableListOf<String>()
 
         translator.downloadModelIfNeeded(conditions)
             .addOnSuccessListener {
-                // Translate each segment asynchronously
                 val translationTasks = segments.map { segment ->
                     if (segment.isTranslatable) {
                         translator.translate(segment.text)
                             .continueWith { task -> Pair(segment, task.result) }
                     } else {
-                        // Non-translatable segments (e.g., speaker labels) remain unchanged
                         com.google.android.gms.tasks.Tasks.forResult(Pair(segment, segment.text))
                     }
                 }
 
                 com.google.android.gms.tasks.Tasks.whenAllSuccess<Pair<ContentSegment, String>>(translationTasks)
                     .addOnSuccessListener { results ->
-                        // Reconstruct the translated content
                         val translatedContent = results.joinToString("") { pair ->
                             if (pair.first.isTranslatable) pair.second + pair.first.suffix
-                            else pair.second // Preserve speaker labels and formatting
+                            else pair.second
                         }
                         responseTextView.text = translatedContent
                         Toast.makeText(requireContext(), "Translated successfully", Toast.LENGTH_SHORT).show()
+                        onComplete()
                     }
                     .addOnFailureListener { exception ->
                         Toast.makeText(requireContext(), "Translation failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                        onComplete()
                     }
             }
             .addOnFailureListener { exception ->
                 Toast.makeText(requireContext(), "Model download failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                onComplete()
             }
     }
 
