@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.ImageView
 import android.widget.ListView
 import androidx.appcompat.widget.SearchView
 import android.widget.TextView
@@ -63,6 +64,14 @@ class ReportFragment : Fragment() {
             openFileDetailsFragment(selectedFileName)
         }
 
+        // Initialize the audio list icon
+        val audioListIcon: ImageView = view.findViewById(R.id.audioListIcon)
+
+        // Set click listener to open AudioListFragment
+        audioListIcon.setOnClickListener {
+            openAudioListFragment()
+        }
+
 
         return view
     }
@@ -87,15 +96,17 @@ class ReportFragment : Fragment() {
             filteredList.clear()
             filteredList.addAll(fileNamesList.map { it.substringBeforeLast(".") }) // Remove extension for UI display
 
+            val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
             val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
 
             if (fileNamesList.isEmpty()) {
-                placeholderText?.text = "Your processed files appear here..."
-                placeholderText?.visibility = View.VISIBLE
+                placeholderText?.visibility=View.GONE
+                placeholderImage?.visibility = View.VISIBLE
                 searchView.visibility = View.GONE
                 listView.visibility = View.GONE
             } else {
                 placeholderText?.visibility = View.GONE
+                placeholderImage?.visibility = View.GONE
                 searchView.visibility = View.VISIBLE
                 listView.visibility = View.VISIBLE
             }
@@ -119,20 +130,24 @@ class ReportFragment : Fragment() {
             }
         }
 
+        val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
         val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
-
         if (filteredList.isEmpty()) {
             if (fileNamesList.isEmpty()) {
                 // No files exist (initial state)
-                placeholderText?.text = "Your processed files appear here..."
+                placeholderText?.text = "No files found"
+                placeholderImage?.visibility = View.GONE
             } else {
                 // Search result empty
-                placeholderText?.text = "No files found"
+                placeholderText?.visibility = View.GONE
+                placeholderImage?.visibility = View.GONE
             }
             placeholderText?.visibility = View.VISIBLE
+            placeholderText?.text = "No files found"
             listView.visibility = View.GONE
         } else {
             placeholderText?.visibility = View.GONE
+            placeholderImage?.visibility = View.GONE
             listView.visibility = View.VISIBLE
         }
 
@@ -162,6 +177,21 @@ class ReportFragment : Fragment() {
         )
 
         transaction.replace(R.id.fragment_container, fileDetailsFragment)
+        transaction.addToBackStack(null)
+        transaction.commit()
+    }
+
+    // Method to open AudioListFragment
+    private fun openAudioListFragment() {
+        val audioListFragment = AudioListFragment()
+        val transaction: FragmentTransaction = parentFragmentManager.beginTransaction()
+        transaction.setCustomAnimations(
+            R.anim.slide_in_right,
+            R.anim.slide_out_left,
+            R.anim.slide_in_left,
+            R.anim.slide_out_right
+        )
+        transaction.replace(R.id.fragment_container, audioListFragment)
         transaction.addToBackStack(null)
         transaction.commit()
     }

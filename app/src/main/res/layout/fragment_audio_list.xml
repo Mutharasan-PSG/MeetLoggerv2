@@ -1,0 +1,166 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".AudioListFragment">
+
+    <ImageView
+        android:id="@+id/placeholderImage"
+        android:layout_width="280dp"
+        android:layout_height="280dp"
+        android:scaleType="fitXY"
+        android:layout_centerInParent="true"
+        android:src="@drawable/audiofiles"
+        android:contentDescription="No files available"
+        android:visibility="visible" />
+
+    <TextView
+        android:id="@+id/placeholderText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="16sp"
+        android:textColor="@android:color/darker_gray"
+        android:fontFamily="@font/poppins"
+        android:gravity="center"
+        android:layout_centerInParent="true"
+        android:visibility="visible" />
+
+    <TextView
+        android:id="@+id/AudioTopic"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="25dp"
+        android:text="AUDIO FILES"
+        android:textSize="22sp"
+        android:fontFamily="@font/poppins_medium"
+        android:textColor="@color/BLUE"
+        android:layout_marginTop="30dp" />
+
+    <!-- Search bar with border -->
+    <androidx.appcompat.widget.SearchView
+        android:id="@+id/searchView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Search documents..."
+        android:queryHint="Search documents..."
+        android:iconifiedByDefault="false"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="25dp"
+        android:layout_marginStart="25dp"
+        android:layout_marginEnd="25dp"
+        android:layout_below="@id/AudioTopic"
+        android:visibility="gone"
+        android:background="@drawable/searchview_border" />
+
+    <!-- ListView -->
+    <ListView
+        android:id="@+id/listView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/searchView"
+        android:layout_marginStart="25dp"
+        android:layout_marginEnd="25dp"
+        android:layout_marginBottom="80dp"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="0dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
+
+    <!-- Mini Player -->
+    <LinearLayout
+        android:id="@+id/miniPlayer"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:padding="15dp"
+        android:background="@drawable/rounded_image"
+        android:visibility="gone"
+        android:elevation="7dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="30dp"
+        android:gravity="center_vertical">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <!-- Current Playing Audio Name -->
+            <TextView
+                android:id="@+id/currentAudioName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_toStartOf="@id/playerControls"
+                android:text="Now Playing..."
+                android:textColor="@android:color/black"
+                android:textSize="16sp"
+                android:maxLines="1"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:singleLine="true"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:paddingStart="10dp"
+                android:fontFamily="@font/poppins_medium" />
+
+            <LinearLayout
+                android:id="@+id/playerControls"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:gravity="end|center_vertical"
+                android:orientation="horizontal">
+
+                <!-- Previous Button -->
+                <ImageView
+                    android:id="@+id/prevButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:src="@drawable/previous"
+                    android:contentDescription="Previous" />
+
+                <!-- Play Pause Button -->
+                <ImageView
+                    android:id="@+id/playPauseButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:src="@drawable/pause"
+                    android:contentDescription="Pause" />
+
+                <!-- Next Button -->
+                <ImageView
+                    android:id="@+id/nextButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:src="@drawable/next"
+                    android:contentDescription="Next" />
+
+                <!-- Stop Button -->
+                <ImageView
+                    android:id="@+id/stopButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:layout_marginEnd="15dp"
+                    android:src="@drawable/stop"
+                    android:contentDescription="Stop" />
+            </LinearLayout>
+
+        </RelativeLayout>
+    </LinearLayout>
+
+
+</RelativeLayout>

@@ -71,6 +71,16 @@
             android:focusable="true"
             android:visibility="gone"/>
 
+        <ImageView
+            android:id="@+id/placeholderImage"
+            android:layout_width="280dp"
+            android:layout_height="280dp"
+            android:scaleType="fitXY"
+            android:layout_centerInParent="true"
+            android:src="@drawable/empty"
+            android:contentDescription="No files available"
+            android:visibility="visible"/>
+
         <!-- Placeholder for Recent Meetings -->
         <TextView
             android:id="@+id/placeholderText"
@@ -169,78 +179,78 @@
             android:background="@android:color/transparent"
             android:visibility="gone">
 
-        <!-- Record Audio Option -->
-        <LinearLayout
-            android:id="@+id/RecordAudio"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="10dp"
-            android:focusable="true"
-            android:gravity="end"
-            android:background="?android:attr/selectableItemBackground">
-
-            <TextView
-                android:id="@+id/btnRecordAudio"
-                android:layout_width="wrap_content"
+            <!-- Record Audio Option -->
+            <LinearLayout
+                android:id="@+id/RecordAudio"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/poppins_bold"
-                android:textColorHighlight="@color/white"
-                android:text="RECORD LIVE AUDIO"
-                android:textColor="@android:color/white"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="1dp"
-                android:textSize="17sp" />
+                android:orientation="horizontal"
+                android:padding="10dp"
+                android:focusable="true"
+                android:gravity="end"
+                android:background="?android:attr/selectableItemBackground">
 
-            <ImageView
-                android:layout_width="27dp"
-                android:layout_height="27dp"
-                android:layout_marginStart="10dp"
-                android:src="@drawable/live_record" />
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/btnRecordAudio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/poppins_bold"
+                    android:textColorHighlight="@color/white"
+                    android:text="RECORD LIVE AUDIO"
+                    android:textColor="@android:color/white"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="1dp"
+                    android:textSize="17sp" />
 
-        <!-- Upload Audio Option -->
-        <LinearLayout
-            android:id="@+id/UploadAudio"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="10dp"
-            android:focusable="true"
-            android:gravity="end"
-            android:background="?android:attr/selectableItemBackground">
+                <ImageView
+                    android:layout_width="27dp"
+                    android:layout_height="27dp"
+                    android:layout_marginStart="10dp"
+                    android:src="@drawable/live_record" />
+            </LinearLayout>
 
-            <TextView
-                android:id="@+id/btnUploadAudio"
-                android:layout_width="wrap_content"
+            <!-- Upload Audio Option -->
+            <LinearLayout
+                android:id="@+id/UploadAudio"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/poppins_bold"
-                android:text="UPLOAD AUDIO"
-                android:textColorHighlight="@color/white"
-                android:textColor="@android:color/white"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="1dp"
-                android:textSize="17sp" />
+                android:orientation="horizontal"
+                android:padding="10dp"
+                android:focusable="true"
+                android:gravity="end"
+                android:background="?android:attr/selectableItemBackground">
 
+                <TextView
+                    android:id="@+id/btnUploadAudio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/poppins_bold"
+                    android:text="UPLOAD AUDIO"
+                    android:textColorHighlight="@color/white"
+                    android:textColor="@android:color/white"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="1dp"
+                    android:textSize="17sp" />
+
+                <ImageView
+                    android:layout_width="25dp"
+                    android:layout_height="25dp"
+                    android:layout_marginStart="10dp"
+                    android:src="@drawable/upload" />
+            </LinearLayout>
+
+            <!-- Close Button -->
             <ImageView
-                android:layout_width="25dp"
-                android:layout_height="25dp"
-                android:layout_marginStart="10dp"
-                android:src="@drawable/upload" />
+                android:id="@+id/closeButton"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="end"
+                android:layout_marginTop="2dp"
+                android:layout_marginEnd="5dp"
+                android:src="@drawable/close"
+                android:contentDescription="Close" />
+
         </LinearLayout>
-
-        <!-- Close Button -->
-        <ImageView
-            android:id="@+id/closeButton"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_gravity="end"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="5dp"
-            android:src="@drawable/close"
-            android:contentDescription="Close" />
-
-    </LinearLayout>
 
     </FrameLayout>
-    </RelativeLayout>
+</RelativeLayout>

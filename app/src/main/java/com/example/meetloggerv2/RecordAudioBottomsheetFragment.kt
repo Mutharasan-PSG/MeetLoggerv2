@@ -465,7 +465,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         Log.d("UploadAudio", "User ID: $userId")
         Log.d("UploadAudio", "Speakers: $speakerNames")
 
-        val serverUrl = "http://192.168.2.84:5000/upload"
+        val serverUrl = "https://meetloggerserver.onrender.com/upload"
 
         val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("file", file.name, file.asRequestBody("audio/mp3".toMediaTypeOrNull()))

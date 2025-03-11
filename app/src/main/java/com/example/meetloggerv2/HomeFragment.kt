@@ -185,14 +185,16 @@ class HomeFragment : Fragment() {
             filteredList.clear()
             filteredList.addAll(fileList)
 
+            val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
             val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
             if (fileList.isEmpty()) {
-                placeholderText?.text = "Audio processing status appear here..."
-                placeholderText?.visibility = View.VISIBLE
+                placeholderText?.visibility=View.GONE
+                placeholderImage?.visibility = View.VISIBLE
                 searchView.visibility = View.GONE
                 listView.visibility = View.GONE
             } else {
                 placeholderText?.visibility = View.GONE
+                placeholderImage?.visibility = View.GONE
                 searchView.visibility = View.VISIBLE
                 listView.visibility = View.VISIBLE
             }
@@ -239,13 +241,16 @@ class HomeFragment : Fragment() {
             }
         }
 
+        val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
         val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
         if (filteredList.isEmpty()) {
             placeholderText?.text = if (fileList.isEmpty()) "Audio processing status appear here..." else "No files found"
             placeholderText?.visibility = View.VISIBLE
+            placeholderImage?.visibility = View.GONE
             listView.visibility = View.GONE
         } else {
             placeholderText?.visibility = View.GONE
+            placeholderImage?.visibility = View.GONE
             listView.visibility = View.VISIBLE
         }
         adapter.notifyDataSetChanged()

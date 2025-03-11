@@ -4,18 +4,35 @@
     android:layout_height="match_parent"
     tools:context=".ReportFragment">
 
+    <ImageView
+        android:id="@+id/placeholderImage"
+        android:layout_width="320dp"
+        android:layout_height="260dp"
+        android:scaleType="fitXY"
+        android:layout_centerInParent="true"
+        android:src="@drawable/documents"
+        android:contentDescription="No files available"
+        android:visibility="visible"/>
+
     <!-- Placeholder for Recent Meetings -->
     <TextView
         android:id="@+id/placeholderText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Your processed files appear here..."
+        android:text=""
         android:textSize="16sp"
         android:textColor="@android:color/darker_gray"
         android:fontFamily="@font/poppins"
         android:gravity="center"
         android:layout_centerInParent="true"
         android:visibility="visible"/>
+
+
+    <LinearLayout
+        android:id="@+id/top"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
 
     <TextView
         android:id="@+id/proccessedDocumentsTextView"
@@ -27,6 +44,24 @@
         android:fontFamily="@font/poppins_medium"
         android:textColor="@color/BLUE"
         android:layout_marginTop="30dp"/>
+
+        <ImageView
+            android:id="@+id/audioListIcon"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="13dp"
+            android:layout_marginStart="30dp"
+            android:layout_marginEnd="10dp"
+            android:scaleType="fitXY"
+            android:layout_gravity="center"
+            android:padding="8dp"
+
+            android:src="@drawable/audioo"
+            android:contentDescription="Open Audio List"
+            android:clickable="true"
+            android:focusable="true"/>
+
+    </LinearLayout>
 
     <!-- Search bar with border -->
     <androidx.appcompat.widget.SearchView
@@ -40,7 +75,7 @@
         android:layout_marginBottom="25dp"
         android:layout_marginStart="25dp"
         android:layout_marginEnd="25dp"
-        android:layout_below="@id/proccessedDocumentsTextView"
+        android:layout_below="@id/top"
         android:visibility="gone"
         android:background="@drawable/searchview_border"/>
 
