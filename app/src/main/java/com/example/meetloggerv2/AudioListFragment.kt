@@ -1,5 +1,6 @@
 package com.example.meetloggerv2
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
@@ -169,6 +170,7 @@ class AudioListFragment : Fragment() {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun setupMiniPlayerDragging() {
         miniPlayer.setOnTouchListener { v, event ->
             when (event.action) {
@@ -399,6 +401,7 @@ class AudioListFragment : Fragment() {
         }
     }
 
+    @SuppressLint("DefaultLocale")
     private fun formatTime(milliseconds: Int): String {
         val minutes = TimeUnit.MILLISECONDS.toMinutes(milliseconds.toLong())
         val seconds = TimeUnit.MILLISECONDS.toSeconds(milliseconds.toLong()) % 60

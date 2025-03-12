@@ -12,7 +12,7 @@
         android:layout_centerInParent="true"
         android:src="@drawable/documents"
         android:contentDescription="No files available"
-        android:visibility="visible"/>
+        android:visibility="gone"/>
 
     <TextView
         android:id="@+id/placeholderText"
@@ -24,7 +24,7 @@
         android:fontFamily="@font/poppins"
         android:gravity="center"
         android:layout_centerInParent="true"
-        android:visibility="visible"/>
+        android:visibility="gone"/>
 
     <LinearLayout
         android:id="@+id/top"
@@ -66,7 +66,7 @@
         android:layout_alignParentEnd="true"
         android:layout_marginEnd="25dp"
         android:layout_marginTop="23dp"
-        android:src="@drawable/delete"
+        android:src="@drawable/delete1"
         android:contentDescription="Delete"
         android:visibility="gone"/>
 
@@ -94,7 +94,6 @@
         android:layout_below="@id/searchView"
         android:layout_marginStart="25dp"
         android:layout_marginEnd="25dp"
-        android:layout_marginBottom="25dp"
         android:divider="@android:color/transparent"
         android:dividerHeight="0dp"
         android:clickable="true"

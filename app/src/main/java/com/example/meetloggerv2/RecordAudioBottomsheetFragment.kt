@@ -13,16 +13,24 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.text.Editable
+import android.text.TextUtils
 import android.text.TextWatcher
 import android.util.DisplayMetrics
 import android.util.Log
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
@@ -35,6 +43,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -65,6 +74,8 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private var isPaused = false
     private var fileName = ""
     private var selectedAudioUri: Uri? = null
+    private var temporarySpeakerList: List<String>? = null // Temporary storage for speakers
+
 
     private val REQUEST_MICROPHONE_PERMISSION = 1001
 
@@ -288,7 +299,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .setNegativeButton("No, proceed without name") { dialog, _ ->
                 Log.d("SpeakerSelection", "User proceeded without speaker name.")
                 dialog.dismiss()
-                processAudio(emptyList())
+                showFollowUpSelectionDialog()
             }
             .create()
 
@@ -304,11 +315,179 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 setTextColor(ContextCompat.getColor(requireContext(), R.color.red))
             }
         }
-
         dialog.show()
     }
 
-    // Speaker Input Dialog
+    private fun showFollowUpSelectionDialog() {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_follow_up_selection, null)
+        val backButton = dialogView.findViewById<ImageButton>(R.id.backButton)
+        val followUpQuestion = dialogView.findViewById<TextView>(R.id.followUpQuestion)
+        val radioYes = dialogView.findViewById<RadioButton>(R.id.radioYes)
+        val radioNo = dialogView.findViewById<RadioButton>(R.id.radioNo)
+        val spinnerFiles = dialogView.findViewById<Spinner>(R.id.spinnerFiles)
+        val proceedButton = dialogView.findViewById<Button>(R.id.proceedButton)
+        val cancelButton = dialogView.findViewById<Button>(R.id.cancelButton)
+
+        proceedButton.isEnabled = false
+
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val userFilesRef = FirebaseFirestore.getInstance()
+            .collection("ProcessedDocs")
+            .document(userId)
+            .collection("UserFiles")
+
+        val alertDialog = AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+
+        alertDialog.setOnShowListener {
+            val layoutParams = alertDialog.window?.attributes
+            layoutParams?.width = (resources.displayMetrics.widthPixels * 0.9).toInt()
+            layoutParams?.height = WindowManager.LayoutParams.WRAP_CONTENT
+            alertDialog.window?.attributes = layoutParams
+        }
+
+        backButton.setOnClickListener {
+            alertDialog.dismiss()
+            showSpeakerSelectionDialog()
+        }
+
+        val radioGroup = dialogView.findViewById<RadioGroup>(R.id.radioGroup)
+        radioGroup.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.radioYes -> {
+                    spinnerFiles.visibility = View.VISIBLE
+                    fetchUserFiles(userFilesRef, spinnerFiles, proceedButton)
+                }
+                R.id.radioNo -> {
+                    spinnerFiles.visibility = View.GONE
+                    proceedButton.isEnabled = true
+                }
+            }
+        }
+
+        proceedButton.setOnClickListener {
+            val selectedFileName = if (radioYes.isChecked) {
+                val selectedPosition = spinnerFiles.selectedItemPosition
+                val originalFileNames = spinnerFiles.getTag() as? List<String>
+                originalFileNames?.getOrNull(selectedPosition) ?: ""
+            } else ""
+
+            // Retrieve the saved speaker list and proceed with processing
+            val speakers = temporarySpeakerList ?: emptyList()
+            alertDialog.dismiss()
+            processAudio(speakers, selectedFileName)
+            // Clear the temporary speaker list after use
+            temporarySpeakerList = null
+        }
+
+        cancelButton.setOnClickListener {
+            alertDialog.dismiss()
+        }
+
+        alertDialog.show()
+    }
+
+    private fun fetchUserFiles(
+        userFilesRef: CollectionReference,
+        spinner: Spinner,
+        proceedButton: Button
+    ) {
+        userFilesRef.get()
+            .addOnSuccessListener { snapshot ->
+                val fileNames = snapshot.documents.mapNotNull { it.getString("fileName") }
+                if (fileNames.isEmpty()) {
+                    spinner.visibility = View.GONE
+                    Toast.makeText(requireContext(), "No previous files found", Toast.LENGTH_SHORT).show()
+                    return@addOnSuccessListener
+                }
+
+                // Create a list for display without extensions
+                val displayFileNames = fileNames.map { fileName ->
+                    fileName.substringBeforeLast(".") // Remove everything after the last "."
+                }
+
+                val adapter = object : ArrayAdapter<String>(
+                    requireContext(),
+                    R.layout.spinner_dropdown_item,
+                    R.id.spinner_dropdown_text,
+                    displayFileNames
+                ) {
+                    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                        val view = super.getView(position, convertView, parent) as TextView
+                        view.setSingleLine(false)
+                        view.maxLines = 2
+                        view.ellipsize = TextUtils.TruncateAt.END
+                        view.setPadding(15, 15, 15, 15) // Internal padding for selected item
+                        return view
+                    }
+
+                    override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                        val view = super.getDropDownView(position, convertView, parent)
+                        val textView = view.findViewById<TextView>(R.id.spinner_dropdown_text)
+                        textView.setSingleLine(false)
+                        textView.maxLines = 3
+                        textView.ellipsize = TextUtils.TruncateAt.END
+                        textView.setPadding(15, 15, 15, 15) // Internal padding for dropdown items
+
+                        // Adjust dropdown item width to account for the 15dp padding on spinner
+                        val effectiveWidth = TypedValue.applyDimension(
+                            TypedValue.COMPLEX_UNIT_DIP,
+                            250f, // Subtract padding from both sides (15dp * 2)
+                            resources.displayMetrics
+                        ).toInt()
+                        val layoutParams = ViewGroup.LayoutParams(
+                            effectiveWidth,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
+                        view.layoutParams = layoutParams
+                        return view
+                    }
+                }
+
+                spinner.adapter = adapter
+                spinner.dropDownWidth = TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    250f,
+                    resources.displayMetrics
+                ).toInt()
+
+                // Store the original filenames for backend use
+                spinner.setTag(fileNames)
+
+                proceedButton.isEnabled = true
+            }
+            .addOnFailureListener { e ->
+                Log.e("FetchFiles", "Error fetching files: ${e.message}")
+                Toast.makeText(requireContext(), "Failed to load files", Toast.LENGTH_SHORT).show()
+                spinner.visibility = View.GONE
+            }
+    }
+
+    private fun processAudio(speakerNames: List<String>, followUpFileName: String = "") {
+        val filteredSpeakers = speakerNames.filter { it.isNotBlank() }
+        Log.d("ProcessAudio", "Processing audio with speakers: $filteredSpeakers, followUp: $followUpFileName")
+
+        selectedAudioUri?.let { uri ->
+            Log.d("ProcessAudio", "Uploading audio: $uri")
+            uploadAudioToFirebase(uri, followUpFileName)
+
+            val file = uriToFile(uri)
+            val firebaseUser = FirebaseAuth.getInstance().currentUser
+            val userId = firebaseUser?.uid
+
+            if (file != null && userId != null) {
+                Log.d("ProcessAudio", "Uploading audio to backend...")
+                uploadAudioToBackend(file, userId, filteredSpeakers, followUpFileName)
+            } else {
+                showToast("Failed to get file or User ID is null.")
+                Log.e("ProcessAudio", "File is null or User ID is missing")
+            }
+        } ?: showToast("No audio file selected.")
+    }
+
+
     private fun showSpeakerInputDialog() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_speaker_input, null)
         val speakerContainer = dialogView.findViewById<LinearLayout>(R.id.speakerContainer)
@@ -338,6 +517,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 Toast.makeText(requireContext(), "Enter a name before adding another.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+
             if (speakerList.size < 10) {
                 addSpeakerInput(speakerContainer, speakerList)
                 updateDialogHeight()
@@ -355,8 +535,11 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 return@setOnClickListener
             }
 
+            // Save the speaker list temporarily
+            temporarySpeakerList = filledSpeakers
             alertDialog.dismiss()
-            processAudio(filledSpeakers)
+            // Open the follow-up selection dialog
+            showFollowUpSelectionDialog()
         }
 
         backButton.setOnClickListener {
@@ -391,40 +574,12 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         container.addView(speakerView)
     }
 
-    // Process Audio with Speaker Names
-    private fun processAudio(speakerNames: List<String>) {
-        val filteredSpeakers = speakerNames.filter { it.isNotBlank() }
-        Log.d("ProcessAudio", "Processing audio with speakers: $filteredSpeakers")
-
-        if (filteredSpeakers.isEmpty()) {
-            showToast("No valid speaker names provided.")
-        }
-
-        selectedAudioUri?.let { uri ->
-            Log.d("ProcessAudio", "Uploading audio: $uri")
-            binding.processAudioButton.text = "Uploading..."
-            uploadAudioToFirebase(uri)
-
-            val file = uriToFile(uri)
-            val firebaseUser = FirebaseAuth.getInstance().currentUser
-            val userId = firebaseUser?.uid
-
-            if (file != null && userId != null) {
-                Log.d("ProcessAudio", "Uploading audio to backend...")
-                uploadAudioToBackend(file, userId, filteredSpeakers)
-            } else {
-                showToast("Failed to get file or User ID is null.")
-                Log.e("ProcessAudio", "File is null or User ID is missing")
-            }
-        } ?: showToast("No audio file selected.")
-    }
-
     private fun uriToFile(uri: Uri): File? {
         return audioFile // Assuming audioFile is already set correctly
     }
 
 
-    private fun uploadAudioToFirebase(uri: Uri) {
+    private fun uploadAudioToFirebase(uri: Uri, followUpFileName: String) {
         val firebaseUser = FirebaseAuth.getInstance().currentUser ?: return
         val userId = firebaseUser.uid
         val fileName = audioFile?.name ?: "temp_audio.mp3"
@@ -434,6 +589,9 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             contentType = "audio/mpeg"
         }
 
+        binding.processAudioButton.isEnabled = false
+        binding.processAudioButton.text = "Uploading..."
+
         storageRef.putFile(uri, metadata)
             .addOnSuccessListener {
                 storageRef.downloadUrl.addOnSuccessListener { downloadUri ->
@@ -442,7 +600,8 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         "fileName" to fileName,
                         "audioUrl" to audioUrl,
                         "status" to "processing",
-                        "timestamp_clientUpload" to FieldValue.serverTimestamp()
+                        "timestamp_clientUpload" to FieldValue.serverTimestamp(),
+                        "followUpFileName" to followUpFileName
                     )
 
                     FirebaseFirestore.getInstance()
@@ -451,19 +610,27 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         .collection("UserFiles")
                         .document(fileName)
                         .set(fileData)
+                        .addOnSuccessListener {
+                            showToast("Audio metadata saved successfully!")
+                        }
                 }
             }
             .addOnFailureListener {
                 showToast("Failed to upload to Firebase: ${it.message}")
             }
+            .addOnCompleteListener {
+                binding.processAudioButton.isEnabled = true
+                binding.processAudioButton.text = "Process Audio"
+            }
     }
 
-    private fun uploadAudioToBackend(file: File, userId: String, speakerNames: List<String> = emptyList()) {
+    private fun uploadAudioToBackend(file: File, userId: String, speakerNames: List<String> = emptyList(), followUpFileName: String) {
 
         Log.d("UploadAudio", "Audio File Path: ${file.absolutePath}")
         Log.d("UploadAudio", "File Name: ${file.name}")
         Log.d("UploadAudio", "User ID: $userId")
         Log.d("UploadAudio", "Speakers: $speakerNames")
+        Log.d("UploadAudio", "followUp_Filename: $followUpFileName")
 
         val serverUrl = "https://meetloggerserver.onrender.com/upload"
 
@@ -472,6 +639,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .addFormDataPart("userId", userId)
             .addFormDataPart("fileName", file.name)
             .addFormDataPart("speakers", Gson().toJson(speakerNames))
+            .addFormDataPart("followUpFileName", followUpFileName)
             .build()
 
         val request = Request.Builder()

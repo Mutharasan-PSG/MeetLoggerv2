@@ -45,7 +45,7 @@
         android:layout_gravity="top|end"
         android:layout_marginEnd="25dp"
         android:layout_marginTop="30dp"
-        android:src="@drawable/delete"
+        android:src="@drawable/delete1"
         android:contentDescription="Delete"
         android:visibility="gone"/>
 
@@ -73,7 +73,6 @@
         android:layout_marginStart="25dp"
         android:layout_marginEnd="25dp"
         android:layout_marginTop="130dp"
-        android:layout_marginBottom="80dp"
         android:divider="@android:color/transparent"
         android:dividerHeight="0dp"
         android:clickable="true"
@@ -92,7 +91,7 @@
         android:elevation="7dp"
         android:layout_marginStart="20dp"
         android:layout_marginEnd="20dp"
-        android:layout_marginBottom="30dp"
+        android:layout_marginBottom="10dp"
         android:layout_gravity="bottom">
 
         <!-- File Name -->

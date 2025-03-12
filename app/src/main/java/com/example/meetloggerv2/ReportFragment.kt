@@ -22,8 +22,11 @@ class ReportFragment : Fragment() {
     private lateinit var fileNamesList: ArrayList<String>
     private lateinit var filteredList: ArrayList<String>
     private lateinit var adapter: ArrayAdapter<String>
+    private lateinit var placeholderImage: ImageView
+    private lateinit var placeholderText: TextView
     private var isDeleteMode = false
     private val selectedItems = HashSet<Int>()
+    private var isDataLoaded = false // Flag to track data loading
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -34,6 +37,8 @@ class ReportFragment : Fragment() {
         searchView = view.findViewById(R.id.searchView)
         deleteIcon = view.findViewById(R.id.deleteIcon)
         audioListIcon = view.findViewById(R.id.audioListIcon)
+        placeholderImage = view.findViewById(R.id.placeholderImage)
+        placeholderText = view.findViewById(R.id.placeholderText)
 
         listView.setSelector(android.R.color.transparent)
 
@@ -55,6 +60,9 @@ class ReportFragment : Fragment() {
             }
         }
         listView.adapter = adapter
+
+        // Initially hide all UI elements until data is loaded
+        setInitialVisibility()
 
         fetchFileNames()
 
@@ -97,6 +105,15 @@ class ReportFragment : Fragment() {
         return view
     }
 
+    private fun setInitialVisibility() {
+        placeholderImage.visibility = View.GONE
+        placeholderText.visibility = View.GONE
+        searchView.visibility = View.GONE
+        listView.visibility = View.GONE
+        deleteIcon.visibility = View.GONE
+        audioListIcon.visibility = View.VISIBLE // Keep this visible initially
+    }
+
     private fun fetchFileNames() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val db = FirebaseFirestore.getInstance()
@@ -104,6 +121,7 @@ class ReportFragment : Fragment() {
 
         userFilesRef.addSnapshotListener { snapshot, error ->
             if (error != null) {
+                togglePlaceholderOnError()
                 return@addSnapshotListener
             }
 
@@ -115,6 +133,7 @@ class ReportFragment : Fragment() {
 
             filteredList.clear()
             filteredList.addAll(fileNamesList.map { it.substringBeforeLast(".") })
+            isDataLoaded = true // Mark data as loaded
             togglePlaceholder()
             adapter.notifyDataSetChanged()
             updateDeleteIconVisibility()
@@ -135,24 +154,22 @@ class ReportFragment : Fragment() {
             }
         }
 
-        val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
-        val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
         if (filteredList.isEmpty()) {
             if (fileNamesList.isEmpty()) {
                 // No files exist (initial state)
-                placeholderText?.text = "No files found"
-                placeholderImage?.visibility = View.GONE
+                placeholderText.text = "No files found"
+                placeholderImage.visibility = View.GONE
             } else {
                 // Search result empty
-                placeholderText?.visibility = View.GONE
-                placeholderImage?.visibility = View.GONE
+                placeholderText.visibility = View.GONE
+                placeholderImage.visibility = View.GONE
             }
-            placeholderText?.visibility = View.VISIBLE
-            placeholderText?.text = "No files found"
+            placeholderText.visibility = View.VISIBLE
+            placeholderText.text = "No files found"
             listView.visibility = View.GONE
         } else {
-            placeholderText?.visibility = View.GONE
-            placeholderImage?.visibility = View.GONE
+            placeholderText.visibility = View.GONE
+            placeholderImage.visibility = View.GONE
             listView.visibility = View.VISIBLE
         }
 
@@ -202,20 +219,26 @@ class ReportFragment : Fragment() {
     }
 
     private fun togglePlaceholder() {
-        val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
-        val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
+        if (!isDataLoaded) return
 
         if (fileNamesList.isEmpty()) {
-            placeholderImage?.visibility = View.VISIBLE
-            placeholderText?.visibility = View.GONE
+            placeholderImage.visibility = View.VISIBLE
+            placeholderText.visibility = View.GONE
             searchView.visibility = View.GONE
             listView.visibility = View.GONE
         } else {
-            placeholderImage?.visibility = View.GONE
-            placeholderText?.visibility = View.GONE
+            placeholderImage.visibility = View.GONE
+            placeholderText.visibility = View.GONE
             searchView.visibility = View.VISIBLE
             listView.visibility = View.VISIBLE
         }
+    }
+
+    private fun togglePlaceholderOnError() {
+        placeholderImage.visibility = View.VISIBLE
+        placeholderText.visibility = View.GONE
+        searchView.visibility = View.GONE
+        listView.visibility = View.GONE
     }
 
     private fun openFileDetailsFragment(displayedFileName: String) {

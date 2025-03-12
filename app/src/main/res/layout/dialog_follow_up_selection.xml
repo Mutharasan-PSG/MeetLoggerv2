@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <ImageButton
+        android:id="@+id/backButton"
+        android:layout_width="35dp"
+        android:layout_height="30dp"
+        android:scaleType="fitXY"
+        android:src="@drawable/back_arrow"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Go back" />
+
+    <TextView
+        android:id="@+id/followUpQuestion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Do you want previous meeting follow up?"
+        android:textSize="16sp"
+        android:fontFamily="@font/poppins_medium"
+        android:layout_marginTop="8dp"/>
+
+    <RadioGroup
+        android:id="@+id/radioGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="8dp">
+
+        <RadioButton
+            android:id="@+id/radioYes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes"
+            android:fontFamily="@font/poppins"/>
+
+        <RadioButton
+            android:id="@+id/radioNo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No"
+            android:fontFamily="@font/poppins"/>
+    </RadioGroup>
+
+    <Spinner
+        android:id="@+id/spinnerFiles"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:layout_margin="15dp"
+        android:background="@drawable/spinner_border"
+        android:maxWidth="300dp"
+        android:minWidth="300dp"
+        android:padding="12dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/cancelButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins_medium"
+            android:text="Cancel"
+            android:padding="5dp"
+            android:textColor="@color/red"/>
+
+        <Button
+            android:id="@+id/proceedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins_medium"
+            android:text="Proceed"
+            android:layout_marginStart="15dp"
+            android:padding="5dp"
+            android:textColor="@color/BLUE"/>
+    </LinearLayout>
+</LinearLayout>
