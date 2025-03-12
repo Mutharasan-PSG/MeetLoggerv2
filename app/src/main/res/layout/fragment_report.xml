@@ -14,7 +14,6 @@
         android:contentDescription="No files available"
         android:visibility="visible"/>
 
-    <!-- Placeholder for Recent Meetings -->
     <TextView
         android:id="@+id/placeholderText"
         android:layout_width="wrap_content"
@@ -27,23 +26,22 @@
         android:layout_centerInParent="true"
         android:visibility="visible"/>
 
-
     <LinearLayout
         android:id="@+id/top"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-    <TextView
-        android:id="@+id/proccessedDocumentsTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="25dp"
-        android:text="PROCESSED DOCUMENTS"
-        android:textSize="22sp"
-        android:fontFamily="@font/poppins_medium"
-        android:textColor="@color/BLUE"
-        android:layout_marginTop="30dp"/>
+        <TextView
+            android:id="@+id/proccessedDocumentsTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="25dp"
+            android:text="PROCESSED DOCUMENTS"
+            android:textSize="22sp"
+            android:fontFamily="@font/poppins_medium"
+            android:textColor="@color/BLUE"
+            android:layout_marginTop="30dp"/>
 
         <ImageView
             android:id="@+id/audioListIcon"
@@ -55,13 +53,22 @@
             android:scaleType="fitXY"
             android:layout_gravity="center"
             android:padding="8dp"
-
             android:src="@drawable/audioo"
             android:contentDescription="Open Audio List"
             android:clickable="true"
             android:focusable="true"/>
-
     </LinearLayout>
+
+    <ImageView
+        android:id="@+id/deleteIcon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="25dp"
+        android:layout_marginTop="23dp"
+        android:src="@drawable/delete"
+        android:contentDescription="Delete"
+        android:visibility="gone"/>
 
     <!-- Search bar with border -->
     <androidx.appcompat.widget.SearchView

@@ -1,15 +1,13 @@
 package com.example.meetloggerv2
 
+import android.app.AlertDialog
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
-import android.widget.ImageView
-import android.widget.ListView
+import android.widget.*
 import androidx.appcompat.widget.SearchView
-import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentTransaction
 import com.google.firebase.auth.FirebaseAuth
@@ -19,59 +17,82 @@ class ReportFragment : Fragment() {
 
     private lateinit var listView: ListView
     private lateinit var searchView: SearchView
+    private lateinit var deleteIcon: ImageView
+    private lateinit var audioListIcon: ImageView // Add this
     private lateinit var fileNamesList: ArrayList<String>
     private lateinit var filteredList: ArrayList<String>
     private lateinit var adapter: ArrayAdapter<String>
+    private var isDeleteMode = false
+    private val selectedItems = HashSet<Int>()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         val view = inflater.inflate(R.layout.fragment_report, container, false)
-        listView = view.findViewById(R.id.listView)  // Ensure ListView exists in XML
-        searchView = view.findViewById(R.id.searchView)  // Find the SearchView
+        listView = view.findViewById(R.id.listView)
+        searchView = view.findViewById(R.id.searchView)
+        deleteIcon = view.findViewById(R.id.deleteIcon)
+        audioListIcon = view.findViewById(R.id.audioListIcon)
 
         listView.setSelector(android.R.color.transparent)
 
         fileNamesList = ArrayList()
-        filteredList =
-            ArrayList(fileNamesList) // Initially, the filtered list is the same as the full list
+        filteredList = ArrayList()
 
-        // Use the custom layout for list items
-        adapter =
-            ArrayAdapter(requireContext(), R.layout.list_item, R.id.textViewFileName, filteredList)
+        // Use the same custom layout as AudioListFragment (assuming list_item_3.xml has a checkbox)
+        adapter = object : ArrayAdapter<String>(requireContext(), R.layout.list_item, R.id.textViewFileName, filteredList) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getView(position, convertView, parent)
+                val checkbox = view.findViewById<CheckBox>(R.id.checkbox)
+                checkbox.visibility = if (isDeleteMode) View.VISIBLE else View.GONE
+                checkbox.isChecked = selectedItems.contains(position)
+                checkbox.setOnCheckedChangeListener { _, isChecked ->
+                    if (isChecked) selectedItems.add(position) else selectedItems.remove(position)
+                    updateDeleteIconVisibility()
+                }
+                return view
+            }
+        }
         listView.adapter = adapter
 
         fetchFileNames()
 
         // Set up the search view
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
-                // Handle the query submission (e.g., start filtering the list)
-                filterFiles(query)
-                return true
-            }
-
-            override fun onQueryTextChange(newText: String?): Boolean {
-                // Handle text changes (e.g., filter the list live)
-                filterFiles(newText)
-                return true
-            }
+            override fun onQueryTextSubmit(query: String?) = filterFiles(query)
+            override fun onQueryTextChange(newText: String?) = filterFiles(newText)
         })
 
         listView.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
-            val selectedFileName = filteredList[position]
-            openFileDetailsFragment(selectedFileName)
+            if (!isDeleteMode) {
+                val selectedFileName = filteredList[position]
+                openFileDetailsFragment(selectedFileName)
+            }
+        }
+
+        listView.setOnItemLongClickListener { _, _, position, _ ->
+            if (!isDeleteMode) {
+                toggleDeleteMode(true)
+                selectedItems.add(position)
+                adapter.notifyDataSetChanged()
+                updateDeleteIconVisibility()
+                true
+            } else false
+        }
+
+        // Set up delete icon click listener
+        deleteIcon.setOnClickListener {
+            if (isDeleteMode && selectedItems.isNotEmpty()) {
+                showDeleteConfirmationDialog()
+            }
         }
 
         // Initialize the audio list icon
         val audioListIcon: ImageView = view.findViewById(R.id.audioListIcon)
-
-        // Set click listener to open AudioListFragment
         audioListIcon.setOnClickListener {
             openAudioListFragment()
         }
-
 
         return view
     }
@@ -89,43 +110,27 @@ class ReportFragment : Fragment() {
             fileNamesList.clear()
             snapshot?.documents?.forEach { document ->
                 val fileName = document.getString("fileName") ?: return@forEach
-                fileNamesList.add(fileName)  // Store full filename with extension in backend list
+                fileNamesList.add(fileName)
             }
 
-            // Prepare filteredList for UI (Remove extensions)
             filteredList.clear()
-            filteredList.addAll(fileNamesList.map { it.substringBeforeLast(".") }) // Remove extension for UI display
-
-            val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
-            val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
-
-            if (fileNamesList.isEmpty()) {
-                placeholderText?.visibility=View.GONE
-                placeholderImage?.visibility = View.VISIBLE
-                searchView.visibility = View.GONE
-                listView.visibility = View.GONE
-            } else {
-                placeholderText?.visibility = View.GONE
-                placeholderImage?.visibility = View.GONE
-                searchView.visibility = View.VISIBLE
-                listView.visibility = View.VISIBLE
-            }
-
+            filteredList.addAll(fileNamesList.map { it.substringBeforeLast(".") })
+            togglePlaceholder()
             adapter.notifyDataSetChanged()
+            updateDeleteIconVisibility()
         }
     }
 
-
-    private fun filterFiles(query: String?) {
+    private fun filterFiles(query: String?): Boolean {
         filteredList.clear()
 
         if (query.isNullOrEmpty()) {
-            filteredList.addAll(fileNamesList)
+            filteredList.addAll(fileNamesList.map { it.substringBeforeLast(".") })
         } else {
             val lowerCaseQuery = query.toLowerCase()
             fileNamesList.forEach { fileName ->
                 if (fileName.toLowerCase().contains(lowerCaseQuery)) {
-                    filteredList.add(fileName)
+                    filteredList.add(fileName.substringBeforeLast("."))
                 }
             }
         }
@@ -152,6 +157,65 @@ class ReportFragment : Fragment() {
         }
 
         adapter.notifyDataSetChanged()
+        updateDeleteIconVisibility()
+        return true
+    }
+
+    private fun toggleDeleteMode(enable: Boolean) {
+        isDeleteMode = enable
+        if (!enable) selectedItems.clear()
+        adapter.notifyDataSetChanged()
+        updateDeleteIconVisibility()
+    }
+
+    private fun updateDeleteIconVisibility() {
+        val shouldShowDelete = isDeleteMode && selectedItems.isNotEmpty()
+        deleteIcon.visibility = if (shouldShowDelete) View.VISIBLE else View.GONE
+        audioListIcon.visibility = if (shouldShowDelete) View.GONE else View.VISIBLE // Hide audioListIcon when deleteIcon shows
+    }
+
+    private fun showDeleteConfirmationDialog() {
+        val dialog = AlertDialog.Builder(requireContext())
+            .setMessage("Are you sure you want to delete the selected documents?")
+            .setPositiveButton("OK") { _, _ -> deleteSelectedItems() }
+            .setNegativeButton("Cancel") { _, _ -> toggleDeleteMode(false) }
+            .create()
+
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.BLUE)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.RED)
+    }
+
+    private fun deleteSelectedItems() {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val db = FirebaseFirestore.getInstance()
+        val userFilesRef = db.collection("ProcessedDocs").document(userId).collection("UserFiles")
+
+        val itemsToDelete = selectedItems.map { filteredList[it] }.toList()
+        itemsToDelete.forEach { fileName ->
+            // Find the full filename with extension
+            val fullFileName = fileNamesList.find { it.startsWith(fileName) } ?: return@forEach
+            userFilesRef.document(fullFileName).delete()
+        }
+
+        toggleDeleteMode(false) // Refresh happens via snapshot listener
+    }
+
+    private fun togglePlaceholder() {
+        val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
+        val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
+
+        if (fileNamesList.isEmpty()) {
+            placeholderImage?.visibility = View.VISIBLE
+            placeholderText?.visibility = View.GONE
+            searchView.visibility = View.GONE
+            listView.visibility = View.GONE
+        } else {
+            placeholderImage?.visibility = View.GONE
+            placeholderText?.visibility = View.GONE
+            searchView.visibility = View.VISIBLE
+            listView.visibility = View.VISIBLE
+        }
     }
 
     private fun openFileDetailsFragment(displayedFileName: String) {
@@ -159,12 +223,11 @@ class ReportFragment : Fragment() {
         val db = FirebaseFirestore.getInstance()
         val userFilesRef = db.collection("ProcessedDocs").document(userId).collection("UserFiles")
 
-        // Find the full filename with extension from the list
         val fullFileName = fileNamesList.find { it.startsWith(displayedFileName) } ?: return
 
         val fileDetailsFragment = FileDetailsFragment().apply {
             arguments = Bundle().apply {
-                putString("fileName", fullFileName)  // Pass full file name (with extension)
+                putString("fileName", fullFileName)
             }
         }
 
@@ -175,13 +238,11 @@ class ReportFragment : Fragment() {
             R.anim.slide_in_left,
             R.anim.slide_out_right
         )
-
         transaction.replace(R.id.fragment_container, fileDetailsFragment)
         transaction.addToBackStack(null)
         transaction.commit()
     }
 
-    // Method to open AudioListFragment
     private fun openAudioListFragment() {
         val audioListFragment = AudioListFragment()
         val transaction: FragmentTransaction = parentFragmentManager.beginTransaction()
@@ -195,5 +256,4 @@ class ReportFragment : Fragment() {
         transaction.addToBackStack(null)
         transaction.commit()
     }
-
 }

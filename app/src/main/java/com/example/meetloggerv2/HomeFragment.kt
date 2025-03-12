@@ -20,6 +20,7 @@ import com.bumptech.glide.Glide
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import java.util.Calendar
 import java.util.Locale
 
 class HomeFragment : Fragment() {
@@ -78,21 +79,18 @@ class HomeFragment : Fragment() {
             }
         })
 
-        // Audio Button Click - Show overlay and options
         audioButton.setOnClickListener {
             audioOptionsOverlay.visibility = View.VISIBLE
             audioOptionsLayout.visibility = View.VISIBLE
             audioButton.visibility = View.GONE
         }
 
-        // Close Button Click - Hide overlay and options, show Audio button
         closeButton.setOnClickListener {
             audioOptionsOverlay.visibility = View.GONE
             audioOptionsLayout.visibility = View.GONE
             audioButton.visibility = View.VISIBLE
         }
 
-        // Handle option clicks
         val recordAudioLayout: LinearLayout = view.findViewById(R.id.RecordAudio)
         val uploadAudioLayout: LinearLayout = view.findViewById(R.id.UploadAudio)
 
@@ -166,6 +164,12 @@ class HomeFragment : Fragment() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val userFilesRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles")
 
+        // Calculate the timestamp for 7 days ago
+        val calendar = Calendar.getInstance()
+        calendar.time = java.util.Date()// Current date: March 12, 2025, 16:42:45
+        calendar.add(Calendar.DAY_OF_YEAR, -7) // Subtract 7 days
+        val sevenDaysAgo = com.google.firebase.Timestamp(calendar.time)
+
         userFilesRef.addSnapshotListener { snapshot, error ->
             if (error != null) return@addSnapshotListener
 
@@ -174,11 +178,15 @@ class HomeFragment : Fragment() {
                 val fileName = document.getString("fileName") ?: return@forEach
                 val status = document.getString("status") ?: "processing"
                 val notificationStatus = document.getString("Notification") ?: "Off"
-                fileList.add(Pair(fileName, status))
+                val timestamp = document.getTimestamp("timestamp_clientUpload") ?: return@forEach
 
-                if (status.equals("processed", ignoreCase = true) && notificationStatus.equals("On", ignoreCase = true)) {
-                    triggerNotification(fileName)
-                    updateNotificationStatus(document.id)
+                // Filter based on timestamp_clientUpload
+                if (timestamp.toDate().after(sevenDaysAgo.toDate()) || timestamp.toDate() == sevenDaysAgo.toDate()) {
+                    fileList.add(Pair(fileName, status))
+                    if (status.equals("processed", ignoreCase = true) && notificationStatus.equals("On", ignoreCase = true)) {
+                        triggerNotification(fileName)
+                        updateNotificationStatus(document.id)
+                    }
                 }
             }
 
@@ -188,7 +196,7 @@ class HomeFragment : Fragment() {
             val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
             val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
             if (fileList.isEmpty()) {
-                placeholderText?.visibility=View.GONE
+                placeholderText?.visibility = View.GONE
                 placeholderImage?.visibility = View.VISIBLE
                 searchView.visibility = View.GONE
                 listView.visibility = View.GONE
@@ -244,7 +252,7 @@ class HomeFragment : Fragment() {
         val placeholderImage = view?.findViewById<ImageView>(R.id.placeholderImage)
         val placeholderText = view?.findViewById<TextView>(R.id.placeholderText)
         if (filteredList.isEmpty()) {
-            placeholderText?.text = if (fileList.isEmpty()) "Audio processing status appear here..." else "No files found"
+            placeholderText?.text = if (fileList.isEmpty()) "No files from the last 7 days" else "No files found"
             placeholderText?.visibility = View.VISIBLE
             placeholderImage?.visibility = View.GONE
             listView.visibility = View.GONE

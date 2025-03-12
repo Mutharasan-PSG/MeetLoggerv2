@@ -1,3 +1,4 @@
+<!-- Example list_item_3.xml -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
@@ -9,25 +10,33 @@
         android:padding="14dp"
         android:elevation="7dp"
         android:layout_marginBottom="15dp"
-        android:background="@drawable/list_item_background">
+        android:background="@drawable/list_item_background"
+        android:gravity="center_vertical">
+
+        <CheckBox
+            android:id="@+id/checkbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:layout_marginEnd="8dp"/>
 
         <ImageView
             android:layout_width="30dp"
             android:layout_height="30dp"
             android:scaleType="fitXY"
             android:src="@drawable/docx"
-            android:layout_marginEnd="7dp"
-            android:contentDescription="docImage"/>
+            android:contentDescription="docImage"
+            android:layout_marginEnd="8dp"/>
 
         <TextView
             android:id="@+id/textViewFileName"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:fontFamily="@font/poppins"
-            android:layout_marginTop="4dp"
             android:textColor="@color/black"
             android:textSize="15sp"
-            />
+            android:singleLine="false"
+            android:layout_marginTop="4dp"/>
     </LinearLayout>
-
 </FrameLayout>
