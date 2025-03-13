@@ -1,4 +1,3 @@
-<!-- Example list_item_3.xml -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
@@ -28,15 +27,52 @@
             android:contentDescription="docImage"
             android:layout_marginEnd="8dp"/>
 
-        <TextView
-            android:id="@+id/textViewFileName"
+        <FrameLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:fontFamily="@font/poppins"
-            android:textColor="@color/black"
-            android:textSize="15sp"
-            android:singleLine="false"
-            android:layout_marginTop="4dp"/>
+            android:layout_weight="1">
+
+            <TextView
+                android:id="@+id/textViewFileName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins"
+                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:singleLine="false"
+                android:ellipsize="end"/>
+
+            <EditText
+                android:id="@+id/editTextFileName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins"
+                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:singleLine="false"
+                android:background="@null"
+                android:visibility="gone"
+                android:inputType="text"/>
+
+            <!-- Added ProgressBar for loading GIF -->
+            <ImageView
+                android:id="@+id/loadingGif"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:scaleType="fitXY"
+                android:layout_gravity="end|center_vertical"
+                android:visibility="visible"
+                android:contentDescription="Loading indicator"/>
+
+        </FrameLayout>
+
+        <ImageView
+            android:id="@+id/menuIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/dots"
+        android:contentDescription="More options"
+        android:layout_marginStart="8dp"/>
     </LinearLayout>
 </FrameLayout>
+
