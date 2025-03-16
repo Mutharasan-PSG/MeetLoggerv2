@@ -8,11 +8,12 @@ import android.widget.ArrayAdapter
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import java.util.Locale
+import com.google.firebase.Timestamp
 
 class FileListAdapter(
     private val context: Context,
-    private val fileList: ArrayList<Pair<String, String>>
-) : ArrayAdapter<Pair<String, String>>(context, R.layout.list_item_2, fileList) {
+    private val fileList: ArrayList<Triple<String, String, Timestamp>>
+) : ArrayAdapter<Triple<String, String, Timestamp>>(context, R.layout.list_item_2, fileList) {
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
         val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.list_item_2, parent, false)
@@ -20,7 +21,7 @@ class FileListAdapter(
         val fileNameTextView = view.findViewById<TextView>(R.id.textViewFileName)
         val statusTextView = view.findViewById<TextView>(R.id.textViewStatus)
 
-        val (fileName, status) = fileList[position]
+        val (fileName, status, _) = fileList[position] // Ignore timestamp in display
 
         fileNameTextView.text = fileName.substringBeforeLast(".")  // Show file name without extension
         statusTextView.text = status.capitalize(Locale.ROOT)  // Capitalize the status text

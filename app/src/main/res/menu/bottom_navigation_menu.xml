@@ -2,18 +2,18 @@
 
     <item
         android:id="@+id/menu_home"
-        android:icon="@drawable/ic_home"
-        android:title="Home"
+        android:icon="@drawable/home"
+        android:title="HOME"
         />
 
     <item
         android:id="@+id/menu_report"
-        android:icon="@drawable/ic_docx"
-        android:title="Report" />
+        android:icon="@drawable/files"
+        android:title="FILES" />
 
     <item
-        android:id="@+id/menu_profile"
-        android:icon="@drawable/ic_profile"
-        android:title="Profile" />
+        android:id="@+id/menu_audio"
+        android:icon="@drawable/audio"
+        android:title="AUDIO" />
 
 </menu>

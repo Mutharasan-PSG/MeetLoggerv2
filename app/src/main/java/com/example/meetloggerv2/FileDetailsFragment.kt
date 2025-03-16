@@ -24,6 +24,7 @@ import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -44,23 +45,23 @@ class FileDetailsFragment : Fragment() {
     private lateinit var responseTextView: TextView
     private lateinit var bottomContainer: LinearLayout
     private lateinit var scrollView: ScrollView
-    private lateinit var progressOverlay: FrameLayout// Add this
+    private lateinit var progressOverlay: FrameLayout
     private lateinit var languageSwitchButton: LinearLayout
     private var fileName: String? = null
-    private var isBottomContainerVisible = true  // Track visibility
-    private var isEditing = false // Track editing state
+    private var isBottomContainerVisible = true
+    private var isEditing = false
+    private var isTranslating = false // New flag for translation state
     private lateinit var editText: EditText
     private lateinit var editButton: View
     private lateinit var exportButton: View
     private lateinit var shareButton: View
     private lateinit var updateButton: Button
     private lateinit var cancelButton: Button
-    private var selectedLanguageCode = "en" // Default to English
-
+    private var selectedLanguageCode = "en"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        fileName = arguments?.getString("fileName")  // Get file name from arguments
+        fileName = arguments?.getString("fileName")
     }
 
     override fun onCreateView(
@@ -72,19 +73,16 @@ class FileDetailsFragment : Fragment() {
         responseTextView = view.findViewById(R.id.responseTextView)
         bottomContainer = view.findViewById(R.id.bottomContainer)
         scrollView = view.findViewById(R.id.scrollView)
-        progressOverlay = view.findViewById(R.id.progressOverlay) // Initialize overlay
-
-        // Optionally set ProgressBar color programmatically if not set in XML
-        val progressBar = view.findViewById<ProgressBar>(R.id.translationProgressBar)
-        progressBar.indeterminateTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.black))
+        progressOverlay = view.findViewById(R.id.progressOverlay)
         languageSwitchButton = view.findViewById(R.id.languageSwitchButton)
 
-        // Store references to buttons
+        val progressBar = view.findViewById<ProgressBar>(R.id.translationProgressBar)
+        progressBar.indeterminateTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.black))
+
         editButton = view.findViewById(R.id.editlayout)
         exportButton = view.findViewById(R.id.exportlayout)
         shareButton = view.findViewById(R.id.sharelayout)
 
-        // Create Update and Cancel buttons dynamically
         updateButton = Button(context).apply {
             text = "Update"
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -96,11 +94,9 @@ class FileDetailsFragment : Fragment() {
             visibility = View.GONE
         }
 
-        // Add update/cancel buttons to bottom container
         bottomContainer.addView(updateButton)
         bottomContainer.addView(cancelButton)
 
-        // Animate the bottom container initially
         val slideUp = AnimationUtils.loadAnimation(requireContext(), R.anim.slide_up)
         bottomContainer.startAnimation(slideUp)
 
@@ -109,6 +105,7 @@ class FileDetailsFragment : Fragment() {
         setupButtonAnimation(shareButton)
         setupEditControls()
         setupLanguageSwitch()
+        setupBackPressHandler() // New: Handle back press restriction
 
         setupScrollListener()
         fetchFileDetails()
@@ -130,8 +127,7 @@ class FileDetailsFragment : Fragment() {
             .addOnSuccessListener { document ->
                 if (document.exists()) {
                     val responseText = document.getString("Response") ?: "No response available"
-                    // Remove all asterisks and clean up the text for display
-                    val cleanedText = responseText.replace("*", "").trim() // Remove leading/trailing whitespace
+                    val cleanedText = responseText.replace("*", "").trim()
                     responseTextView.text = cleanedText
                 } else {
                     Toast.makeText(requireContext(), "File not found", Toast.LENGTH_SHORT).show()
@@ -144,6 +140,10 @@ class FileDetailsFragment : Fragment() {
 
     private fun setupButtonAnimation(button: View) {
         button.setOnClickListener {
+            if (isTranslating) {
+                Toast.makeText(requireContext(), "Translation in progress, please wait", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             val scaleAnim = AnimationUtils.loadAnimation(requireContext(), R.anim.scale_bounce)
             button.startAnimation(scaleAnim)
 
@@ -170,7 +170,6 @@ class FileDetailsFragment : Fragment() {
 
         isEditing = true
 
-        // Create EditText with current content
         editText = EditText(context).apply {
             setText(responseTextView.text)
             layoutParams = responseTextView.layoutParams
@@ -178,13 +177,11 @@ class FileDetailsFragment : Fragment() {
             textSize = 16f
         }
 
-        // Replace TextView with EditText
         val parent = responseTextView.parent as ViewGroup
         val index = parent.indexOfChild(responseTextView)
         parent.removeView(responseTextView)
         parent.addView(editText, index)
 
-        // Hide original buttons and show update/cancel
         editButton.visibility = View.GONE
         exportButton.visibility = View.GONE
         shareButton.visibility = View.GONE
@@ -197,13 +194,11 @@ class FileDetailsFragment : Fragment() {
 
         isEditing = false
 
-        // Replace EditText with TextView
         val parent = editText.parent as ViewGroup
         val index = parent.indexOfChild(editText)
         parent.removeView(editText)
         parent.addView(responseTextView, index)
 
-        // Show original buttons and hide update/cancel
         editButton.visibility = View.VISIBLE
         exportButton.visibility = View.VISIBLE
         shareButton.visibility = View.VISIBLE
@@ -236,8 +231,25 @@ class FileDetailsFragment : Fragment() {
 
     private fun setupLanguageSwitch() {
         languageSwitchButton.setOnClickListener {
+            if (isTranslating) {
+                Toast.makeText(requireContext(), "Translation in progress, please wait", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             showLanguageDialog()
         }
+    }
+
+    private fun setupBackPressHandler() {
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (isTranslating) {
+                    Toast.makeText(requireContext(), "Translation in progress, please wait", Toast.LENGTH_SHORT).show()
+                } else {
+                    isEnabled = false
+                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
     }
 
     private fun showLanguageDialog() {
@@ -250,7 +262,6 @@ class FileDetailsFragment : Fragment() {
         val changeLanguageButton = dialogView.findViewById<Button>(R.id.changeLanguageButton)
         val cancelButton = dialogView.findViewById<Button>(R.id.cancelLanguageButton)
 
-        // Define language options
         val languages = listOf(
             "English" to "en",
             "Spanish" to "es",
@@ -313,7 +324,6 @@ class FileDetailsFragment : Fragment() {
             "Chinese" to "zh"
         )
 
-        // Create adapter for spinner
         val languageNames = languages.map { it.first }
         val adapter = ArrayAdapter(
             requireContext(),
@@ -324,26 +334,26 @@ class FileDetailsFragment : Fragment() {
         }
         languageSpinner.adapter = adapter
 
-        // Set default selection to English
         val defaultPosition = languages.indexOfFirst { it.second == "en" }
         languageSpinner.setSelection(defaultPosition)
 
-        // Set listener for spinner selection
         languageSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
                 selectedLanguageCode = languages[position].second
             }
 
             override fun onNothingSelected(parent: AdapterView<*>) {
-                selectedLanguageCode = "en" // Default to English if nothing selected
+                selectedLanguageCode = "en"
             }
         }
 
         changeLanguageButton.setOnClickListener {
             dialog.dismiss()
-            progressOverlay.visibility = View.VISIBLE // Show overlay with ProgressBar
+            isTranslating = true
+            progressOverlay.visibility = View.VISIBLE
             translateContent(selectedLanguageCode) {
-                progressOverlay.visibility = View.GONE // Hide overlay when done
+                progressOverlay.visibility = View.GONE
+                isTranslating = false
             }
         }
 
@@ -378,11 +388,15 @@ class FileDetailsFragment : Fragment() {
             .requireWifi()
             .build()
 
-        val segments = splitContentIntoSegments(originalContent)
-        val translatedSegments = mutableListOf<String>()
-
         translator.downloadModelIfNeeded(conditions)
             .addOnSuccessListener {
+                if (!isAdded) {
+                    onComplete()
+                    return@addOnSuccessListener
+                }
+                val segments = splitContentIntoSegments(originalContent)
+                val translatedSegments = mutableListOf<String>()
+
                 val translationTasks = segments.map { segment ->
                     if (segment.isTranslatable) {
                         translator.translate(segment.text)
@@ -394,6 +408,10 @@ class FileDetailsFragment : Fragment() {
 
                 com.google.android.gms.tasks.Tasks.whenAllSuccess<Pair<ContentSegment, String>>(translationTasks)
                     .addOnSuccessListener { results ->
+                        if (!isAdded) {
+                            onComplete()
+                            return@addOnSuccessListener
+                        }
                         val translatedContent = results.joinToString("") { pair ->
                             if (pair.first.isTranslatable) pair.second + pair.first.suffix
                             else pair.second
@@ -403,30 +421,37 @@ class FileDetailsFragment : Fragment() {
                         onComplete()
                     }
                     .addOnFailureListener { exception ->
+                        if (!isAdded) {
+                            onComplete()
+                            return@addOnFailureListener
+                        }
                         Toast.makeText(requireContext(), "Translation failed: ${exception.message}", Toast.LENGTH_SHORT).show()
                         onComplete()
                     }
             }
             .addOnFailureListener { exception ->
+                if (!isAdded) {
+                    onComplete()
+                    return@addOnFailureListener
+                }
                 Toast.makeText(requireContext(), "Model download failed: ${exception.message}", Toast.LENGTH_SHORT).show()
                 onComplete()
             }
     }
 
-    // Data class to hold segment information
+    // Data class to hold segment information (unchanged)
     private data class ContentSegment(
-        val text: String,           // The actual text content
-        val isTranslatable: Boolean, // Whether this segment should be translated
-        val suffix: String          // Suffix to preserve (e.g., newline or space)
+        val text: String,
+        val isTranslatable: Boolean,
+        val suffix: String
     )
 
     private fun splitContentIntoSegments(content: String): List<ContentSegment> {
         val segments = mutableListOf<ContentSegment>()
-        val paragraphs = content.split("\n\n") // Split by double newlines to preserve paragraphs
+        val paragraphs = content.split("\n\n")
 
         for (paragraph in paragraphs) {
             if (paragraph.isBlank()) {
-                // Preserve blank paragraphs with double newline
                 segments.add(ContentSegment("", false, "\n\n"))
                 continue
             }
@@ -440,41 +465,34 @@ class FileDetailsFragment : Fragment() {
                 val matchResult = speakerPattern.find(line)
 
                 if (matchResult != null) {
-                    // If we have accumulated text, add it as a translatable segment first
                     if (currentText.isNotEmpty()) {
                         segments.add(ContentSegment(currentText.toString().trim(), true, "\n\n"))
                         currentText = StringBuilder()
                     }
 
-                    // Add speaker label as non-translatable
                     val speakerLabel = matchResult.value
                     segments.add(ContentSegment(speakerLabel, false, " "))
 
-                    // Add the following text as part of the translatable content
                     val textToTranslate = line.substringAfter(speakerLabel).trim()
                     if (textToTranslate.isNotEmpty()) {
                         currentText.append(textToTranslate).append("\n")
                     }
                 } else {
-                    // Add non-speaker line to the current translatable text
                     currentText.append(line.trim()).append("\n")
                 }
             }
 
-            // Add any remaining accumulated text as a translatable segment
             if (currentText.isNotEmpty()) {
                 segments.add(ContentSegment(currentText.toString().trim(), true, "\n\n"))
             }
         }
 
-        // Remove trailing newlines from the last segment to avoid extra spacing at the end
         if (segments.isNotEmpty() && segments.last().suffix == "\n\n") {
             segments[segments.lastIndex] = segments.last().copy(suffix = "")
         }
 
         return segments
     }
-
 
     private fun showExportDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_export_options, null)
@@ -523,8 +541,7 @@ class FileDetailsFragment : Fragment() {
         }
 
         try {
-            // Create a temporary file
-            val cleanFileName = fileName?.substringBeforeLast(".") // Remove unwanted extensions
+            val cleanFileName = fileName?.substringBeforeLast(".")
             val tempFile = File(requireContext().cacheDir, "$cleanFileName.${if (format == "PDF") "pdf" else "docx"}")
 
             val outputStream = FileOutputStream(tempFile)
@@ -534,7 +551,6 @@ class FileDetailsFragment : Fragment() {
             }
             outputStream.close()
 
-            // Now, share the file using Intent
             val uri = FileProvider.getUriForFile(requireContext(), "com.example.meetloggerv2.fileprovider", tempFile)
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = if (format == "PDF") "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -547,8 +563,6 @@ class FileDetailsFragment : Fragment() {
         }
     }
 
-
-
     private fun exportContent(format: String) {
         val content = responseTextView.text.toString()
 
@@ -558,10 +572,9 @@ class FileDetailsFragment : Fragment() {
         }
 
         try {
-            // Create a file chooser intent to let user pick the directory
             val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
             intent.type = if (format == "PDF") "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            val cleanFileName = fileName?.substringBeforeLast(".") // Remove existing extensions
+            val cleanFileName = fileName?.substringBeforeLast(".")
             intent.putExtra(Intent.EXTRA_TITLE, "$cleanFileName.${if (format == "PDF") "pdf" else "docx"}")
             startActivityForResult(intent, 100)
         } catch (e: Exception) {
@@ -569,7 +582,6 @@ class FileDetailsFragment : Fragment() {
         }
     }
 
-    // Handle the result of the file picker
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 100 && resultCode == android.app.Activity.RESULT_OK && data != null) {
@@ -622,26 +634,21 @@ class FileDetailsFragment : Fragment() {
         var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
         var canvas = page.canvas
 
-        // Add bold "TRANSCRIPTION OF AUDIO" at the start if it exists
         if (content.startsWith("TRANSCRIPTION OF AUDIO")) {
-            // Draw "TRANSCRIPTION OF AUDIO" in bold
             canvas.drawText("TRANSCRIPTION OF AUDIO", marginLeft, currentY, boldPaint)
-            currentY += lineHeight * 1.5f // Add line space after it
+            currentY += lineHeight * 1.5f
         }
 
-        val lines = content.split("\n") // Split by line to process speakers separately
+        val lines = content.split("\n")
 
         for (line in lines) {
             if (line.matches(Regex("^Speaker [A-Z]+:.*"))) {
-                // Speaker name detected, add a new line space
                 val parts = line.split(":", limit = 2)
                 val speaker = parts[0].trim()
                 var text = parts.getOrNull(1)?.trim() ?: ""
 
-                // Check for summarization indicators (* or **) and apply formatting
                 text = formatSummarization(text)
 
-                // Draw speaker name in bold
                 canvas.drawText(speaker, marginLeft, currentY, boldPaint)
                 currentY += lineHeight
 
@@ -654,11 +661,9 @@ class FileDetailsFragment : Fragment() {
                     val textWidth = normalPaint.measureText(testLine)
 
                     if (textWidth > maxLineWidth) {
-                        // Check if the line is the last one or too short to justify
                         if (wordBuffer.size > 7 && currentY < pageHeight - marginBottom) {
                             drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
                         } else {
-                            // If it's the last line or too short, don't justify, just draw normally
                             canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
                         }
                         currentY += lineHeight
@@ -667,7 +672,6 @@ class FileDetailsFragment : Fragment() {
 
                     wordBuffer.add(word)
 
-                    // Start a new page if needed
                     if (currentY > pageHeight - marginBottom) {
                         document.finishPage(page)
                         pageNumber++
@@ -677,7 +681,6 @@ class FileDetailsFragment : Fragment() {
                     }
                 }
 
-                // Draw remaining words without justification if it's the last line or too short
                 if (wordBuffer.isNotEmpty()) {
                     if (wordBuffer.size > 7) {
                         drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
@@ -687,10 +690,8 @@ class FileDetailsFragment : Fragment() {
                     currentY += lineHeight
                 }
             } else {
-                // Normal paragraph processing without speaker name
                 var lineText = line.trim()
 
-                // Check for summarization indicators (* or **) and apply formatting
                 lineText = formatSummarization(lineText)
 
                 val words = lineText.split(" ")
@@ -702,7 +703,6 @@ class FileDetailsFragment : Fragment() {
                     val textWidth = normalPaint.measureText(testLine)
 
                     if (textWidth > maxLineWidth) {
-                        // Check if the line is the last one or too short to justify
                         if (wordBuffer.size > 7) {
                             canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
                         } else {
@@ -714,7 +714,6 @@ class FileDetailsFragment : Fragment() {
 
                     wordBuffer.add(word)
 
-                    // Start a new page if needed
                     if (currentY > pageHeight - marginBottom) {
                         document.finishPage(page)
                         pageNumber++
@@ -724,7 +723,6 @@ class FileDetailsFragment : Fragment() {
                     }
                 }
 
-                // Draw remaining words without justification if it's the last line or too short
                 if (wordBuffer.isNotEmpty()) {
                     canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
                     currentY += lineHeight
@@ -740,21 +738,14 @@ class FileDetailsFragment : Fragment() {
 
     private fun formatSummarization(text: String): String {
         var formattedText = text
-
-        // Replace **text** with bolded text (using boldPaint when drawing)
         formattedText = formattedText.replace(Regex("\\*\\*(.*?)\\*\\*")) { match ->
             "**${match.groupValues[1]}**"
         }
-
-        // Remove single * and keep the text (following punctuation and removing *)
-        formattedText = formattedText.replace(Regex("(?<=\\w)\\*(?=\\W)")) { "" } // Removes * after punctuation
-        formattedText = formattedText.replace(Regex("(?<=\\W)\\*(?=\\w)")) { "" } // Removes * before word
-
-        // Remove * and keep the word inside (just remove the * signs without altering the word)
+        formattedText = formattedText.replace(Regex("(?<=\\w)\\*(?=\\W)")) { "" }
+        formattedText = formattedText.replace(Regex("(?<=\\W)\\*(?=\\w)")) { "" }
         formattedText = formattedText.replace(Regex("\\*(.*?)\\*")) { match ->
             match.groupValues[1]
         }
-
         return formattedText
     }
 
@@ -773,7 +764,6 @@ class FileDetailsFragment : Fragment() {
         }
     }
 
-
     private fun saveAsDocx(content: String, outputStream: OutputStream?) {
         if (outputStream == null) return
 
@@ -784,13 +774,13 @@ class FileDetailsFragment : Fragment() {
             if (line.isBlank()) continue
 
             val para = document.createParagraph()
-            para.alignment = ParagraphAlignment.BOTH  // Justify text
+            para.alignment = ParagraphAlignment.BOTH
 
             val speakerPattern = Regex("^(Speaker \\w+:)")
             val matchResult = speakerPattern.find(line)
 
             if (matchResult != null) {
-                para.spacingBefore = 200  // Add space before new speaker
+                para.spacingBefore = 200
 
                 val speakerName = matchResult.value
                 val remainingText = line.removePrefix(speakerName).trim()
@@ -811,13 +801,9 @@ class FileDetailsFragment : Fragment() {
         document.close()
     }
 
-
-
-
     private fun setupScrollListener() {
         scrollView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
             if (scrollY > oldScrollY && isBottomContainerVisible) {
-                // Scrolling down - hide bottom container
                 isBottomContainerVisible = false
                 bottomContainer.startAnimation(
                     AnimationUtils.loadAnimation(
@@ -827,7 +813,6 @@ class FileDetailsFragment : Fragment() {
                 )
                 bottomContainer.visibility = View.GONE
             } else if (scrollY < oldScrollY && !isBottomContainerVisible) {
-                // Scrolling up - show bottom container
                 isBottomContainerVisible = true
                 bottomContainer.visibility = View.VISIBLE
                 bottomContainer.startAnimation(
@@ -840,4 +825,12 @@ class FileDetailsFragment : Fragment() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (isTranslating) {
+            Toast.makeText(requireContext(), "Previous translation interrupted", Toast.LENGTH_SHORT).show()
+            progressOverlay.visibility = View.GONE
+            isTranslating = false
+        }
+    }
 }

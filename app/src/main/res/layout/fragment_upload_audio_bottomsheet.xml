@@ -1,94 +1,106 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:background="@android:color/white">
+    android:layout_height="wrap_content">
 
-    <!-- Instruction TextView -->
-    <TextView
-        android:id="@+id/audioInstructionsTextView"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fontFamily="@font/poppins_medium"
-               android:layout_margin="10dp"
-        android:hint="Upload an Audio file in MP3, WAV OR AAC format"
-        android:textSize="16sp"
-        android:textColor="@android:color/black"
-         />
-
-    <!-- Upload Audio Button with Icon -->
-    <LinearLayout
-        android:id="@+id/uploadAudioButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_margin="9dp"
-        android:gravity="center"
-        android:background="@drawable/rounded_image"
-        android:layout_gravity="center"
-        android:padding="9dp">
-
-        <ImageView
-            android:layout_width="30dp"
-            android:layout_height="28dp"
-            android:scaleType="fitXY"
-            android:src="@drawable/uploadd" />
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="@android:color/white">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:id="@+id/audioInstructionsTextView"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Upload Audio"
-            android:fontFamily="@font/poppins"
-            android:textSize="15sp"
-            android:textColor="@android:color/black"
-            android:gravity="center"
-            android:paddingTop="2dp" />
-    </LinearLayout>
-
-    <!-- Selected Audio File Name -->
-    <TextView
-        android:id="@+id/selectedAudioTextView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:fontFamily="@font/poppins"
-        android:layout_margin="7dp"
-        android:text="No audio file selected"
-        android:textSize="15sp"
-        android:textColor="@color/red"
-        android:gravity="center"
-        android:padding="8dp" />
-
-    <!-- Process Audio Button -->
-    <LinearLayout
-        android:id="@+id/processAudioButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_gravity="center"
-        android:elevation="12dp"
-        android:padding="9dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:background="@drawable/button_bg_export">
-
-        <ImageView
-            android:id="@+id/processAudioIcon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/process"
-            android:layout_marginEnd="8dp" />
-
-        <TextView
-            android:id="@+id/processAudioText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="PROCESS AUDIO"
-            android:textColor="@color/white"
+            android:fontFamily="@font/poppins_medium"
+            android:layout_margin="10dp"
+            android:hint="Upload an Audio file in MP3, WAV OR AAC format"
             android:textSize="16sp"
-            android:fontFamily="@font/poppins_medium" />
+            android:textColor="@android:color/black" />
+
+        <LinearLayout
+            android:id="@+id/uploadAudioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_margin="9dp"
+            android:gravity="center"
+            android:background="@drawable/rounded_image"
+            android:layout_gravity="center"
+            android:padding="9dp">
+
+            <ImageView
+                android:layout_width="30dp"
+                android:layout_height="28dp"
+                android:scaleType="fitXY"
+                android:src="@drawable/uploadd" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Upload Audio"
+                android:fontFamily="@font/poppins"
+                android:textSize="15sp"
+                android:textColor="@android:color/black"
+                android:gravity="center"
+                android:paddingTop="2dp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/selectedAudioTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins"
+            android:layout_margin="7dp"
+            android:text="No audio file selected"
+            android:textSize="15sp"
+            android:textColor="@color/red"
+            android:gravity="center"
+            android:padding="8dp" />
+
+        <LinearLayout
+            android:id="@+id/processAudioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_gravity="center"
+            android:elevation="12dp"
+            android:padding="9dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@drawable/button_bg_export">
+
+            <ImageView
+                android:id="@+id/processAudioIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/process"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/processAudioText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PROCESS AUDIO"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:fontFamily="@font/poppins_medium" />
+        </LinearLayout>
     </LinearLayout>
 
-
-</LinearLayout>
+    <FrameLayout
+        android:id="@+id/progressOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:visibility="gone">
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:indeterminateTint="@color/BLUE"
+            android:indeterminateTintMode="src_in"/>
+    </FrameLayout>
+</FrameLayout>

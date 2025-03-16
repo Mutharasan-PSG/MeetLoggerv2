@@ -38,17 +38,17 @@
         android:id="@+id/progressOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/Grey"
+        android:background="@color/modal_blur"
         android:visibility="gone">
 
-    <ProgressBar
-        android:id="@+id/translationProgressBar"
-        style="?android:attr/progressBarStyle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:indeterminateTint="@color/BLUE"
-        android:indeterminateTintMode="src_in" />
+        <ProgressBar
+            android:id="@+id/translationProgressBar"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:indeterminateTint="@color/BLUE"
+            android:indeterminateTintMode="src_in" />
 
     </FrameLayout>
 

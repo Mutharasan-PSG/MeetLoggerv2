@@ -5,28 +5,6 @@
     android:layout_height="match_parent"
     tools:context=".AudioListFragment">
 
-    <ImageView
-        android:id="@+id/placeholderImage"
-        android:layout_width="280dp"
-        android:layout_height="280dp"
-        android:scaleType="fitXY"
-        android:layout_gravity="center"
-        android:src="@drawable/audiofiles"
-        android:contentDescription="No files available"
-        android:visibility="visible" />
-
-    <TextView
-        android:id="@+id/placeholderText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="16sp"
-        android:textColor="@android:color/darker_gray"
-        android:fontFamily="@font/poppins"
-        android:gravity="center"
-        android:layout_gravity="center"
-        android:visibility="visible" />
-
     <TextView
         android:id="@+id/AudioTopic"
         android:layout_width="wrap_content"
@@ -38,160 +16,239 @@
         android:textColor="@color/BLUE"
         android:layout_marginTop="30dp" />
 
-    <ImageView
-        android:id="@+id/deleteIcon"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:layout_gravity="top|end"
-        android:layout_marginEnd="25dp"
-        android:layout_marginTop="30dp"
-        android:src="@drawable/delete1"
-        android:contentDescription="Delete"
-        android:visibility="gone"/>
-
-    <!-- Search bar with border -->
-    <androidx.appcompat.widget.SearchView
-        android:id="@+id/searchView"
+    <FrameLayout
+        android:id="@+id/mainContent"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Search documents..."
-        android:queryHint="Search documents..."
-        android:iconifiedByDefault="false"
-        android:layout_marginBottom="25dp"
-        android:layout_marginStart="25dp"
-        android:layout_marginEnd="25dp"
-        android:layout_gravity="top"
-        android:layout_marginTop="70dp"
-        android:visibility="gone"
-        android:background="@drawable/searchview_border" />
+        android:layout_height="match_parent">
 
-    <!-- ListView -->
-    <ListView
-        android:id="@+id/listView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginStart="25dp"
-        android:layout_marginEnd="25dp"
-        android:layout_marginTop="130dp"
-        android:divider="@android:color/transparent"
-        android:dividerHeight="0dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:visibility="gone" />
+        <ImageView
+            android:id="@+id/placeholderImage"
+            android:layout_width="280dp"
+            android:layout_height="280dp"
+            android:scaleType="fitXY"
+            android:layout_gravity="center"
+            android:src="@drawable/audiofiles"
+            android:contentDescription="No files available"
+            android:visibility="visible" />
 
-    <!-- Mini Player -->
+        <TextView
+            android:id="@+id/placeholderText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="16sp"
+            android:textColor="@android:color/darker_gray"
+            android:fontFamily="@font/poppins"
+            android:gravity="center"
+            android:layout_gravity="center"
+            android:visibility="visible" />
+
+
+        <ImageView
+            android:id="@+id/deleteIcon"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="top|end"
+            android:layout_marginEnd="25dp"
+            android:layout_marginTop="30dp"
+            android:src="@drawable/delete1"
+            android:contentDescription="Delete"
+            android:visibility="gone"/>
+
+        <ImageView
+            android:id="@+id/tickIcon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="top|end"
+            android:layout_marginEnd="25dp"
+            android:layout_marginTop="23dp"
+            android:src="@drawable/tick"
+            android:contentDescription="tick"
+            android:visibility="gone"/>
+
+
+        <!-- Search bar with border -->
+        <androidx.appcompat.widget.SearchView
+            android:id="@+id/searchView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Search documents..."
+            android:queryHint="Search documents..."
+            android:iconifiedByDefault="false"
+            android:layout_marginBottom="25dp"
+            android:layout_marginStart="25dp"
+            android:layout_marginEnd="25dp"
+            android:layout_gravity="top"
+            android:layout_marginTop="75dp"
+            android:visibility="gone"
+            android:background="@drawable/searchview_border" />
+
+        <!-- ListView -->
+        <ListView
+            android:id="@+id/listView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="25dp"
+            android:layout_marginEnd="25dp"
+            android:layout_marginTop="140dp"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="0dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone" />
+
+        <!-- Mini Player -->
+        <LinearLayout
+            android:id="@+id/miniPlayer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="15dp"
+            android:background="@drawable/rounded_image"
+            android:visibility="gone"
+            android:elevation="7dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="10dp"
+            android:layout_gravity="bottom">
+
+            <!-- File Name -->
+            <TextView
+                android:id="@+id/currentAudioName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Now Playing..."
+                android:textColor="@android:color/black"
+                android:textSize="16sp"
+                android:maxLines="1"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:singleLine="true"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:fontFamily="@font/poppins_medium"
+                android:paddingBottom="8dp"/>
+
+            <!-- SeekBar and Time Display -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/currentTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/poppins"/>
+
+                <SeekBar
+                    android:id="@+id/seekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:id="@+id/totalTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/poppins"/>
+            </LinearLayout>
+
+            <!-- Playback Controls -->
+            <LinearLayout
+                android:id="@+id/playerControls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <ImageView
+                    android:id="@+id/prevButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:src="@drawable/previous"
+                    android:contentDescription="Previous" />
+
+                <ImageView
+                    android:id="@+id/playPauseButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:src="@drawable/pause"
+                    android:contentDescription="Pause" />
+
+                <ImageView
+                    android:id="@+id/nextButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:src="@drawable/next"
+                    android:contentDescription="Next" />
+
+                <ImageView
+                    android:id="@+id/stopButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:layout_marginEnd="15dp"
+                    android:src="@drawable/stop"
+                    android:contentDescription="Stop" />
+            </LinearLayout>
+
+
+
+        </LinearLayout>
+
+        <!-- Progress Overlay -->
+        <FrameLayout
+            android:id="@+id/progressOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/modal_blur"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/operationProgressBar"
+                style="?android:attr/progressBarStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:indeterminateTint="@color/BLUE"
+                android:indeterminateTintMode="src_in" />
+        </FrameLayout>
+    </FrameLayout>
+
     <LinearLayout
-        android:id="@+id/miniPlayer"
+        android:id="@+id/noInternetContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="15dp"
-        android:background="@drawable/rounded_image"
-        android:visibility="gone"
-        android:elevation="7dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
-        android:layout_marginBottom="10dp"
-        android:layout_gravity="bottom">
+        android:layout_gravity="center"
+        android:visibility="gone">
 
-        <!-- File Name -->
-        <TextView
-            android:id="@+id/currentAudioName"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Now Playing..."
-            android:textColor="@android:color/black"
-            android:textSize="16sp"
-            android:maxLines="1"
-            android:ellipsize="marquee"
-            android:marqueeRepeatLimit="marquee_forever"
-            android:singleLine="true"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:fontFamily="@font/poppins_medium"
-            android:paddingBottom="8dp"/>
-
-        <!-- SeekBar and Time Display -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/currentTime"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="00:00"
-                android:textSize="12sp"
-                android:textColor="@android:color/black"
-                android:fontFamily="@font/poppins"/>
-
-            <SeekBar
-                android:id="@+id/seekBar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"/>
-
-            <TextView
-                android:id="@+id/totalTime"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="00:00"
-                android:textSize="12sp"
-                android:textColor="@android:color/black"
-                android:fontFamily="@font/poppins"/>
-        </LinearLayout>
-
-        <!-- Playback Controls -->
-        <LinearLayout
-            android:id="@+id/playerControls"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-
-            <ImageView
-                android:id="@+id/prevButton"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:scaleType="fitXY"
-                android:layout_marginStart="15dp"
-                android:src="@drawable/previous"
-                android:contentDescription="Previous" />
-
-            <ImageView
-                android:id="@+id/playPauseButton"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:scaleType="fitXY"
-                android:layout_marginStart="15dp"
-                android:src="@drawable/pause"
-                android:contentDescription="Pause" />
-
-            <ImageView
-                android:id="@+id/nextButton"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:scaleType="fitXY"
-                android:layout_marginStart="15dp"
-                android:src="@drawable/next"
-                android:contentDescription="Next" />
-
-            <ImageView
-                android:id="@+id/stopButton"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:scaleType="fitXY"
-                android:layout_marginStart="15dp"
-                android:layout_marginEnd="15dp"
-                android:src="@drawable/stop"
-                android:contentDescription="Stop" />
-        </LinearLayout>
-
+        <ImageView
+            android:id="@+id/noInternetImage"
+            android:layout_width="230dp"
+            android:layout_height="230dp"
+            android:layout_gravity="center"
+            android:src="@drawable/no_internet"
+            android:scaleType="fitXY"
+            android:contentDescription="No Internet" />
     </LinearLayout>
 
 </FrameLayout>

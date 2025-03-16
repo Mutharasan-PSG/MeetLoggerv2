@@ -12,6 +12,7 @@
     <color name="DarkGrey">#71797E</color>
     <color name="Pink">#FFC0CB</color>
     <color name="red">#FF0000</color>
+    <color name="modal_blur">#80000000</color>
 
 
     <color name="sign_in_button_text_color">#FFFFFF</color> <!-- Example white color -->

@@ -8,8 +8,13 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -17,8 +22,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
+import androidx.annotation.RequiresApi
 import androidx.appcompat.widget.SearchView
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentTransaction
 import com.google.firebase.auth.FirebaseAuth
@@ -29,6 +38,9 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
+import androidx.core.view.get
+import androidx.core.view.size
+import com.google.firebase.Timestamp
 
 class ReportFragment : Fragment() {
 
@@ -36,28 +48,53 @@ class ReportFragment : Fragment() {
     private lateinit var searchView: SearchView
     private lateinit var deleteIcon: ImageView
     private lateinit var audioListIcon: ImageView
-    private lateinit var fileNamesList: ArrayList<String>
-    private lateinit var filteredList: ArrayList<String>
-    private lateinit var adapter: ArrayAdapter<String>
+    private lateinit var fileNamesList: ArrayList<Triple<String, Timestamp, String>> // Updated to Triple
+    private lateinit var filteredList: ArrayList<Triple<String, Timestamp, String>> // Updated to Triple
+    private lateinit var adapter: ArrayAdapter<Triple<String, Timestamp, String>> // Updated adapter type
     private lateinit var placeholderImage: ImageView
     private lateinit var placeholderText: TextView
     private lateinit var tickIcon: ImageView
+    private lateinit var progressOverlay: FrameLayout
+    private lateinit var mainContent: RelativeLayout
+    private lateinit var noInternetContainer: LinearLayout
     private var isRenaming = false
     private var renamingPosition = -1
     private var isDeleteMode = false
+    private var isProcessing = false
     private val selectedItems = HashSet<Int>()
     private var isDataLoaded = false
-    // Temporary storage for export content
     private var pendingExportContent: String? = null
     private var pendingExportFileName: String? = null
+    private var tempShareFile: File? = null
+    private var operationStartTime: Long = 0L
+    private var hasShownSlowToast = false
+    private val handler = Handler(Looper.getMainLooper())
+    private val internetCheckTask = object : Runnable {
+        override fun run() {
+            checkInternetStatus()
+            handler.postDelayed(this, 500) // Check every 500ms
+        }
+    }
+    private val fetchDebounceTask = Runnable { fetchFileNames(false) }
 
     private val TAG = "ReportFragment"
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ): View {
         val view = inflater.inflate(R.layout.fragment_report, container, false)
+        initializeViews(view)
+        setupListView()
+        setupBackPressHandler()
+
+        handler.post(internetCheckTask) // Start internet monitoring
+        checkInternetAndLoad()
+
+        return view
+    }
+
+    private fun initializeViews(view: View) {
         listView = view.findViewById(R.id.listView)
         searchView = view.findViewById(R.id.searchView)
         deleteIcon = view.findViewById(R.id.deleteIcon)
@@ -65,12 +102,95 @@ class ReportFragment : Fragment() {
         placeholderImage = view.findViewById(R.id.placeholderImage)
         placeholderText = view.findViewById(R.id.placeholderText)
         tickIcon = view.findViewById(R.id.tickIcon)
+        progressOverlay = view.findViewById(R.id.progressOverlay)
+        mainContent = view.findViewById(R.id.mainContent)
+        noInternetContainer = view.findViewById(R.id.noInternetContainer)
         listView.setSelector(android.R.color.transparent)
 
         fileNamesList = ArrayList()
         filteredList = ArrayList()
+    }
 
-        adapter = object : ArrayAdapter<String>(requireContext(), R.layout.list_item, R.id.textViewFileName, filteredList) {
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = requireContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun checkInternetStatus() {
+        if (!isAdded) return
+        val isOnline = isNetworkAvailable()
+        if (!isOnline && !noInternetContainer.isShown) {
+            mainContent.visibility = View.GONE
+            noInternetContainer.visibility = View.VISIBLE
+            Toast.makeText(requireContext(), "Internet connection lost", Toast.LENGTH_SHORT).show()
+            if (isProcessing) {
+                abortCurrentOperation()
+            }
+        } else if (isOnline && !mainContent.isShown) {
+            mainContent.visibility = View.VISIBLE
+            noInternetContainer.visibility = View.GONE
+            Toast.makeText(requireContext(), "Internet connection restored", Toast.LENGTH_SHORT).show()
+            if (!isProcessing) scheduleFetchDebounce()
+        }
+
+        if (isProcessing && isOnline) {
+            val elapsedTime = System.currentTimeMillis() - operationStartTime
+            if (elapsedTime > 5000 && !hasShownSlowToast) {
+                Toast.makeText(requireContext(), "Internet is slow, please wait...", Toast.LENGTH_SHORT).show()
+                hasShownSlowToast = true
+            }
+        }
+    }
+
+    private fun checkInternetAndLoad() {
+        if (isNetworkAvailable()) {
+            mainContent.visibility = View.VISIBLE
+            noInternetContainer.visibility = View.GONE
+            fetchFileNames(false) // Silent fetch on load
+        } else {
+            mainContent.visibility = View.GONE
+            noInternetContainer.visibility = View.VISIBLE
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun setupBackPressHandler() {
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (isProcessing) {
+                    Toast.makeText(requireContext(), "Operation in progress, please wait", Toast.LENGTH_SHORT).show()
+                } else if (isRenaming) {
+                    cleanupRenamingMode()
+                } else {
+                    isEnabled = false
+                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+    }
+
+    private fun abortCurrentOperation() {
+        if (isAdded) {
+            progressOverlay.visibility = View.GONE
+            isProcessing = false
+            hasShownSlowToast = false
+            cleanupTempFile(tempShareFile)
+            Toast.makeText(requireContext(), "Operation aborted due to no internet", Toast.LENGTH_SHORT).show()
+            adapter.notifyDataSetChanged()
+            togglePlaceholder()
+        }
+    }
+
+    private fun setupListView() {
+        adapter = object : ArrayAdapter<Triple<String, Timestamp, String>>(
+            requireContext(),
+            R.layout.list_item,
+            R.id.textViewFileName,
+            filteredList
+        ) {
+            @RequiresApi(Build.VERSION_CODES.P)
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.list_item, parent, false)
                 val checkbox = view.findViewById<CheckBox>(R.id.checkbox)
@@ -78,30 +198,31 @@ class ReportFragment : Fragment() {
                 val textView = view.findViewById<TextView>(R.id.textViewFileName)
                 val editText = view.findViewById<EditText>(R.id.editTextFileName)
 
-                checkbox.visibility = if (isDeleteMode && !isRenaming) View.VISIBLE else View.GONE
+                checkbox.visibility = if (isDeleteMode && !isRenaming && !isProcessing) View.VISIBLE else View.GONE
                 checkbox.isChecked = selectedItems.contains(position)
                 checkbox.setOnCheckedChangeListener { _, isChecked ->
-                    if (!isRenaming) {
+                    if (!isRenaming && !isProcessing) {
                         if (isChecked) selectedItems.add(position) else selectedItems.remove(position)
                         updateDeleteIconVisibility()
                     }
                 }
 
-                menuIcon.visibility = if (isDeleteMode || isRenaming) View.GONE else View.VISIBLE
+                menuIcon.visibility = if (isDeleteMode || isRenaming || isProcessing) View.GONE else View.VISIBLE
                 menuIcon.setOnClickListener {
-                    if (!isRenaming) {
+                    if (!isRenaming && !isProcessing) {
                         showOptionsPopup(menuIcon, position)
                     }
                 }
 
+                val (fileName, _, _) = filteredList[position] // Destructure Triple
                 if (position == renamingPosition && isRenaming) {
                     textView.visibility = View.GONE
                     editText.visibility = View.VISIBLE
-                    editText.setText(filteredList[position])
+                    editText.setText(fileName)
                 } else {
                     textView.visibility = View.VISIBLE
                     editText.visibility = View.GONE
-                    textView.text = filteredList[position]
+                    textView.text = fileName
                 }
 
                 return view
@@ -109,23 +230,20 @@ class ReportFragment : Fragment() {
         }
         listView.adapter = adapter
 
-        setInitialVisibility()
-        fetchFileNames()
-
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?) = filterFiles(query)
             override fun onQueryTextChange(newText: String?) = filterFiles(newText)
         })
 
         listView.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
-            if (!isDeleteMode && !isRenaming) {
-                val selectedFileName = filteredList[position]
+            if (!isDeleteMode && !isRenaming && !isProcessing) {
+                val (selectedFileName, _, _) = filteredList[position]
                 openFileDetailsFragment(selectedFileName)
             }
         }
 
         listView.setOnItemLongClickListener { _, _, position, _ ->
-            if (!isDeleteMode && !isRenaming) {
+            if (!isDeleteMode && !isRenaming && !isProcessing) {
                 toggleDeleteMode(true)
                 selectedItems.add(position)
                 adapter.notifyDataSetChanged()
@@ -135,47 +253,73 @@ class ReportFragment : Fragment() {
         }
 
         deleteIcon.setOnClickListener {
-            if (isDeleteMode && selectedItems.isNotEmpty()) {
+            if (isDeleteMode && selectedItems.isNotEmpty() && !isProcessing) {
                 showDeleteConfirmationDialog()
             }
         }
 
         audioListIcon.setOnClickListener {
-            openAudioListFragment()
+            if (!isProcessing) openAudioListFragment()
         }
-
-        return view
     }
 
-    private fun setInitialVisibility() {
-        placeholderImage.visibility = View.GONE
-        placeholderText.visibility = View.GONE
-        searchView.visibility = View.GONE
-        listView.visibility = View.GONE
-        deleteIcon.visibility = View.GONE
-        audioListIcon.visibility = View.VISIBLE
-    }
-
+    @RequiresApi(Build.VERSION_CODES.P)
     private fun showOptionsPopup(anchorView: View, position: Int) {
-        val popup = PopupMenu(requireContext(), anchorView)
-        popup.menu.add("Rename")
-        popup.menu.add("Export")
-        popup.menu.add("Share")
+        val popupView = LayoutInflater.from(requireContext()).inflate(R.layout.popup_menu_layout, null)
+        val listView = popupView.findViewById<ListView>(R.id.popup_list)
 
-        popup.gravity = Gravity.END
+        val options = listOf("Rename", "Export", "Share")
 
-        popup.setOnMenuItemClickListener { item ->
-            when (item.title) {
-                "Rename" -> startRenaming(position)
-                "Export" -> exportFile(filteredList[position])
-                "Share" -> shareFile(filteredList[position])
+        val adapter = object : ArrayAdapter<String>(
+            requireContext(),
+            R.layout.popup_menu_item,
+            options
+        ) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.popup_menu_item, parent, false)
+                val textView = view.findViewById<TextView>(android.R.id.text1)
+                val poppinsFont = ResourcesCompat.getFont(requireContext(), R.font.poppins_medium)
+                textView.typeface = poppinsFont
+                textView.textSize = 16f
+                textView.setPadding(16, 8, 16, 8)
+                textView.setTextColor(Color.BLACK)
+                textView.gravity = Gravity.CENTER_VERTICAL
+                textView.text = options[position]
+                return view
             }
-            true
         }
-        popup.show()
+        listView.adapter = adapter
+
+        val popupWidth = (120 * resources.displayMetrics.density).toInt()
+        val popupWindow = PopupWindow(
+            popupView,
+            popupWidth,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+
+        popupView.setPadding(0, 0, 0, 0)
+        popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), android.R.drawable.dialog_holo_light_frame))
+        popupWindow.elevation = 2f
+
+        listView.setOnItemClickListener { _, _, index, _ ->
+            when (options[index]) {
+                "Rename" -> startRenaming(position)
+                "Export" -> exportFile(filteredList[position].first)
+                "Share" -> shareFile(filteredList[position].first)
+            }
+            popupWindow.dismiss()
+        }
+
+        popupWindow.showAsDropDown(anchorView, 0, 0, Gravity.END)
     }
 
     private fun startRenaming(position: Int) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         Log.d(TAG, "Starting rename for position: $position")
         isRenaming = true
         renamingPosition = position
@@ -189,21 +333,18 @@ class ReportFragment : Fragment() {
 
         adapter.notifyDataSetChanged()
 
-        // Ensure cursor is placed at the end after the view is updated
         listView.post {
             val view = listView.getChildAt(position - listView.firstVisiblePosition)
             val editText = view?.findViewById<EditText>(R.id.editTextFileName)
             editText?.let {
-                it.setText(filteredList[position]) // Set text
+                it.setText(filteredList[position].first)
                 val textLength = it.text.length
-                it.setSelection(textLength) // Move cursor to end
-                it.requestFocus() // Request focus first
+                it.setSelection(textLength)
+                it.requestFocus()
 
-                // Show keyboard
                 val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.showSoftInput(it, InputMethodManager.SHOW_IMPLICIT)
 
-                // Ensure cursor stays at end after keyboard appears
                 it.post {
                     it.setSelection(textLength)
                     it.isCursorVisible = true
@@ -217,7 +358,71 @@ class ReportFragment : Fragment() {
         }
     }
 
+    private fun finishRenaming(position: Int) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            cleanupRenamingMode()
+            return
+        }
+
+        val editText = listView.getChildAt(position - listView.firstVisiblePosition)
+            ?.findViewById<EditText>(R.id.editTextFileName)
+
+        val newNameWithoutExtension = editText?.text.toString().trim()
+        if (newNameWithoutExtension.isEmpty()) {
+            Toast.makeText(requireContext(), "File name cannot be empty", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val oldNameWithoutExt = filteredList[position].first
+        val oldFullName = fileNamesList.find { it.first == oldNameWithoutExt }?.first ?: return
+        val extension = oldFullName.substringAfterLast(".")
+        val newFullName = "$newNameWithoutExtension.$extension"
+
+        if (newNameWithoutExtension == oldNameWithoutExt) {
+            Toast.makeText(requireContext(), "Enter a different name", Toast.LENGTH_SHORT).show()
+            cleanupRenamingMode()
+            return
+        }
+
+        if (fileNamesList.any { it.first == newFullName }) {
+            Toast.makeText(requireContext(), "File name already exists", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(listView.windowToken, 0)
+
+        isProcessing = true
+        operationStartTime = System.currentTimeMillis()
+        hasShownSlowToast = false
+        progressOverlay.visibility = View.VISIBLE
+        Toast.makeText(requireContext(), "Renaming file...", Toast.LENGTH_SHORT).show()
+
+        updateFileNameInDatabase(oldFullName, newFullName) { success ->
+            if (!isAdded || !isNetworkAvailable()) {
+                abortCurrentOperation()
+                return@updateFileNameInDatabase
+            }
+            progressOverlay.visibility = View.GONE
+            isProcessing = false
+            if (success) {
+                Toast.makeText(requireContext(), "Renamed successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "Rename failed", Toast.LENGTH_SHORT).show()
+            }
+            cleanupRenamingMode()
+            scheduleFetchDebounce() // Sync DB after rename
+        }
+    }
+
     private fun updateFileNameInDatabase(oldFullName: String, newFullName: String, callback: (Boolean) -> Unit) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            callback(false)
+            return
+        }
+
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
             Log.e(TAG, "No user ID found")
             callback(false)
@@ -233,183 +438,81 @@ class ReportFragment : Fragment() {
         val newFileRef = db.collection("ProcessedDocs").document(userId)
             .collection("UserFiles").document(newFullName)
 
-        // First get the document data
         userFilesRef.get().addOnSuccessListener { document ->
+            if (!isAdded || !isNetworkAvailable()) {
+                callback(false)
+                return@addOnSuccessListener
+            }
             if (document.exists()) {
                 val documentData = document.data ?: mapOf("fileName" to oldFullName)
                 val updatedData = documentData.toMutableMap().apply {
                     put("fileName", newFullName)
                 }
 
-                // Handle storage file rename
                 oldStorageRef.getBytes(Long.MAX_VALUE).addOnSuccessListener { bytes ->
-                    // Upload to new location
                     newStorageRef.putBytes(bytes).addOnSuccessListener {
-                        // Delete old file after successful upload
                         oldStorageRef.delete().addOnSuccessListener {
-                            Log.d(TAG, "Old file deleted from storage")
-
-                            // Update Firestore in a transaction
                             db.runTransaction { transaction ->
                                 transaction.set(newFileRef, updatedData)
                                 transaction.delete(userFilesRef)
                             }.addOnSuccessListener {
-                                updateLocalLists(oldFullName, newFullName)
+                                if (isAdded) updateLocalLists(oldFullName, newFullName)
                                 callback(true)
                             }.addOnFailureListener { e ->
-                                Log.e(TAG, "Firestore transaction failed", e)
+                                if (isAdded) Log.e(TAG, "Firestore transaction failed", e)
                                 callback(false)
                             }
                         }.addOnFailureListener { e ->
-                            Log.e(TAG, "Failed to delete old file", e)
+                            if (isAdded) Log.e(TAG, "Failed to delete old file", e)
                             callback(false)
                         }
                     }.addOnFailureListener { e ->
-                        Log.e(TAG, "Failed to upload renamed file", e)
+                        if (isAdded) Log.e(TAG, "Failed to upload renamed file", e)
                         callback(false)
                     }
                 }.addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to download original file", e)
-                    // If no storage file exists, just update Firestore
+                    if (isAdded) Log.e(TAG, "Failed to download original file, proceeding with Firestore", e)
                     db.runTransaction { transaction ->
                         transaction.set(newFileRef, updatedData)
                         transaction.delete(userFilesRef)
                     }.addOnSuccessListener {
-                        updateLocalLists(oldFullName, newFullName)
+                        if (isAdded) updateLocalLists(oldFullName, newFullName)
                         callback(true)
                     }.addOnFailureListener { e ->
-                        Log.e(TAG, "Firestore transaction failed without storage", e)
+                        if (isAdded) Log.e(TAG, "Firestore transaction failed without storage", e)
                         callback(false)
                     }
                 }
             } else {
-                Log.w(TAG, "Original document not found")
+                if (isAdded) Log.w(TAG, "Original document not found")
                 callback(false)
             }
         }.addOnFailureListener { e ->
-            Log.e(TAG, "Failed to fetch original document", e)
-            callback(false)
-        }
-    }
-
-    private fun updateFirestore(userId: String, oldFullName: String, newFullName: String, callback: (Boolean) -> Unit) {
-        val db = FirebaseFirestore.getInstance()
-        val userFilesRef = db.collection("ProcessedDocs").document(userId)
-            .collection("UserFiles").document(oldFullName)
-        val newFileRef = db.collection("ProcessedDocs").document(userId)
-            .collection("UserFiles").document(newFullName)
-
-        db.runTransaction { transaction ->
-            val documentSnapshot = transaction.get(userFilesRef)
-            if (!documentSnapshot.exists()) {
-                Log.w(TAG, "Document not found: $oldFullName - Creating new entry")
-                val newData = mapOf("fileName" to newFullName)
-                transaction.set(newFileRef, newData)
-            } else {
-                val documentData = documentSnapshot.data ?: throw Exception("Document data is null")
-                val updatedData = documentData.toMutableMap()
-                updatedData["fileName"] = newFullName
-                transaction.set(newFileRef, updatedData)
-                transaction.delete(userFilesRef)
-            }
-        }.addOnSuccessListener {
-            Log.d(TAG, "Firestore update successful")
-            updateLocalLists(oldFullName, newFullName)
-            callback(true)
-        }.addOnFailureListener { e ->
-            Log.e(TAG, "Firestore update failed", e)
+            if (isAdded) Log.e(TAG, "Failed to fetch original document", e)
             callback(false)
         }
     }
 
     private fun updateLocalLists(oldFullName: String, newFullName: String) {
-        val indexInFileNames = fileNamesList.indexOf(oldFullName)
-        if (indexInFileNames != -1) {
-            fileNamesList[indexInFileNames] = newFullName
-        }
-
         val oldNameWithoutExt = oldFullName.substringBefore(".")
         val newNameWithoutExt = newFullName.substringBefore(".")
-        val indexInFilteredList = filteredList.indexOf(oldNameWithoutExt)
+        val indexInFileNames = fileNamesList.indexOfFirst { it.first == oldFullName }
+        if (indexInFileNames != -1) {
+            val timestamp = fileNamesList[indexInFileNames].second
+            val status = fileNamesList[indexInFileNames].third
+            fileNamesList[indexInFileNames] = Triple(newFullName, timestamp, status)
+        }
+
+        val indexInFilteredList = filteredList.indexOfFirst { it.first == oldNameWithoutExt }
         if (indexInFilteredList != -1) {
-            filteredList[indexInFilteredList] = newNameWithoutExt
+            val timestamp = filteredList[indexInFilteredList].second
+            val status = filteredList[indexInFilteredList].third
+            filteredList[indexInFilteredList] = Triple(newNameWithoutExt, timestamp, status)
         }
 
-        adapter.notifyDataSetChanged()
-    }
-
-    private fun finishRenaming(position: Int) {
-        val editText = listView.getChildAt(position - listView.firstVisiblePosition)
-            ?.findViewById<EditText>(R.id.editTextFileName)
-
-        val newNameWithoutExtension = editText?.text.toString().trim()
-        if (newNameWithoutExtension.isEmpty()) {
-            Toast.makeText(requireContext(), "File name cannot be empty", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val oldNameWithoutExtension = filteredList[position]
-        val oldFullName = fileNamesList.find { it.startsWith(oldNameWithoutExtension) } ?: return
-        val extension = oldFullName.substringAfterLast(".")
-        val newFullName = "$newNameWithoutExtension.$extension"
-
-        if (newNameWithoutExtension == oldNameWithoutExtension) {
-            Toast.makeText(requireContext(), "Enter a different name", Toast.LENGTH_SHORT).show()
-            cleanupRenamingMode()
-            return
-        }
-
-        if (fileNamesList.any { it == newFullName }) {
-            Toast.makeText(requireContext(), "File name already exists", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(listView.windowToken, 0)
-
-        updateFileNameInDatabase(oldFullName, newFullName) { success ->
-            if (success) {
-                Toast.makeText(requireContext(), "Renamed successfully", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(requireContext(), "Rename failed", Toast.LENGTH_SHORT).show()
-            }
-            cleanupRenamingMode()
-        }
-    }
-
-    private fun fetchFileNames() {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
-            Log.e(TAG, "No user ID found in fetchFileNames")
-            return
-        }
-        val db = FirebaseFirestore.getInstance()
-        val userFilesRef = db.collection("ProcessedDocs").document(userId).collection("UserFiles")
-
-        userFilesRef.addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                Log.e(TAG, "Snapshot listener error: ${error.message}", error)
-                togglePlaceholderOnError()
-                return@addSnapshotListener
-            }
-
-            Log.d(TAG, "Received snapshot update")
-            fileNamesList.clear()
-            snapshot?.documents?.forEach { document ->
-                val fileName = document.getString("fileName") ?: run {
-                    Log.w(TAG, "Null filename in document: ${document.id}")
-                    return@forEach
-                }
-                fileNamesList.add(fileName)
-                Log.d(TAG, "Added file: $fileName")
-            }
-
-            filteredList.clear()
-            filteredList.addAll(fileNamesList.map { it.substringBeforeLast(".") })
-            Log.d(TAG, "Updated filteredList with ${filteredList.size} items")
-            isDataLoaded = true
-            togglePlaceholder()
+        if (isAdded) {
             adapter.notifyDataSetChanged()
-            updateDeleteIconVisibility()
+            togglePlaceholder()
         }
     }
 
@@ -419,24 +522,47 @@ class ReportFragment : Fragment() {
         tickIcon.visibility = View.GONE
         deleteIcon.visibility = if (isDeleteMode && selectedItems.isNotEmpty()) View.VISIBLE else View.GONE
         audioListIcon.visibility = if (isDeleteMode) View.GONE else View.VISIBLE
-        adapter.notifyDataSetChanged()
+        if (isAdded) adapter.notifyDataSetChanged()
     }
 
     private fun exportFile(displayedFileName: String) {
-        val fullFileName = fileNamesList.find { it.startsWith(displayedFileName) } ?: return
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val fullFileName = fileNamesList.find { it.first.startsWith(displayedFileName) }?.first ?: return
         fetchAndProcessContent(fullFileName) { formattedContent ->
+            if (!isAdded || !isNetworkAvailable()) {
+                abortCurrentOperation()
+                return@fetchAndProcessContent
+            }
             showExportDialog(fullFileName, formattedContent)
         }
     }
 
     private fun shareFile(displayedFileName: String) {
-        val fullFileName = fileNamesList.find { it.startsWith(displayedFileName) } ?: return
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val fullFileName = fileNamesList.find { it.first.startsWith(displayedFileName) }?.first ?: return
         fetchAndProcessContent(fullFileName) { formattedContent ->
+            if (!isAdded || !isNetworkAvailable()) {
+                abortCurrentOperation()
+                return@fetchAndProcessContent
+            }
             exportAndShareContent(fullFileName, formattedContent)
         }
     }
 
     private fun fetchAndProcessContent(fileName: String, callback: (String) -> Unit) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val db = FirebaseFirestore.getInstance()
         val fileRef = db.collection("ProcessedDocs")
@@ -444,9 +570,21 @@ class ReportFragment : Fragment() {
             .collection("UserFiles")
             .document(fileName)
 
+        isProcessing = true
+        operationStartTime = System.currentTimeMillis()
+        hasShownSlowToast = false
+        progressOverlay.visibility = View.VISIBLE
+        Toast.makeText(requireContext(), "Fetching file content...", Toast.LENGTH_SHORT).show()
+
         Log.d(TAG, "Fetching content for file: $fileName")
         fileRef.get()
             .addOnSuccessListener { document ->
+                if (!isAdded || !isNetworkAvailable()) {
+                    abortCurrentOperation()
+                    return@addOnSuccessListener
+                }
+                progressOverlay.visibility = View.GONE
+                isProcessing = false
                 if (document.exists()) {
                     val responseText = document.getString("Response") ?: "No response available"
                     val cleanedText = responseText.replace("*", "").trim()
@@ -458,6 +596,9 @@ class ReportFragment : Fragment() {
                 }
             }
             .addOnFailureListener { e ->
+                if (!isAdded) return@addOnFailureListener
+                progressOverlay.visibility = View.GONE
+                isProcessing = false
                 Log.e(TAG, "Failed to fetch file details: ${e.message}", e)
                 Toast.makeText(requireContext(), "Failed to load file details", Toast.LENGTH_SHORT).show()
             }
@@ -483,13 +624,17 @@ class ReportFragment : Fragment() {
     }
 
     private fun exportContent(fileName: String, content: String, format: String) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         if (content.isEmpty()) {
             Toast.makeText(requireContext(), "No content to export", Toast.LENGTH_SHORT).show()
             return
         }
 
         try {
-            // Store content and file name temporarily
             pendingExportContent = content
             pendingExportFileName = fileName
 
@@ -515,7 +660,6 @@ class ReportFragment : Fragment() {
             if (content != null && fileName != null) {
                 Log.d(TAG, "Saving content to URI for file: $fileName")
                 saveContentToUri(uri, content)
-                // Clear pending data after successful save
                 pendingExportContent = null
                 pendingExportFileName = null
             } else {
@@ -526,6 +670,17 @@ class ReportFragment : Fragment() {
     }
 
     private fun saveContentToUri(uri: Uri, content: String) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        isProcessing = true
+        operationStartTime = System.currentTimeMillis()
+        hasShownSlowToast = false
+        progressOverlay.visibility = View.VISIBLE
+        Toast.makeText(requireContext(), "Saving file...", Toast.LENGTH_SHORT).show()
+
         try {
             val outputStream = requireContext().contentResolver.openOutputStream(uri)
             if (outputStream != null) {
@@ -534,27 +689,51 @@ class ReportFragment : Fragment() {
                     uri.toString().endsWith("docx") -> saveAsDocx(content, outputStream)
                 }
                 outputStream.close()
+                if (!isAdded || !isNetworkAvailable()) {
+                    abortCurrentOperation()
+                    return
+                }
+                progressOverlay.visibility = View.GONE
+                isProcessing = false
                 Toast.makeText(requireContext(), "File saved successfully", Toast.LENGTH_SHORT).show()
             } else {
+                if (!isAdded) return
+                progressOverlay.visibility = View.GONE
+                isProcessing = false
                 Log.e(TAG, "Failed to open output stream for URI: $uri")
                 Toast.makeText(requireContext(), "Failed to save file: Output stream unavailable", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
+            if (!isAdded) return
+            progressOverlay.visibility = View.GONE
+            isProcessing = false
             Log.e(TAG, "Error saving file to URI: ${e.message}", e)
             Toast.makeText(requireContext(), "Error saving file: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun exportAndShareContent(fileName: String, content: String) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         if (content.isEmpty()) {
             Toast.makeText(requireContext(), "No content to share", Toast.LENGTH_SHORT).show()
             return
         }
 
+        isProcessing = true
+        operationStartTime = System.currentTimeMillis()
+        hasShownSlowToast = false
+        progressOverlay.visibility = View.VISIBLE
+        Toast.makeText(requireContext(), "Preparing to share...", Toast.LENGTH_SHORT).show()
+
         try {
             val cleanFileName = fileName.substringBeforeLast(".")
-            val format = if (content.contains("Speaker")) "PDF" else "DOCX" // Example heuristic; adjust as needed
+            val format = if (content.contains("Speaker")) "PDF" else "DOCX"
             val tempFile = File(requireContext().cacheDir, "$cleanFileName.${if (format == "PDF") "pdf" else "docx"}")
+            tempShareFile = tempFile
             val outputStream = FileOutputStream(tempFile)
             when (format) {
                 "PDF" -> saveAsPdf(content, outputStream)
@@ -562,15 +741,28 @@ class ReportFragment : Fragment() {
             }
             outputStream.close()
 
+            if (!isAdded || !isNetworkAvailable()) {
+                abortCurrentOperation()
+                cleanupTempFile(tempFile)
+                return
+            }
+
             val uri = FileProvider.getUriForFile(requireContext(), "com.example.meetloggerv2.fileprovider", tempFile)
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = if (format == "PDF") "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
+            progressOverlay.visibility = View.GONE
+            isProcessing = false
+            Toast.makeText(requireContext(), "File ready to share", Toast.LENGTH_SHORT).show()
             startActivity(Intent.createChooser(shareIntent, "Share Document"))
         } catch (e: Exception) {
+            if (!isAdded) return
+            progressOverlay.visibility = View.GONE
+            isProcessing = false
             Toast.makeText(requireContext(), "Error during file sharing: ${e.message}", Toast.LENGTH_SHORT).show()
+            cleanupTempFile(tempShareFile)
         }
     }
 
@@ -745,47 +937,50 @@ class ReportFragment : Fragment() {
         filteredList.clear()
 
         if (query.isNullOrEmpty()) {
-            filteredList.addAll(fileNamesList.map { it.substringBeforeLast(".") })
+            filteredList.addAll(fileNamesList)
         } else {
             val lowerCaseQuery = query.toLowerCase()
-            fileNamesList.forEach { fileName ->
+            fileNamesList.forEach { (fileName, timestamp, status) ->
                 if (fileName.toLowerCase().contains(lowerCaseQuery)) {
-                    filteredList.add(fileName.substringBeforeLast("."))
+                    filteredList.add(Triple(fileName.substringBeforeLast("."), timestamp, status))
                 }
             }
         }
 
-        if (filteredList.isEmpty()) {
-            if (fileNamesList.isEmpty()) {
+        if (isAdded) {
+            if (filteredList.isEmpty()) {
+                if (fileNamesList.isEmpty()) {
+                    placeholderText.text = "No files found"
+                    placeholderImage.visibility = View.GONE
+                } else {
+                    placeholderText.visibility = View.GONE
+                    placeholderImage.visibility = View.GONE
+                }
+                placeholderText.visibility = View.VISIBLE
                 placeholderText.text = "No files found"
-                placeholderImage.visibility = View.GONE
+                listView.visibility = View.GONE
             } else {
                 placeholderText.visibility = View.GONE
                 placeholderImage.visibility = View.GONE
+                listView.visibility = View.VISIBLE
             }
-            placeholderText.visibility = View.VISIBLE
-            placeholderText.text = "No files found"
-            listView.visibility = View.GONE
-        } else {
-            placeholderText.visibility = View.GONE
-            placeholderImage.visibility = View.GONE
-            listView.visibility = View.VISIBLE
+            adapter.notifyDataSetChanged()
+            updateDeleteIconVisibility()
         }
-
-        adapter.notifyDataSetChanged()
-        updateDeleteIconVisibility()
         return true
     }
 
     private fun toggleDeleteMode(enable: Boolean) {
         isDeleteMode = enable
         if (!enable) selectedItems.clear()
-        adapter.notifyDataSetChanged()
-        updateDeleteIconVisibility()
+        if (isAdded) {
+            adapter.notifyDataSetChanged()
+            updateDeleteIconVisibility()
+        }
     }
 
     private fun updateDeleteIconVisibility() {
-        val shouldShowDelete = isDeleteMode && selectedItems.isNotEmpty()
+        val shouldShowDelete = isDeleteMode && selectedItems.isNotEmpty() && !isProcessing
         deleteIcon.visibility = if (shouldShowDelete) View.VISIBLE else View.GONE
         audioListIcon.visibility = if (shouldShowDelete) View.GONE else View.VISIBLE
     }
@@ -795,6 +990,7 @@ class ReportFragment : Fragment() {
             .setMessage("Are you sure you want to delete the selected documents?")
             .setPositiveButton("OK") { _, _ -> deleteSelectedItems() }
             .setNegativeButton("Cancel") { _, _ -> toggleDeleteMode(false) }
+            .setCancelable(false)
             .create()
 
         dialog.show()
@@ -803,21 +999,186 @@ class ReportFragment : Fragment() {
     }
 
     private fun deleteSelectedItems() {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            toggleDeleteMode(false)
+            return
+        }
+
+        val userId = FirebaseAuth.getInstance().currentUser?.uid
+        if (userId == null) {
+            Log.e(TAG, "No user ID found, cannot delete")
+            Toast.makeText(requireContext(), "User not authenticated", Toast.LENGTH_SHORT).show()
+            toggleDeleteMode(false)
+            return
+        }
+
+        if (selectedItems.isEmpty()) {
+            Log.w(TAG, "No items selected for deletion")
+            Toast.makeText(requireContext(), "No files selected", Toast.LENGTH_SHORT).show()
+            toggleDeleteMode(false)
+            return
+        }
+
         val db = FirebaseFirestore.getInstance()
         val userFilesRef = db.collection("ProcessedDocs").document(userId).collection("UserFiles")
 
-        val itemsToDelete = selectedItems.map { filteredList[it] }.toList()
-        itemsToDelete.forEach { fileName ->
-            val fullFileName = fileNamesList.find { it.startsWith(fileName) } ?: return@forEach
-            userFilesRef.document(fullFileName).delete()
+        isProcessing = true
+        operationStartTime = System.currentTimeMillis()
+        hasShownSlowToast = false
+        progressOverlay.visibility = View.VISIBLE
+        Toast.makeText(requireContext(), "Deleting files...", Toast.LENGTH_SHORT).show()
+
+        val itemsToDelete = mutableListOf<String>()
+        synchronized(filteredList) {
+            selectedItems.forEach { position ->
+                if (position in 0 until filteredList.size) {
+                    val (shortName, _, _) = filteredList[position]
+                    val fullName = fileNamesList.find { it.first.startsWith(shortName) }?.first
+                    if (fullName != null) {
+                        itemsToDelete.add(fullName)
+                    } else {
+                        Log.w(TAG, "No full file name found for: $shortName")
+                    }
+                } else {
+                    Log.w(TAG, "Invalid position: $position, filteredList size: ${filteredList.size}")
+                }
+            }
         }
 
-        toggleDeleteMode(false)
+        if (itemsToDelete.isEmpty()) {
+            Log.e(TAG, "No valid files to delete after mapping")
+            progressOverlay.visibility = View.GONE
+            isProcessing = false
+            Toast.makeText(requireContext(), "No valid files to delete", Toast.LENGTH_SHORT).show()
+            toggleDeleteMode(false)
+            return
+        }
+
+        Log.d(TAG, "Items to delete: $itemsToDelete")
+
+        val batch = db.batch()
+        itemsToDelete.forEach { fullFileName ->
+            val docRef = userFilesRef.document(fullFileName)
+            batch.delete(docRef)
+            Log.d(TAG, "Queued deletion for: $fullFileName")
+        }
+
+        batch.commit()
+            .addOnSuccessListener {
+                if (!isAdded || !isNetworkAvailable()) {
+                    abortCurrentOperation()
+                    return@addOnSuccessListener
+                }
+                Log.d(TAG, "Batch delete successful for ${itemsToDelete.size} files")
+
+                synchronized(fileNamesList) {
+                    synchronized(filteredList) {
+                        itemsToDelete.forEach { fullName ->
+                            fileNamesList.removeAll { it.first == fullName }
+                            val shortName = fullName.substringBeforeLast(".")
+                            filteredList.removeAll { it.first == shortName }
+                        }
+                        progressOverlay.visibility = View.GONE
+                        isProcessing = false
+                        Toast.makeText(requireContext(), "Files deleted successfully", Toast.LENGTH_SHORT).show()
+                        toggleDeleteMode(false)
+                        adapter.notifyDataSetChanged()
+                        togglePlaceholder()
+                    }
+                }
+                scheduleFetchDebounce() // Sync DB after delete
+            }
+            .addOnFailureListener { e ->
+                if (!isAdded) return@addOnFailureListener
+                Log.e(TAG, "Batch delete failed: ${e.message}", e)
+                progressOverlay.visibility = View.GONE
+                isProcessing = false
+                Toast.makeText(requireContext(), "Failed to delete files: ${e.message}", Toast.LENGTH_SHORT).show()
+                toggleDeleteMode(false)
+                scheduleFetchDebounce() // Refresh to reflect actual state
+            }
+    }
+
+    private fun fetchFileNames(showProgress: Boolean = true) {
+        if (!isNetworkAvailable()) {
+            if (isAdded) {
+                mainContent.visibility = View.GONE
+                noInternetContainer.visibility = View.VISIBLE
+                Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
+            Log.e(TAG, "No user ID found in fetchFileNames")
+            return
+        }
+        val db = FirebaseFirestore.getInstance()
+        val userFilesRef = db.collection("ProcessedDocs").document(userId).collection("UserFiles")
+
+        if (showProgress) {
+            isProcessing = true
+            operationStartTime = System.currentTimeMillis()
+            hasShownSlowToast = false
+            progressOverlay.visibility = View.VISIBLE
+            Toast.makeText(requireContext(), "Fetching documents...", Toast.LENGTH_SHORT).show()
+        }
+
+        userFilesRef.addSnapshotListener { snapshot, error ->
+            if (!isAdded || !isNetworkAvailable()) {
+                if (showProgress) abortCurrentOperation()
+                return@addSnapshotListener
+            }
+            if (showProgress) {
+                progressOverlay.visibility = View.GONE
+                isProcessing = false
+            }
+            if (error != null) {
+                Log.e(TAG, "Snapshot listener error: ${error.message}", error)
+                togglePlaceholderOnError()
+                Toast.makeText(requireContext(), "Failed to load documents: ${error.message}", Toast.LENGTH_SHORT).show()
+                handler.postDelayed({ fetchFileNames(false) }, 500)
+                return@addSnapshotListener
+            }
+
+            Log.d(TAG, "Received snapshot update")
+            synchronized(fileNamesList) {
+                synchronized(filteredList) {
+                    fileNamesList.clear()
+                    snapshot?.documents?.forEach { document ->
+                        val fileName = document.getString("fileName") ?: run {
+                            Log.w(TAG, "Null filename in document: ${document.id}")
+                            return@forEach
+                        }
+                        val timestamp = document.getTimestamp("timestamp_clientUpload") ?: return@forEach
+                        val status = document.getString("status") ?: "processing"
+                        fileNamesList.add(Triple(fileName, timestamp, status))
+                        Log.d(TAG, "Added file: $fileName with timestamp: $timestamp")
+                    }
+
+                    // Sort fileNamesList by timestamp_clientUpload in descending order (newest first)
+                    fileNamesList.sortByDescending { it.second }
+
+                    filteredList.clear()
+                    filteredList.addAll(fileNamesList.map { Triple(it.first.substringBeforeLast("."), it.second, it.third) })
+                    Log.d(TAG, "Updated filteredList with ${filteredList.size} items")
+                    isDataLoaded = true
+                    togglePlaceholder()
+                    adapter.notifyDataSetChanged()
+                    updateDeleteIconVisibility()
+                }
+            }
+        }
+    }
+
+    private fun scheduleFetchDebounce() {
+        handler.removeCallbacks(fetchDebounceTask)
+        handler.postDelayed(fetchDebounceTask, 500) // 500ms debounce
     }
 
     private fun togglePlaceholder() {
-        if (!isDataLoaded) return
+        if (!isDataLoaded || !isAdded) return
 
         if (fileNamesList.isEmpty()) {
             placeholderImage.visibility = View.VISIBLE
@@ -833,6 +1194,7 @@ class ReportFragment : Fragment() {
     }
 
     private fun togglePlaceholderOnError() {
+        if (!isAdded) return
         placeholderImage.visibility = View.VISIBLE
         placeholderText.visibility = View.GONE
         searchView.visibility = View.GONE
@@ -840,11 +1202,16 @@ class ReportFragment : Fragment() {
     }
 
     private fun openFileDetailsFragment(displayedFileName: String) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val db = FirebaseFirestore.getInstance()
         val userFilesRef = db.collection("ProcessedDocs").document(userId).collection("UserFiles")
 
-        val fullFileName = fileNamesList.find { it.startsWith(displayedFileName) } ?: return
+        val fullFileName = fileNamesList.find { it.first.startsWith(displayedFileName) }?.first ?: return
 
         val fileDetailsFragment = FileDetailsFragment().apply {
             arguments = Bundle().apply {
@@ -878,11 +1245,43 @@ class ReportFragment : Fragment() {
         transaction.commit()
     }
 
+    private fun cleanupTempFile(file: File?) {
+        file?.let {
+            if (it.exists()) {
+                try {
+                    it.delete()
+                    Log.d(TAG, "Temp file deleted: ${it.name}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to delete temp file: ${e.message}")
+                }
+            }
+        }
+        tempShareFile = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (isProcessing) {
+            Toast.makeText(requireContext(), "Previous operation interrupted", Toast.LENGTH_SHORT).show()
+            abortCurrentOperation()
+            scheduleFetchDebounce()
+        }
+        handler.post(internetCheckTask)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        handler.removeCallbacks(internetCheckTask)
+        handler.removeCallbacks(fetchDebounceTask)
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
+        handler.removeCallbacks(internetCheckTask)
+        handler.removeCallbacks(fetchDebounceTask)
         if (isRenaming) cleanupRenamingMode()
-        // Clear pending export data to avoid stale references
         pendingExportContent = null
         pendingExportFileName = null
+        cleanupTempFile(tempShareFile)
     }
 }

@@ -3,4 +3,5 @@
     <cache-path
         name="temp"
         path="." />
+    <external-files-path name="downloads" path="Music/" />
 </paths>
