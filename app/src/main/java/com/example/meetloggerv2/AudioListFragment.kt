@@ -57,10 +57,12 @@ class AudioListFragment : Fragment() {
     private lateinit var searchView: SearchView
     private lateinit var deleteIcon: ImageView
     private lateinit var tickIcon: ImageView
+    private lateinit var selectAllCheckbox: CheckBox
     private lateinit var progressOverlay: FrameLayout
     private lateinit var mainContent: FrameLayout
     private lateinit var noInternetContainer: LinearLayout
     private lateinit var mainTopic: TextView
+    private lateinit var touchBlockOverlay: FrameLayout
     private lateinit var fileNamesList: ArrayList<String>
     private lateinit var filteredList: ArrayList<String>
     private lateinit var adapter: ArrayAdapter<String>
@@ -95,7 +97,7 @@ class AudioListFragment : Fragment() {
     private val internetCheckTask = object : Runnable {
         override fun run() {
             checkInternetStatus()
-            handler.postDelayed(this, 2000) // Check every 2 seconds
+            handler.postDelayed(this, 2000)
         }
     }
     private var initialX = 0f
@@ -136,8 +138,9 @@ class AudioListFragment : Fragment() {
         setupDeleteIcon()
         setupMiniPlayerDragging()
         setupBackPressHandler()
+        setupSelectAllCheckbox()
 
-        handler.post(internetCheckTask) // Start internet monitoring
+        handler.post(internetCheckTask)
         checkInternetAndLoad()
 
         return view
@@ -148,10 +151,12 @@ class AudioListFragment : Fragment() {
         searchView = view.findViewById(R.id.searchView)
         deleteIcon = view.findViewById(R.id.deleteIcon)
         tickIcon = view.findViewById(R.id.tickIcon)
+        selectAllCheckbox = view.findViewById(R.id.selectAllCheckbox)
         progressOverlay = view.findViewById(R.id.progressOverlay)
         mainContent = view.findViewById(R.id.mainContent)
         noInternetContainer = view.findViewById(R.id.noInternetContainer)
         mainTopic = view.findViewById(R.id.AudioTopic)
+        touchBlockOverlay = view.findViewById(R.id.touchBlockOverlay)
         miniPlayer = view.findViewById(R.id.miniPlayer)
         playPauseButton = view.findViewById(R.id.playPauseButton)
         stopButton = view.findViewById(R.id.stopButton)
@@ -167,81 +172,6 @@ class AudioListFragment : Fragment() {
         mediaPlayer = MediaPlayer()
     }
 
-    private fun isNetworkAvailable(): Boolean {
-        val connectivityManager = try {
-            requireContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        } catch (e: IllegalStateException) {
-            Log.e("AudioListFragment", "Context unavailable, assuming no network: ${e.message}")
-            return false
-        }
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
-
-    private fun checkInternetStatus() {
-        if (!isAdded) return
-        val isOnline = isNetworkAvailable()
-        if (!isOnline && !noInternetContainer.isShown) {
-            mainContent.visibility = View.GONE
-            noInternetContainer.visibility = View.VISIBLE
-            Toast.makeText(requireContext(), "Internet connection lost", Toast.LENGTH_SHORT).show()
-            if (isProcessing) {
-                abortCurrentOperation()
-            }
-        } else if (isOnline && !mainContent.isShown) {
-            mainContent.visibility = View.VISIBLE
-            noInternetContainer.visibility = View.GONE
-            Toast.makeText(requireContext(), "Internet connection restored", Toast.LENGTH_SHORT).show()
-            if (!isProcessing) fetchAudioFiles(false) // No overlay/toast on restore
-        }
-
-        if (isProcessing && isOnline) {
-            val elapsedTime = System.currentTimeMillis() - operationStartTime
-            if (elapsedTime > 5000 && !hasShownSlowToast) { // 5 seconds threshold
-                Toast.makeText(requireContext(), "Internet is slow, please wait...", Toast.LENGTH_SHORT).show()
-                hasShownSlowToast = true
-            }
-        }
-    }
-
-    private fun checkInternetAndLoad() {
-        if (!isAdded) return
-        if (isNetworkAvailable()) {
-            mainContent.visibility = View.VISIBLE
-            noInternetContainer.visibility = View.GONE
-            fetchAudioFiles(false) // No overlay/toast on initial load
-        } else {
-            mainContent.visibility = View.GONE
-            noInternetContainer.visibility = View.VISIBLE
-            // No toast here either, keep it silent on initial load
-        }
-    }
-
-    private fun setupBackPressHandler() {
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (isProcessing) {
-                    Toast.makeText(requireContext(), "Operation in progress, please wait", Toast.LENGTH_SHORT).show()
-                } else if (isRenaming) {
-                    cleanupRenamingMode()
-                } else {
-                    isEnabled = false
-                    requireActivity().onBackPressedDispatcher.onBackPressed()
-                }
-            }
-        })
-    }
-
-    private fun abortCurrentOperation() {
-        progressOverlay.visibility = View.GONE
-        isProcessing = false
-        hasShownSlowToast = false
-        cleanupTempFile(tempAudioFile)
-        Toast.makeText(requireContext(), "Operation aborted due to no internet", Toast.LENGTH_SHORT).show()
-        adapter.notifyDataSetChanged()
-    }
-
     private fun setupListView() {
         adapter = object : ArrayAdapter<String>(requireContext(), R.layout.list_item_3, R.id.textViewFileName, filteredList) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
@@ -251,12 +181,21 @@ class AudioListFragment : Fragment() {
                 val textView = view.findViewById<TextView>(R.id.textViewFileName)
                 val editText = view.findViewById<EditText>(R.id.editTextFileName)
 
-                checkbox.visibility = if (isDeleteMode && !isRenaming) View.VISIBLE else View.GONE
+                checkbox.visibility = if (isDeleteMode && !isRenaming && !isProcessing) View.VISIBLE else View.GONE
+                checkbox.setOnCheckedChangeListener(null)
                 checkbox.isChecked = selectedItems.contains(position)
                 checkbox.setOnCheckedChangeListener { _, isChecked ->
                     if (!isRenaming && !isProcessing) {
-                        if (isChecked) selectedItems.add(position) else selectedItems.remove(position)
+                        if (isChecked) {
+                            selectedItems.add(position)
+                            Log.d("AudioListFragment", "Checked position $position, selectedItems: $selectedItems")
+                        } else {
+                            selectedItems.remove(position)
+                            Log.d("AudioListFragment", "Unchecked position $position, selectedItems: $selectedItems")
+                        }
                         updateDeleteIconVisibility()
+                        updateSelectAllCheckboxState()
+                        notifyDataSetChanged()
                     }
                 }
 
@@ -287,6 +226,22 @@ class AudioListFragment : Fragment() {
                 val selectedFileName = filteredList[position]
                 currentAudioIndex = position
                 downloadAndPlayAudio(selectedFileName)
+            } else if (!isRenaming && !isProcessing) {
+                val view = listView.getChildAt(position - listView.firstVisiblePosition)
+                val checkbox = view?.findViewById<CheckBox>(R.id.checkbox)
+                checkbox?.let {
+                    val newCheckedState = !it.isChecked
+                    it.isChecked = newCheckedState
+                    if (newCheckedState) {
+                        selectedItems.add(position)
+                    } else {
+                        selectedItems.remove(position)
+                    }
+                    Log.d("AudioListFragment", "Clicked position $position, new state: $newCheckedState, selectedItems: $selectedItems")
+                    adapter.notifyDataSetChanged()
+                    updateDeleteIconVisibility()
+                    updateSelectAllCheckboxState()
+                }
             }
         }
 
@@ -294,25 +249,152 @@ class AudioListFragment : Fragment() {
             if (!isDeleteMode && !isRenaming && !isProcessing) {
                 toggleDeleteMode(true)
                 selectedItems.add(position)
+                Log.d("AudioListFragment", "Long-clicked position $position, selectedItems: $selectedItems")
                 adapter.notifyDataSetChanged()
                 updateDeleteIconVisibility()
+                updateSelectAllCheckboxState()
                 true
             } else false
         }
     }
 
+    private fun setupSelectAllCheckbox() {
+        selectAllCheckbox.setOnClickListener {
+            if (!isRenaming && !isProcessing && isDeleteMode) {
+                if (selectAllCheckbox.isChecked) {
+                    for (i in 0 until filteredList.size) {
+                        selectedItems.add(i)
+                    }
+                    Log.d("AudioListFragment", "Select All checked, selectedItems: $selectedItems")
+                } else {
+                    selectedItems.clear()
+                    Log.d("AudioListFragment", "Select All unchecked, selectedItems: $selectedItems")
+                }
+                adapter.notifyDataSetChanged()
+                updateDeleteIconVisibility()
+            }
+        }
+        updateSelectAllCheckboxVisibility()
+    }
+
+    private fun updateSelectAllCheckboxVisibility() {
+        selectAllCheckbox.visibility = if (isDeleteMode && !isRenaming && !isProcessing) View.VISIBLE else View.GONE
+        adjustListViewMargin()
+    }
+
+    private fun updateSelectAllCheckboxState() {
+        selectAllCheckbox.isChecked = selectedItems.size == filteredList.size && filteredList.isNotEmpty()
+    }
+
+    private fun adjustListViewMargin() {
+        val layoutParams = listView.layoutParams as FrameLayout.LayoutParams
+        val marginNormal = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 150f, resources.displayMetrics).toInt() // Non-delete mode
+        val marginWithCheckbox = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 190f, resources.displayMetrics).toInt() // Delete mode with checkbox
+
+        layoutParams.topMargin = if (selectAllCheckbox.visibility == View.VISIBLE) marginWithCheckbox else marginNormal
+        listView.layoutParams = layoutParams
+        listView.requestLayout() // Ensure layout updates
+    }
+
+    private fun toggleDeleteMode(enable: Boolean) {
+        isDeleteMode = enable
+        if (!enable) selectedItems.clear()
+        adapter.notifyDataSetChanged()
+        updateDeleteIconVisibility()
+        updateSelectAllCheckboxVisibility() // This will also adjust the margin
+        updateSelectAllCheckboxState()
+    }
+
+    private fun updateDeleteIconVisibility() {
+        deleteIcon.visibility = if (isDeleteMode && selectedItems.isNotEmpty() && !isProcessing) View.VISIBLE else View.GONE
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = try {
+            requireContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        } catch (e: IllegalStateException) {
+            Log.e("AudioListFragment", "Context unavailable, assuming no network: ${e.message}")
+            return false
+        }
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun checkInternetStatus() {
+        if (!isAdded) return
+        val isOnline = isNetworkAvailable()
+        if (!isOnline && !noInternetContainer.isShown) {
+            mainContent.visibility = View.GONE
+            noInternetContainer.visibility = View.VISIBLE
+            Toast.makeText(requireContext(), "Internet connection lost", Toast.LENGTH_SHORT).show()
+            if (isProcessing) {
+                abortCurrentOperation()
+            }
+        } else if (isOnline && !mainContent.isShown) {
+            mainContent.visibility = View.VISIBLE
+            noInternetContainer.visibility = View.GONE
+            Toast.makeText(requireContext(), "Internet connection restored", Toast.LENGTH_SHORT).show()
+            if (!isProcessing) fetchAudioFiles(false)
+        }
+
+        if (isProcessing && isOnline) {
+            val elapsedTime = System.currentTimeMillis() - operationStartTime
+            if (elapsedTime > 5000 && !hasShownSlowToast) {
+                Toast.makeText(requireContext(), "Internet is slow, please wait...", Toast.LENGTH_SHORT).show()
+                hasShownSlowToast = true
+            }
+        }
+    }
+
+    private fun checkInternetAndLoad() {
+        if (!isAdded) return
+        if (isNetworkAvailable()) {
+            mainContent.visibility = View.VISIBLE
+            noInternetContainer.visibility = View.GONE
+            fetchAudioFiles(false)
+        } else {
+            mainContent.visibility = View.GONE
+            noInternetContainer.visibility = View.VISIBLE
+        }
+    }
+
+    private fun setupBackPressHandler() {
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (isProcessing) {
+                    Toast.makeText(requireContext(), "Operation in progress, please wait", Toast.LENGTH_SHORT).show()
+                } else if (isRenaming) {
+                    cleanupRenamingMode()
+                } else if (isDeleteMode) {
+                    toggleDeleteMode(false)
+                } else {
+                    isEnabled = false
+                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+    }
+
+    private fun abortCurrentOperation() {
+        progressOverlay.visibility = View.GONE
+        touchBlockOverlay.visibility = View.GONE
+        isProcessing = false
+        hasShownSlowToast = false
+        cleanupTempFile(tempAudioFile)
+        Toast.makeText(requireContext(), "Operation aborted due to no internet", Toast.LENGTH_SHORT).show()
+        adapter.notifyDataSetChanged()
+    }
+
     private fun showOptionsPopup(anchorView: View, position: Int) {
-        // Inflate a custom layout for the popup
         val popupView = LayoutInflater.from(requireContext()).inflate(R.layout.popup_menu_layout, null)
         val listView = popupView.findViewById<ListView>(R.id.popup_list)
 
-        // Define menu items
         val options = listOf("Rename", "Download", "Share", "Summarize")
 
-        // Create adapter with custom layout and Poppins font
         val adapter = object : ArrayAdapter<String>(
             requireContext(),
-            R.layout.popup_menu_item, // Custom layout
+            R.layout.popup_menu_item,
             options
         ) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
@@ -321,7 +403,7 @@ class AudioListFragment : Fragment() {
                 val poppinsFont = ResourcesCompat.getFont(requireContext(), R.font.poppins_medium)
                 textView.typeface = poppinsFont
                 textView.textSize = 16f
-                textView.setPadding(16, 8, 16, 8) // Custom padding: left, top, right, bottom
+                textView.setPadding(16, 8, 16, 2)
                 textView.setTextColor(Color.BLACK)
                 textView.gravity = Gravity.CENTER_VERTICAL
                 textView.text = options[position]
@@ -330,21 +412,19 @@ class AudioListFragment : Fragment() {
         }
         listView.adapter = adapter
 
-        // Create PopupWindow with exact width and no extra margins
-        val popupWidth = (140 * resources.displayMetrics.density).toInt() // 200dp
+        val popupWidth = (140 * resources.displayMetrics.density).toInt()
         val popupWindow = PopupWindow(
             popupView,
             popupWidth,
             ViewGroup.LayoutParams.WRAP_CONTENT,
-            true // Focusable
+            true
         )
 
-        // Remove default padding/margin from PopupWindow
         popupView.setPadding(0, 0, 0, 0)
         popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), android.R.drawable.dialog_holo_light_frame))
         popupWindow.elevation = 2f
+        popupWindow.isClippingEnabled = false
 
-        // Handle item clicks
         listView.setOnItemClickListener { _, _, index, _ ->
             when (options[index]) {
                 "Rename" -> startRenaming(position)
@@ -355,8 +435,30 @@ class AudioListFragment : Fragment() {
             popupWindow.dismiss()
         }
 
-        // Show popup anchored to the menu icon
-        popupWindow.showAsDropDown(anchorView, 0, 0, Gravity.END)
+        val anchorLocation = IntArray(2)
+        anchorView.getLocationOnScreen(anchorLocation)
+        val anchorX = anchorLocation[0]
+        val anchorY = anchorLocation[1]
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+
+        popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+        val popupHeight = popupView.measuredHeight
+
+        val xOffset = if (anchorX + popupWidth > screenWidth) {
+            screenWidth - popupWidth - anchorView.width
+        } else {
+            anchorX + anchorView.width
+        }
+
+        val extraPadding = (64 * resources.displayMetrics.density).toInt()
+        val yOffset = if (anchorY + popupHeight > screenHeight) {
+            (anchorY - popupHeight - extraPadding).coerceAtLeast(0)
+        } else {
+            anchorY
+        }
+
+        popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, xOffset, yOffset)
     }
 
     private fun summarizeAudio(fileName: String) {
@@ -379,6 +481,7 @@ class AudioListFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
+        touchBlockOverlay.visibility = View.VISIBLE
         Toast.makeText(requireContext(), "Downloading audio...", Toast.LENGTH_SHORT).show()
 
         storageRef.getFile(tempFile).addOnSuccessListener {
@@ -388,11 +491,13 @@ class AudioListFragment : Fragment() {
             }
             progressOverlay.visibility = View.GONE
             isProcessing = false
+            touchBlockOverlay.visibility = View.VISIBLE
             Toast.makeText(requireContext(), "Audio downloaded", Toast.LENGTH_SHORT).show()
             showSpeakerSelectionDialog(tempFile)
         }.addOnFailureListener { e ->
             if (!isAdded) return@addOnFailureListener
             progressOverlay.visibility = View.GONE
+            touchBlockOverlay.visibility = View.GONE
             isProcessing = false
             Toast.makeText(requireContext(), "Failed to download audio: ${e.message}", Toast.LENGTH_SHORT).show()
             cleanupTempFile(tempFile)
@@ -400,32 +505,69 @@ class AudioListFragment : Fragment() {
     }
 
     private fun showSpeakerSelectionDialog(audioFile: File) {
-        val dialog = AlertDialog.Builder(requireContext())
-            .setMessage("Do you want to include the speaker name?")
-            .setPositiveButton("Yes, include speaker name") { _, _ ->
-                Log.d("SpeakerSelection", "User selected to include speaker name.")
-                showSpeakerInputDialog(audioFile)
-            }
-            .setNegativeButton("No, proceed without name") { dialog, _ ->
-                Log.d("SpeakerSelection", "User proceeded without speaker name.")
-                dialog.dismiss()
-                showFollowUpSelectionDialog(audioFile)
-            }
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_speaker_selection, null)
+        val radioGroup = dialogView.findViewById<RadioGroup>(R.id.radioGroup)
+        val radioYes = dialogView.findViewById<RadioButton>(R.id.radioYes)
+        val radioNo = dialogView.findViewById<RadioButton>(R.id.radioNo)
+        val proceedButton = dialogView.findViewById<Button>(R.id.proceedButton)
+        val cancelButton = dialogView.findViewById<Button>(R.id.cancelButton)
+
+        val alertDialog = AlertDialog.Builder(requireContext(), R.style.CustomDialogTheme)
+            .setView(dialogView)
             .setCancelable(false)
             .create()
 
-        dialog.setOnShowListener {
-            dialog.findViewById<TextView>(android.R.id.message)?.typeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_regular)
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
-                typeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_regular)
-                setTextColor(ContextCompat.getColor(requireContext(), R.color.BLUE))
-            }
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).apply {
-                typeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_regular)
-                setTextColor(ContextCompat.getColor(requireContext(), R.color.red))
+        touchBlockOverlay.visibility = View.VISIBLE
+
+        alertDialog.setOnShowListener {
+            val messageText = dialogView.findViewById<TextView>(R.id.messageText)
+            messageText.typeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_regular)
+            proceedButton.typeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_regular)
+            cancelButton.typeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_regular)
+            proceedButton.setTextColor(ContextCompat.getColor(requireContext(), R.color.BLUE))
+            cancelButton.setTextColor(ContextCompat.getColor(requireContext(), R.color.red))
+            radioYes.typeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_regular)
+            radioNo.typeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_regular)
+
+            val layoutParams = alertDialog.window?.attributes
+            layoutParams?.width = (resources.displayMetrics.widthPixels * 0.9).toInt()
+            layoutParams?.height = WindowManager.LayoutParams.WRAP_CONTENT
+            alertDialog.window?.attributes = layoutParams
+        }
+
+        proceedButton.setOnClickListener {
+            when (radioGroup.checkedRadioButtonId) {
+                R.id.radioYes -> {
+                    alertDialog.dismiss()
+                    handler.postDelayed({
+                        showSpeakerInputDialog(audioFile)
+                    }, 200)
+                }
+                R.id.radioNo -> {
+                    alertDialog.dismiss()
+                    handler.postDelayed({
+                        showFollowUpSelectionDialog(audioFile)
+                    }, 200)
+                }
+                else -> Toast.makeText(requireContext(), "Please select an option", Toast.LENGTH_SHORT).show()
             }
         }
-        dialog.show()
+
+        cancelButton.setOnClickListener {
+            alertDialog.dismiss()
+            handler.postDelayed({
+                touchBlockOverlay.visibility = View.GONE
+                cleanupTempFile(audioFile)
+            }, 200)
+        }
+
+        alertDialog.setOnDismissListener {
+            handler.postDelayed({
+                touchBlockOverlay.visibility = View.GONE
+            }, 200)
+        }
+
+        alertDialog.show()
     }
 
     private fun showSpeakerInputDialog(audioFile: File) {
@@ -439,10 +581,12 @@ class AudioListFragment : Fragment() {
         val speakerList = mutableListOf<String>()
         addSpeakerInput(speakerContainer, speakerList)
 
-        val alertDialog = AlertDialog.Builder(requireContext())
+        val alertDialog = AlertDialog.Builder(requireContext(), R.style.CustomDialogTheme)
             .setView(dialogView)
             .setCancelable(false)
             .create()
+
+        touchBlockOverlay.visibility = View.VISIBLE
 
         fun updateDialogHeight() {
             speakerScrollView.post {
@@ -477,13 +621,23 @@ class AudioListFragment : Fragment() {
 
             temporarySpeakerList = filledSpeakers
             alertDialog.dismiss()
-            showFollowUpSelectionDialog(audioFile)
+            handler.postDelayed({
+                showFollowUpSelectionDialog(audioFile)
+            }, 200)
         }
 
         backButton.setOnClickListener {
             Log.d("SpeakerInput", "User went back to selection dialog.")
             alertDialog.dismiss()
-            showSpeakerSelectionDialog(audioFile)
+            handler.postDelayed({
+                showSpeakerSelectionDialog(audioFile)
+            }, 200)
+        }
+
+        alertDialog.setOnDismissListener {
+            handler.postDelayed({
+                touchBlockOverlay.visibility = View.GONE
+            }, 200)
         }
 
         alertDialog.show()
@@ -529,10 +683,12 @@ class AudioListFragment : Fragment() {
             .document(userId)
             .collection("UserFiles")
 
-        val alertDialog = AlertDialog.Builder(requireContext())
+        val alertDialog = AlertDialog.Builder(requireContext(), R.style.CustomDialogTheme)
             .setView(dialogView)
             .setCancelable(false)
             .create()
+
+        touchBlockOverlay.visibility = View.VISIBLE
 
         alertDialog.setOnShowListener {
             val layoutParams = alertDialog.window?.attributes
@@ -543,7 +699,9 @@ class AudioListFragment : Fragment() {
 
         backButton.setOnClickListener {
             alertDialog.dismiss()
-            showSpeakerSelectionDialog(audioFile)
+            handler.postDelayed({
+                showSpeakerInputDialog(audioFile)
+            }, 200)
         }
 
         val radioGroup = dialogView.findViewById<RadioGroup>(R.id.radioGroup)
@@ -569,13 +727,24 @@ class AudioListFragment : Fragment() {
 
             val speakers = temporarySpeakerList ?: emptyList()
             alertDialog.dismiss()
-            processAudio(audioFile, speakers, selectedFileName)
+            handler.postDelayed({
+                processAudio(audioFile, speakers, selectedFileName)
+            }, 200)
             temporarySpeakerList = null
         }
 
         cancelButton.setOnClickListener {
             alertDialog.dismiss()
-            cleanupTempFile(audioFile)
+            handler.postDelayed({
+                touchBlockOverlay.visibility = View.GONE
+                cleanupTempFile(audioFile)
+            }, 200)
+        }
+
+        alertDialog.setOnDismissListener {
+            handler.postDelayed({
+                touchBlockOverlay.visibility = View.GONE
+            }, 200)
         }
 
         alertDialog.show()
@@ -651,6 +820,7 @@ class AudioListFragment : Fragment() {
 
     private fun processAudio(audioFile: File, speakerNames: List<String>, followUpFileName: String = "") {
         if (!isNetworkAvailable()) {
+            touchBlockOverlay.visibility = View.GONE
             Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
             cleanupTempFile(audioFile)
             return
@@ -658,12 +828,14 @@ class AudioListFragment : Fragment() {
 
         val userId = FirebaseAuth.getInstance().currentUser?.uid
         if (userId == null) {
+            touchBlockOverlay.visibility = View.GONE
             Toast.makeText(requireContext(), "User not logged in", Toast.LENGTH_SHORT).show()
             cleanupTempFile(audioFile)
             return
         }
 
         if (!audioFile.exists()) {
+            touchBlockOverlay.visibility = View.GONE
             Toast.makeText(requireContext(), "Audio file not found", Toast.LENGTH_SHORT).show()
             cleanupTempFile(audioFile)
             return
@@ -680,6 +852,7 @@ class AudioListFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
+        touchBlockOverlay.visibility = View.VISIBLE
         Toast.makeText(requireContext(), "Uploading audio to Firebase...", Toast.LENGTH_SHORT).show()
 
         storageRef.putFile(Uri.fromFile(audioFile), metadata)
@@ -722,6 +895,7 @@ class AudioListFragment : Fragment() {
                         .addOnFailureListener { e ->
                             if (!isAdded) return@addOnFailureListener
                             progressOverlay.visibility = View.GONE
+                            touchBlockOverlay.visibility = View.GONE
                             isProcessing = false
                             Toast.makeText(requireContext(), "Failed to save metadata: ${e.message}", Toast.LENGTH_SHORT).show()
                             cleanupTempFile(audioFile)
@@ -729,6 +903,7 @@ class AudioListFragment : Fragment() {
                 }.addOnFailureListener { e ->
                     if (!isAdded) return@addOnFailureListener
                     progressOverlay.visibility = View.GONE
+                    touchBlockOverlay.visibility = View.GONE
                     isProcessing = false
                     Toast.makeText(requireContext(), "Failed to get download URL: ${e.message}", Toast.LENGTH_SHORT).show()
                     cleanupTempFile(audioFile)
@@ -737,6 +912,7 @@ class AudioListFragment : Fragment() {
             .addOnFailureListener { e ->
                 if (!isAdded) return@addOnFailureListener
                 progressOverlay.visibility = View.GONE
+                touchBlockOverlay.visibility = View.GONE
                 isProcessing = false
                 Toast.makeText(requireContext(), "Failed to upload to Firebase: ${e.message}", Toast.LENGTH_SHORT).show()
                 cleanupTempFile(audioFile)
@@ -745,6 +921,7 @@ class AudioListFragment : Fragment() {
 
     private fun uploadAudioToBackend(file: File, userId: String, speakerNames: List<String>, followUpFileName: String) {
         if (!isNetworkAvailable()) {
+            touchBlockOverlay.visibility = View.GONE
             Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
             progressOverlay.visibility = View.GONE
             isProcessing = false
@@ -778,6 +955,7 @@ class AudioListFragment : Fragment() {
                         abortCurrentOperation()
                     } else {
                         progressOverlay.visibility = View.GONE
+                        touchBlockOverlay.visibility = View.GONE
                         isProcessing = false
                         Toast.makeText(requireContext(), "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
@@ -792,6 +970,7 @@ class AudioListFragment : Fragment() {
                         abortCurrentOperation()
                     } else {
                         progressOverlay.visibility = View.GONE
+                        touchBlockOverlay.visibility = View.GONE
                         isProcessing = false
                         if (response.isSuccessful) {
                             val responseBody = response.body?.string()
@@ -832,6 +1011,7 @@ class AudioListFragment : Fragment() {
         renamingPosition = position
         deleteIcon.visibility = View.GONE
         tickIcon.visibility = View.VISIBLE
+        touchBlockOverlay.visibility = View.VISIBLE
 
         if (isDeleteMode) {
             toggleDeleteMode(false)
@@ -916,6 +1096,7 @@ class AudioListFragment : Fragment() {
     private fun renameAudioFile(oldFullName: String, newFullName: String, oldNameWithoutExtension: String, newNameWithoutExtension: String, callback: (Boolean) -> Unit) {
         if (!isNetworkAvailable()) {
             Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            touchBlockOverlay.visibility = View.GONE
             callback(false)
             return
         }
@@ -923,6 +1104,7 @@ class AudioListFragment : Fragment() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
         if (userId == null) {
             Toast.makeText(requireContext(), "User not logged in", Toast.LENGTH_SHORT).show()
+            touchBlockOverlay.visibility = View.GONE
             callback(false)
             return
         }
@@ -1039,14 +1221,12 @@ class AudioListFragment : Fragment() {
         val indexInFileNames = fileNamesList.indexOf(oldNameWithoutExtension)
         if (indexInFileNames != -1) {
             fileNamesList[indexInFileNames] = newNameWithoutExtension
-            // Re-sort fileNamesList after renaming
             fileNamesList.sort()
         }
 
         val indexInFilteredList = filteredList.indexOf(oldNameWithoutExtension)
         if (indexInFilteredList != -1) {
             filteredList[indexInFilteredList] = newNameWithoutExtension
-            // Re-sort filteredList after renaming
             filteredList.sort()
         }
 
@@ -1058,7 +1238,10 @@ class AudioListFragment : Fragment() {
         renamingPosition = -1
         tickIcon.visibility = View.GONE
         deleteIcon.visibility = if (isDeleteMode && selectedItems.isNotEmpty()) View.VISIBLE else View.GONE
+        touchBlockOverlay.visibility = View.GONE
         adapter.notifyDataSetChanged()
+        updateSelectAllCheckboxVisibility()
+        updateSelectAllCheckboxState()
     }
 
     private fun startDownload(fileName: String) {
@@ -1088,6 +1271,7 @@ class AudioListFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
+        touchBlockOverlay.visibility = View.VISIBLE
         Toast.makeText(requireContext(), "Downloading audio...", Toast.LENGTH_SHORT).show()
 
         storageRef.getBytes(Long.MAX_VALUE).addOnSuccessListener { bytes ->
@@ -1101,21 +1285,25 @@ class AudioListFragment : Fragment() {
                     outputStream.write(bytes)
                     outputStream.close()
                     progressOverlay.visibility = View.GONE
+                    touchBlockOverlay.visibility = View.GONE
                     isProcessing = false
                     Toast.makeText(requireContext(), "Audio saved successfully", Toast.LENGTH_SHORT).show()
                 } else {
                     progressOverlay.visibility = View.GONE
+                    touchBlockOverlay.visibility = View.GONE
                     isProcessing = false
                     Toast.makeText(requireContext(), "Failed to save audio: Output stream null", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 progressOverlay.visibility = View.GONE
+                touchBlockOverlay.visibility = View.GONE
                 isProcessing = false
                 Toast.makeText(requireContext(), "Error saving audio: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }.addOnFailureListener { e ->
             if (!isAdded) return@addOnFailureListener
             progressOverlay.visibility = View.GONE
+            touchBlockOverlay.visibility = View.GONE
             isProcessing = false
             Toast.makeText(requireContext(), "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
         }
@@ -1136,6 +1324,7 @@ class AudioListFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
+        touchBlockOverlay.visibility = View.VISIBLE
         Toast.makeText(requireContext(), "Preparing to share...", Toast.LENGTH_SHORT).show()
 
         storageRef.getFile(tempFile).addOnSuccessListener {
@@ -1151,12 +1340,14 @@ class AudioListFragment : Fragment() {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             progressOverlay.visibility = View.GONE
+            touchBlockOverlay.visibility = View.GONE
             isProcessing = false
             Toast.makeText(requireContext(), "Audio ready to share", Toast.LENGTH_SHORT).show()
             startActivity(Intent.createChooser(shareIntent, "Share Audio"))
         }.addOnFailureListener { e ->
             if (!isAdded) return@addOnFailureListener
             progressOverlay.visibility = View.GONE
+            touchBlockOverlay.visibility = View.GONE
             isProcessing = false
             Toast.makeText(requireContext(), "Share failed: ${e.message}", Toast.LENGTH_SHORT).show()
             cleanupTempFile(tempFile)
@@ -1223,17 +1414,6 @@ class AudioListFragment : Fragment() {
         }
     }
 
-    private fun toggleDeleteMode(enable: Boolean) {
-        isDeleteMode = enable
-        if (!enable) selectedItems.clear()
-        adapter.notifyDataSetChanged()
-        updateDeleteIconVisibility()
-    }
-
-    private fun updateDeleteIconVisibility() {
-        deleteIcon.visibility = if (isDeleteMode && selectedItems.isNotEmpty() && !isProcessing) View.VISIBLE else View.GONE
-    }
-
     private fun showDeleteConfirmationDialog() {
         val dialog = AlertDialog.Builder(requireContext())
             .setMessage("Are you sure you want to delete the selected audio files?")
@@ -1242,6 +1422,14 @@ class AudioListFragment : Fragment() {
             .setCancelable(false)
             .create()
 
+        touchBlockOverlay.visibility = View.VISIBLE
+
+        dialog.setOnDismissListener {
+            handler.postDelayed({
+                touchBlockOverlay.visibility = View.GONE
+            }, 200)
+        }
+
         dialog.show()
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.BLUE)
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.RED)
@@ -1249,6 +1437,7 @@ class AudioListFragment : Fragment() {
 
     private fun deleteSelectedItems() {
         if (!isNetworkAvailable()) {
+            touchBlockOverlay.visibility = View.GONE
             Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
             toggleDeleteMode(false)
             return
@@ -1261,6 +1450,7 @@ class AudioListFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
+        touchBlockOverlay.visibility = View.VISIBLE
         Toast.makeText(requireContext(), "Deleting files...", Toast.LENGTH_SHORT).show()
 
         val itemsToDelete = selectedItems.map { filteredList[it] }.toList()
@@ -1276,18 +1466,20 @@ class AudioListFragment : Fragment() {
                     deleteCount++
                     if (deleteCount == itemsToDelete.size) {
                         progressOverlay.visibility = View.GONE
+                        touchBlockOverlay.visibility = View.GONE
                         isProcessing = false
                         Toast.makeText(requireContext(), "Files deleted successfully", Toast.LENGTH_SHORT).show()
-                        fetchAudioFiles(false) // No overlay/toast on refresh
+                        fetchAudioFiles(false)
                         toggleDeleteMode(false)
                     }
                 }
                 .addOnFailureListener { e ->
                     if (!isAdded) return@addOnFailureListener
                     progressOverlay.visibility = View.GONE
+                    touchBlockOverlay.visibility = View.GONE
                     isProcessing = false
                     Toast.makeText(requireContext(), "Failed to delete $fileName: ${e.message}", Toast.LENGTH_SHORT).show()
-                    fetchAudioFiles(false) // No overlay/toast on refresh
+                    fetchAudioFiles(false)
                     toggleDeleteMode(false)
                 }
         }
@@ -1313,6 +1505,7 @@ class AudioListFragment : Fragment() {
             operationStartTime = System.currentTimeMillis()
             hasShownSlowToast = false
             progressOverlay.visibility = View.VISIBLE
+            touchBlockOverlay.visibility = View.VISIBLE
             Toast.makeText(requireContext(), "Downloading audio...", Toast.LENGTH_SHORT).show()
 
             storageRef.getFile(localFile).addOnSuccessListener {
@@ -1321,12 +1514,14 @@ class AudioListFragment : Fragment() {
                     return@addOnSuccessListener
                 }
                 progressOverlay.visibility = View.GONE
+                touchBlockOverlay.visibility = View.GONE
                 isProcessing = false
                 Toast.makeText(requireContext(), "Audio ready to play", Toast.LENGTH_SHORT).show()
                 playAudio(localFile.absolutePath, fileName)
             }.addOnFailureListener { e ->
                 if (!isAdded) return@addOnFailureListener
                 progressOverlay.visibility = View.GONE
+                touchBlockOverlay.visibility = View.GONE
                 isProcessing = false
                 Toast.makeText(requireContext(), "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
@@ -1406,6 +1601,7 @@ class AudioListFragment : Fragment() {
         if (!isNetworkAvailable()) {
             mainContent.visibility = View.GONE
             noInternetContainer.visibility = View.VISIBLE
+            touchBlockOverlay.visibility = View.GONE
             if (showOverlay) {
                 Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
             }
@@ -1420,6 +1616,7 @@ class AudioListFragment : Fragment() {
             operationStartTime = System.currentTimeMillis()
             hasShownSlowToast = false
             progressOverlay.visibility = View.VISIBLE
+            touchBlockOverlay.visibility = View.VISIBLE
             Toast.makeText(requireContext(), "Fetching audio files...", Toast.LENGTH_SHORT).show()
         }
 
@@ -1433,7 +1630,6 @@ class AudioListFragment : Fragment() {
                 for (file in listResult.items) {
                     fileNamesList.add(file.name.substringBeforeLast("."))
                 }
-                // Sort fileNamesList in ascending order (A to Z)
                 fileNamesList.sort()
 
                 filteredList.clear()
@@ -1441,8 +1637,10 @@ class AudioListFragment : Fragment() {
                 adapter.notifyDataSetChanged()
                 togglePlaceholder()
                 updateDeleteIconVisibility()
+                updateSelectAllCheckboxState()
                 if (showOverlay) {
                     progressOverlay.visibility = View.GONE
+                    touchBlockOverlay.visibility = View.GONE
                     isProcessing = false
                     Toast.makeText(requireContext(), "Audio files loaded", Toast.LENGTH_SHORT).show()
                 }
@@ -1451,6 +1649,7 @@ class AudioListFragment : Fragment() {
                 if (!isAdded) return@addOnFailureListener
                 if (showOverlay) {
                     progressOverlay.visibility = View.GONE
+                    touchBlockOverlay.visibility = View.GONE
                     isProcessing = false
                     Toast.makeText(requireContext(), "Failed to load audio files: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
@@ -1469,7 +1668,6 @@ class AudioListFragment : Fragment() {
                     filteredList.add(fileName)
                 }
             }
-            // Sort filteredList to maintain ascending order
             filteredList.sort()
         }
 
@@ -1495,6 +1693,7 @@ class AudioListFragment : Fragment() {
         }
 
         updateDeleteIconVisibility()
+        updateSelectAllCheckboxState()
         return true
     }
 
@@ -1527,9 +1726,10 @@ class AudioListFragment : Fragment() {
         if (isProcessing) {
             Toast.makeText(requireContext(), "Previous operation interrupted", Toast.LENGTH_SHORT).show()
             abortCurrentOperation()
-            fetchAudioFiles(false) // No overlay/toast on resume
+            fetchAudioFiles(false)
         }
         handler.post(internetCheckTask)
+        adjustListViewMargin() // Ensure margin is correct on resume
     }
 
     override fun onPause() {
@@ -1547,6 +1747,7 @@ class AudioListFragment : Fragment() {
         pendingDownloadFileName = null
         temporarySpeakerList = null
         if (isRenaming) cleanupRenamingMode()
+        touchBlockOverlay.visibility = View.GONE
         cleanupTempFile(tempAudioFile)
     }
 }

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Rotate around Y-axis to simulate rolling -->
+    <rotate
+        android:fromDegrees="90"
+        android:toDegrees="0"
+        android:pivotX="0%"
+        android:pivotY="50%"
+        android:duration="400"
+        android:interpolator="@android:anim/decelerate_interpolator" />
+    <!-- Translate from left to center -->
+    <translate
+        android:fromXDelta="-100%"
+        android:toXDelta="0%"
+        android:duration="400"
+        android:interpolator="@android:anim/decelerate_interpolator" />
+    <!-- Fade in for smoothness -->
+    <alpha
+        android:fromAlpha="0.0"
+        android:toAlpha="1.0"
+        android:duration="400" />
+</set>

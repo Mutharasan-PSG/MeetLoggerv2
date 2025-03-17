@@ -16,6 +16,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -38,8 +39,6 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
-import androidx.core.view.get
-import androidx.core.view.size
 import com.google.firebase.Timestamp
 
 class ReportFragment : Fragment() {
@@ -48,9 +47,10 @@ class ReportFragment : Fragment() {
     private lateinit var searchView: SearchView
     private lateinit var deleteIcon: ImageView
     private lateinit var audioListIcon: ImageView
-    private lateinit var fileNamesList: ArrayList<Triple<String, Timestamp, String>> // Updated to Triple
-    private lateinit var filteredList: ArrayList<Triple<String, Timestamp, String>> // Updated to Triple
-    private lateinit var adapter: ArrayAdapter<Triple<String, Timestamp, String>> // Updated adapter type
+    private lateinit var selectAllCheckbox: CheckBox
+    private lateinit var fileNamesList: ArrayList<Triple<String, Timestamp, String>>
+    private lateinit var filteredList: ArrayList<Triple<String, Timestamp, String>>
+    private lateinit var adapter: ArrayAdapter<Triple<String, Timestamp, String>>
     private lateinit var placeholderImage: ImageView
     private lateinit var placeholderText: TextView
     private lateinit var tickIcon: ImageView
@@ -68,6 +68,7 @@ class ReportFragment : Fragment() {
     private var tempShareFile: File? = null
     private var operationStartTime: Long = 0L
     private var hasShownSlowToast = false
+    private lateinit var touchBlockOverlay: FrameLayout
     private val handler = Handler(Looper.getMainLooper())
     private val internetCheckTask = object : Runnable {
         override fun run() {
@@ -87,6 +88,7 @@ class ReportFragment : Fragment() {
         initializeViews(view)
         setupListView()
         setupBackPressHandler()
+        setupSelectAllCheckbox()
 
         handler.post(internetCheckTask) // Start internet monitoring
         checkInternetAndLoad()
@@ -99,6 +101,7 @@ class ReportFragment : Fragment() {
         searchView = view.findViewById(R.id.searchView)
         deleteIcon = view.findViewById(R.id.deleteIcon)
         audioListIcon = view.findViewById(R.id.audioListIcon)
+        selectAllCheckbox = view.findViewById(R.id.selectAllCheckbox)
         placeholderImage = view.findViewById(R.id.placeholderImage)
         placeholderText = view.findViewById(R.id.placeholderText)
         tickIcon = view.findViewById(R.id.tickIcon)
@@ -106,7 +109,7 @@ class ReportFragment : Fragment() {
         mainContent = view.findViewById(R.id.mainContent)
         noInternetContainer = view.findViewById(R.id.noInternetContainer)
         listView.setSelector(android.R.color.transparent)
-
+        touchBlockOverlay = view.findViewById(R.id.touchBlockOverlay)
         fileNamesList = ArrayList()
         filteredList = ArrayList()
     }
@@ -163,6 +166,8 @@ class ReportFragment : Fragment() {
                     Toast.makeText(requireContext(), "Operation in progress, please wait", Toast.LENGTH_SHORT).show()
                 } else if (isRenaming) {
                     cleanupRenamingMode()
+                } else if (isDeleteMode) {
+                    toggleDeleteMode(false) // Exit delete mode and stay on fragment
                 } else {
                     isEnabled = false
                     requireActivity().onBackPressedDispatcher.onBackPressed()
@@ -174,6 +179,7 @@ class ReportFragment : Fragment() {
     private fun abortCurrentOperation() {
         if (isAdded) {
             progressOverlay.visibility = View.GONE
+            touchBlockOverlay.visibility = View.GONE
             isProcessing = false
             hasShownSlowToast = false
             cleanupTempFile(tempShareFile)
@@ -198,12 +204,22 @@ class ReportFragment : Fragment() {
                 val textView = view.findViewById<TextView>(R.id.textViewFileName)
                 val editText = view.findViewById<EditText>(R.id.editTextFileName)
 
+                // Handle checkbox visibility and state
                 checkbox.visibility = if (isDeleteMode && !isRenaming && !isProcessing) View.VISIBLE else View.GONE
+                checkbox.setOnCheckedChangeListener(null) // Clear listener to avoid interference
                 checkbox.isChecked = selectedItems.contains(position)
                 checkbox.setOnCheckedChangeListener { _, isChecked ->
                     if (!isRenaming && !isProcessing) {
-                        if (isChecked) selectedItems.add(position) else selectedItems.remove(position)
+                        if (isChecked) {
+                            selectedItems.add(position)
+                            Log.d(TAG, "Checked position $position, selectedItems: $selectedItems")
+                        } else {
+                            selectedItems.remove(position)
+                            Log.d(TAG, "Unchecked position $position, selectedItems: $selectedItems")
+                        }
                         updateDeleteIconVisibility()
+                        updateSelectAllCheckboxState()
+                        notifyDataSetChanged() // Refresh adapter to reflect changes
                     }
                 }
 
@@ -214,7 +230,7 @@ class ReportFragment : Fragment() {
                     }
                 }
 
-                val (fileName, _, _) = filteredList[position] // Destructure Triple
+                val (fileName, _, _) = filteredList[position]
                 if (position == renamingPosition && isRenaming) {
                     textView.visibility = View.GONE
                     editText.visibility = View.VISIBLE
@@ -239,6 +255,23 @@ class ReportFragment : Fragment() {
             if (!isDeleteMode && !isRenaming && !isProcessing) {
                 val (selectedFileName, _, _) = filteredList[position]
                 openFileDetailsFragment(selectedFileName)
+            } else if (!isRenaming && !isProcessing) {
+                // Toggle checkbox state in delete mode
+                val view = listView.getChildAt(position - listView.firstVisiblePosition)
+                val checkbox = view?.findViewById<CheckBox>(R.id.checkbox)
+                checkbox?.let {
+                    val newCheckedState = !it.isChecked
+                    it.isChecked = newCheckedState
+                    if (newCheckedState) {
+                        selectedItems.add(position)
+                    } else {
+                        selectedItems.remove(position)
+                    }
+                    Log.d(TAG, "Clicked position $position, new state: $newCheckedState, selectedItems: $selectedItems")
+                    adapter.notifyDataSetChanged()
+                    updateDeleteIconVisibility()
+                    updateSelectAllCheckboxState()
+                }
             }
         }
 
@@ -246,8 +279,10 @@ class ReportFragment : Fragment() {
             if (!isDeleteMode && !isRenaming && !isProcessing) {
                 toggleDeleteMode(true)
                 selectedItems.add(position)
+                Log.d(TAG, "Long-clicked position $position, selectedItems: $selectedItems")
                 adapter.notifyDataSetChanged()
                 updateDeleteIconVisibility()
+                updateSelectAllCheckboxState()
                 true
             } else false
         }
@@ -261,6 +296,44 @@ class ReportFragment : Fragment() {
         audioListIcon.setOnClickListener {
             if (!isProcessing) openAudioListFragment()
         }
+    }
+
+    private fun setupSelectAllCheckbox() {
+        selectAllCheckbox.setOnClickListener {
+            if (!isRenaming && !isProcessing && isDeleteMode) {
+                if (selectAllCheckbox.isChecked) {
+                    for (i in 0 until filteredList.size) {
+                        selectedItems.add(i)
+                    }
+                    Log.d(TAG, "Select All checked, selectedItems: $selectedItems")
+                } else {
+                    selectedItems.clear()
+                    Log.d(TAG, "Select All unchecked, selectedItems: $selectedItems")
+                }
+                adapter.notifyDataSetChanged()
+                updateDeleteIconVisibility()
+            }
+        }
+        updateSelectAllCheckboxVisibility()
+    }
+
+    private fun updateSelectAllCheckboxVisibility() {
+        selectAllCheckbox.visibility = if (isDeleteMode && !isRenaming && !isProcessing) View.VISIBLE else View.GONE
+        adjustListViewMargin()
+    }
+
+    private fun updateSelectAllCheckboxState() {
+        selectAllCheckbox.isChecked = selectedItems.size == filteredList.size && filteredList.isNotEmpty()
+    }
+
+    private fun adjustListViewMargin() {
+        val layoutParams = listView.layoutParams as RelativeLayout.LayoutParams
+        val marginNormal = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 90f, resources.displayMetrics).toInt() // Non-delete mode
+        val marginWithCheckbox = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 125f, resources.displayMetrics).toInt() // Delete mode with checkbox
+
+        layoutParams.topMargin = if (selectAllCheckbox.visibility == View.VISIBLE) marginWithCheckbox else marginNormal
+        listView.layoutParams = layoutParams
+        listView.requestLayout() // Ensure layout updates
     }
 
     @RequiresApi(Build.VERSION_CODES.P)
@@ -301,6 +374,7 @@ class ReportFragment : Fragment() {
         popupView.setPadding(0, 0, 0, 0)
         popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), android.R.drawable.dialog_holo_light_frame))
         popupWindow.elevation = 2f
+        popupWindow.isClippingEnabled = false
 
         listView.setOnItemClickListener { _, _, index, _ ->
             when (options[index]) {
@@ -311,7 +385,30 @@ class ReportFragment : Fragment() {
             popupWindow.dismiss()
         }
 
-        popupWindow.showAsDropDown(anchorView, 0, 0, Gravity.END)
+        val anchorLocation = IntArray(2)
+        anchorView.getLocationOnScreen(anchorLocation)
+        val anchorX = anchorLocation[0]
+        val anchorY = anchorLocation[1]
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+
+        popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+        val popupHeight = popupView.measuredHeight
+
+        val xOffset = if (anchorX + popupWidth > screenWidth) {
+            screenWidth - popupWidth - anchorView.width
+        } else {
+            anchorX + anchorView.width
+        }
+
+        val extraPadding = (64 * resources.displayMetrics.density).toInt()
+        val yOffset = if (anchorY + popupHeight > screenHeight) {
+            (anchorY - popupHeight - extraPadding).coerceAtLeast(0)
+        } else {
+            anchorY
+        }
+
+        popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, xOffset, yOffset)
     }
 
     private fun startRenaming(position: Int) {
@@ -326,7 +423,9 @@ class ReportFragment : Fragment() {
         deleteIcon.visibility = View.GONE
         audioListIcon.visibility = View.GONE
         tickIcon.visibility = View.VISIBLE
-
+        tickIcon.bringToFront()
+        tickIcon.isClickable = true
+        touchBlockOverlay.visibility = View.VISIBLE
         if (isDeleteMode) {
             toggleDeleteMode(false)
         }
@@ -354,38 +453,55 @@ class ReportFragment : Fragment() {
         }
 
         tickIcon.setOnClickListener {
+            Log.d(TAG, "Tick icon clicked")
             finishRenaming(position)
         }
     }
 
     private fun finishRenaming(position: Int) {
         if (!isNetworkAvailable()) {
+            Log.d(TAG, "No internet connection during finishRenaming")
             Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
             cleanupRenamingMode()
             return
         }
 
-        val editText = listView.getChildAt(position - listView.firstVisiblePosition)
-            ?.findViewById<EditText>(R.id.editTextFileName)
+        val view = listView.getChildAt(position - listView.firstVisiblePosition)
+        val editText = view?.findViewById<EditText>(R.id.editTextFileName)
+        if (editText == null) {
+            Log.w(TAG, "EditText is null for position: $position")
+            Toast.makeText(requireContext(), "Error: Unable to rename", Toast.LENGTH_SHORT).show()
+            cleanupRenamingMode()
+            return
+        }
 
-        val newNameWithoutExtension = editText?.text.toString().trim()
+        val newNameWithoutExtension = editText.text.toString().trim()
         if (newNameWithoutExtension.isEmpty()) {
+            Log.d(TAG, "File name is empty")
             Toast.makeText(requireContext(), "File name cannot be empty", Toast.LENGTH_SHORT).show()
             return
         }
 
         val oldNameWithoutExt = filteredList[position].first
-        val oldFullName = fileNamesList.find { it.first == oldNameWithoutExt }?.first ?: return
-        val extension = oldFullName.substringAfterLast(".")
+        val oldFullNameEntry = fileNamesList.find { it.first.removeSuffix(".mp3") == oldNameWithoutExt }
+        val oldFullName = oldFullNameEntry?.first ?: run {
+            Log.w(TAG, "Old full name not found for: $oldNameWithoutExt in fileNamesList")
+            Toast.makeText(requireContext(), "Error: File not found", Toast.LENGTH_SHORT).show()
+            cleanupRenamingMode()
+            return
+        }
+        val extension = oldFullName.substringAfterLast(".", "mp3")
         val newFullName = "$newNameWithoutExtension.$extension"
 
         if (newNameWithoutExtension == oldNameWithoutExt) {
+            Log.d(TAG, "New name same as old name: $newNameWithoutExtension")
             Toast.makeText(requireContext(), "Enter a different name", Toast.LENGTH_SHORT).show()
             cleanupRenamingMode()
             return
         }
 
         if (fileNamesList.any { it.first == newFullName }) {
+            Log.d(TAG, "File name already exists: $newFullName")
             Toast.makeText(requireContext(), "File name already exists", Toast.LENGTH_SHORT).show()
             return
         }
@@ -397,27 +513,34 @@ class ReportFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
+        touchBlockOverlay.visibility = View.VISIBLE
+        Log.d(TAG, "Starting rename from $oldFullName to $newFullName")
         Toast.makeText(requireContext(), "Renaming file...", Toast.LENGTH_SHORT).show()
 
         updateFileNameInDatabase(oldFullName, newFullName) { success ->
             if (!isAdded || !isNetworkAvailable()) {
+                Log.d(TAG, "Fragment detached or no network during rename callback")
                 abortCurrentOperation()
                 return@updateFileNameInDatabase
             }
             progressOverlay.visibility = View.GONE
+            touchBlockOverlay.visibility = View.GONE
             isProcessing = false
             if (success) {
+                Log.d(TAG, "Rename successful: $newFullName")
                 Toast.makeText(requireContext(), "Renamed successfully", Toast.LENGTH_SHORT).show()
             } else {
+                Log.w(TAG, "Rename failed for: $newFullName")
                 Toast.makeText(requireContext(), "Rename failed", Toast.LENGTH_SHORT).show()
             }
             cleanupRenamingMode()
-            scheduleFetchDebounce() // Sync DB after rename
+            scheduleFetchDebounce()
         }
     }
 
     private fun updateFileNameInDatabase(oldFullName: String, newFullName: String, callback: (Boolean) -> Unit) {
         if (!isNetworkAvailable()) {
+            Log.d(TAG, "No internet in updateFileNameInDatabase")
             Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
             callback(false)
             return
@@ -440,6 +563,7 @@ class ReportFragment : Fragment() {
 
         userFilesRef.get().addOnSuccessListener { document ->
             if (!isAdded || !isNetworkAvailable()) {
+                Log.d(TAG, "Fragment detached or no network in get")
                 callback(false)
                 return@addOnSuccessListener
             }
@@ -457,6 +581,7 @@ class ReportFragment : Fragment() {
                                 transaction.delete(userFilesRef)
                             }.addOnSuccessListener {
                                 if (isAdded) updateLocalLists(oldFullName, newFullName)
+                                Log.d(TAG, "Transaction succeeded")
                                 callback(true)
                             }.addOnFailureListener { e ->
                                 if (isAdded) Log.e(TAG, "Firestore transaction failed", e)
@@ -477,6 +602,7 @@ class ReportFragment : Fragment() {
                         transaction.delete(userFilesRef)
                     }.addOnSuccessListener {
                         if (isAdded) updateLocalLists(oldFullName, newFullName)
+                        Log.d(TAG, "Transaction succeeded without storage")
                         callback(true)
                     }.addOnFailureListener { e ->
                         if (isAdded) Log.e(TAG, "Firestore transaction failed without storage", e)
@@ -522,7 +648,11 @@ class ReportFragment : Fragment() {
         tickIcon.visibility = View.GONE
         deleteIcon.visibility = if (isDeleteMode && selectedItems.isNotEmpty()) View.VISIBLE else View.GONE
         audioListIcon.visibility = if (isDeleteMode) View.GONE else View.VISIBLE
-        if (isAdded) adapter.notifyDataSetChanged()
+        touchBlockOverlay.visibility = View.GONE
+        if (isAdded) {
+            adapter.notifyDataSetChanged()
+            updateSelectAllCheckboxVisibility()
+        }
     }
 
     private fun exportFile(displayedFileName: String) {
@@ -966,6 +1096,7 @@ class ReportFragment : Fragment() {
             }
             adapter.notifyDataSetChanged()
             updateDeleteIconVisibility()
+            updateSelectAllCheckboxState()
         }
         return true
     }
@@ -976,6 +1107,8 @@ class ReportFragment : Fragment() {
         if (isAdded) {
             adapter.notifyDataSetChanged()
             updateDeleteIconVisibility()
+            updateSelectAllCheckboxVisibility()
+            updateSelectAllCheckboxState()
         }
     }
 
@@ -1087,7 +1220,7 @@ class ReportFragment : Fragment() {
                         togglePlaceholder()
                     }
                 }
-                scheduleFetchDebounce() // Sync DB after delete
+                scheduleFetchDebounce()
             }
             .addOnFailureListener { e ->
                 if (!isAdded) return@addOnFailureListener
@@ -1096,7 +1229,7 @@ class ReportFragment : Fragment() {
                 isProcessing = false
                 Toast.makeText(requireContext(), "Failed to delete files: ${e.message}", Toast.LENGTH_SHORT).show()
                 toggleDeleteMode(false)
-                scheduleFetchDebounce() // Refresh to reflect actual state
+                scheduleFetchDebounce()
             }
     }
 
@@ -1157,7 +1290,6 @@ class ReportFragment : Fragment() {
                         Log.d(TAG, "Added file: $fileName with timestamp: $timestamp")
                     }
 
-                    // Sort fileNamesList by timestamp_clientUpload in descending order (newest first)
                     fileNamesList.sortByDescending { it.second }
 
                     filteredList.clear()
@@ -1167,6 +1299,7 @@ class ReportFragment : Fragment() {
                     togglePlaceholder()
                     adapter.notifyDataSetChanged()
                     updateDeleteIconVisibility()
+                    updateSelectAllCheckboxState()
                 }
             }
         }
@@ -1174,7 +1307,7 @@ class ReportFragment : Fragment() {
 
     private fun scheduleFetchDebounce() {
         handler.removeCallbacks(fetchDebounceTask)
-        handler.postDelayed(fetchDebounceTask, 500) // 500ms debounce
+        handler.postDelayed(fetchDebounceTask, 500)
     }
 
     private fun togglePlaceholder() {
@@ -1267,6 +1400,7 @@ class ReportFragment : Fragment() {
             scheduleFetchDebounce()
         }
         handler.post(internetCheckTask)
+        adjustListViewMargin() // Ensure margin is correct on resume
     }
 
     override fun onPause() {

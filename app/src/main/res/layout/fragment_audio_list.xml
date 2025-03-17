@@ -79,9 +79,22 @@
             android:layout_marginStart="25dp"
             android:layout_marginEnd="25dp"
             android:layout_gravity="top"
-            android:layout_marginTop="75dp"
+            android:layout_marginTop="80dp"
             android:visibility="gone"
             android:background="@drawable/searchview_border" />
+
+        <!-- Add Select All Checkbox here -->
+        <CheckBox
+            android:id="@+id/selectAllCheckbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="start|top"
+            android:layout_marginTop="135dp"
+            android:layout_marginStart="45dp"
+            android:fontFamily="@font/poppins"
+            android:text="Select All"
+            android:textSize="16sp"
+            android:visibility="gone" />
 
         <!-- ListView -->
         <ListView
@@ -90,7 +103,7 @@
             android:layout_height="match_parent"
             android:layout_marginStart="25dp"
             android:layout_marginEnd="25dp"
-            android:layout_marginTop="140dp"
+            android:layout_marginTop="150dp"
             android:divider="@android:color/transparent"
             android:dividerHeight="0dp"
             android:clickable="true"
@@ -250,5 +263,12 @@
             android:scaleType="fitXY"
             android:contentDescription="No Internet" />
     </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/touchBlockOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#00000000"
+        android:visibility="gone" />
 
 </FrameLayout>
