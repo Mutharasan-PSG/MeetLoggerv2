@@ -219,7 +219,7 @@
                     android:scaleType="fitXY"
                     android:layout_marginStart="15dp"
                     android:layout_marginEnd="15dp"
-                    android:src="@drawable/stop"
+                    android:src="@drawable/stop1"
                     android:contentDescription="Stop" />
             </LinearLayout>
 

@@ -11,7 +11,7 @@
         android:text="PROFILE"
         android:layout_marginStart="10dp"
         android:fontFamily="@font/poppins_medium"
-        android:textSize="28sp"
+        android:textSize="26sp"
         android:textColor="@color/BLUE"
         android:elevation="30dp"
         android:layout_alignParentTop="true"
@@ -19,8 +19,8 @@
 
     <ImageView
         android:id="@+id/profile_image"
-        android:layout_width="115dp"
-        android:layout_height="115dp"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
         android:layout_below="@id/Profile"
         android:layout_marginTop="16dp"
         android:src="@drawable/default_profile_pic"
@@ -83,7 +83,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/profile_email"
-        android:layout_marginStart="124dp"
+       android:layout_centerVertical="true"
+        android:layout_centerHorizontal="true"
         android:layout_marginTop="52dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
@@ -115,13 +116,13 @@
 
     <TextView
         android:id="@+id/version"
-        android:layout_width="90dp"
+        android:layout_width="wrap_content"
         android:layout_height="20dp"
-        android:layout_below="@id/btn_sign_out"
-        android:layout_alignParentStart="true"
-        android:layout_marginStart="145dp"
-        android:layout_marginTop="350dp"
-        android:text="version 1.0"
-        android:textColor="@color/black"
-        android:textSize="14sp" />
+        android:layout_marginBottom="15dp"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:fontFamily="@font/poppins_medium"
+        android:text="version 2.0"
+        android:textSize="15sp" />
 </RelativeLayout>

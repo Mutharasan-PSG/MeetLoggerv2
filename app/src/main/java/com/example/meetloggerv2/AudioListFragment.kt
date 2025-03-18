@@ -1536,7 +1536,7 @@ class AudioListFragment : Fragment() {
 
             miniPlayer.visibility = View.VISIBLE
             currentAudioName.text = fileName
-            playPauseButton.setImageResource(R.drawable.pause)
+            playPauseButton.setImageResource(R.drawable.pause1)
             isPlaying = true
 
             seekBar.max = mediaPlayer.duration
@@ -1559,7 +1559,7 @@ class AudioListFragment : Fragment() {
             handler.removeCallbacks(updateSeekBarTask)
         } else {
             mediaPlayer.start()
-            playPauseButton.setImageResource(R.drawable.pause)
+            playPauseButton.setImageResource(R.drawable.pause1)
             handler.post(updateSeekBarTask)
         }
         isPlaying = !isPlaying

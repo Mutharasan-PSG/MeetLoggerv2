@@ -19,132 +19,249 @@
             android:text="Record live audio here. Tap the Start button to begin."
             android:fontFamily="@font/poppins" />
 
-        <ImageView
-            android:id="@+id/recordImageView"
-            android:layout_width="55dp"
-            android:layout_height="55dp"
-            android:scaleType="fitXY"
-            android:layout_margin="40dp"
-            android:src="@drawable/record"
+        <LinearLayout
+            android:id="@+id/recording_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
             android:layout_gravity="center"
-            android:contentDescription="Record Icon" />
+            android:padding="6dp">
+
+            <TextView
+                android:id="@+id/recording_timer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="00:00"
+                android:textSize="28sp"
+                android:textColor="@color/BLUE"
+                android:visibility="gone"/>
+
+            <ImageView
+                android:id="@+id/recordImageView"
+                android:layout_width="85dp"
+                android:layout_height="70dp"
+                android:scaleType="fitXY"
+                android:layout_margin="30dp"
+                android:src="@drawable/record"
+                android:layout_gravity="center"
+                android:contentDescription="Record Icon" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_gravity="center"
-            android:paddingTop="10dp">
+            android:padding="15dp">
 
-            <Button
+            <TextView
                 android:id="@+id/startButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:backgroundTint="@color/LIGHT_BLUE"
-                android:textColor="@color/black"
-                android:layout_marginEnd="15dp"
-                android:fontFamily="@font/poppins_medium"
-                android:text="START"
-                android:elevation="7dp"
-                android:drawableStart="@drawable/start"
-                android:padding="10dp" />
+                android:background="@drawable/rounded_button"
+                android:textColor="@color/white"
+                android:fontFamily="@font/poppins"
+                android:text="Start"
+                android:padding="10dp"
+                android:textSize="18sp"
+                android:gravity="center" />
 
-            <Button
+            <TextView
                 android:id="@+id/stopButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:backgroundTint="@color/LIGHT_BLUE"
-                android:fontFamily="@font/poppins_medium"
-                android:text="STOP"
-                android:elevation="7dp"
-                android:textColor="@color/black"
-                android:drawableStart="@drawable/stop"
+                android:background="@drawable/rounded_button"
+                android:fontFamily="@font/poppins"
+                android:layout_marginStart="35dp"
                 android:padding="10dp"
+                android:text="Stop"
+                android:textColor="@color/white"
+                android:gravity="center"
+                android:textSize="18sp"
                 android:visibility="gone" />
         </LinearLayout>
 
+        <!-- Mini Player replacing audioPlayerLayout -->
         <LinearLayout
-            android:id="@+id/audioPlayerLayout"
+            android:id="@+id/miniPlayer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:gravity="center"
-            android:paddingTop="10dp"
+            android:background="@drawable/rounded_container"
+            android:padding="15dp"
+            android:elevation="3dp"
             android:visibility="gone">
 
+            <!-- File Name -->
             <TextView
-                android:id="@+id/recordedFileNameTextView"
-                android:layout_width="wrap_content"
+                android:id="@+id/currentAudioName"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="No file recorded"
-                android:fontFamily="@font/poppins_medium"
-                android:textSize="17sp"
-                android:paddingTop="10dp"
-                android:layout_marginBottom="20dp"
+                android:text="Now Playing..."
                 android:textColor="@android:color/black"
-                android:gravity="center"/>
+                android:textSize="16sp"
+                android:maxLines="1"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:singleLine="true"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:fontFamily="@font/poppins_medium"
+                android:paddingBottom="8dp"/>
+
+            <!-- SeekBar and Time Display -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/currentTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/poppins"/>
+
+                <SeekBar
+                    android:id="@+id/seekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:id="@+id/totalTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/poppins"/>
+            </LinearLayout>
+
+            <!-- Playback Controls -->
+            <LinearLayout
+                android:id="@+id/playerControls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <ImageView
+                    android:id="@+id/prevButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:src="@drawable/previous"
+                    android:contentDescription="Previous" />
+
+                <ImageView
+                    android:id="@+id/playPauseButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:src="@drawable/play"
+                    android:contentDescription="Play" />
+
+                <ImageView
+                    android:id="@+id/nextButton"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:src="@drawable/next"
+                    android:contentDescription="Next" />
+
+                <ImageView
+                    android:id="@+id/stopButtonMini"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:scaleType="fitXY"
+                    android:layout_marginStart="15dp"
+                    android:layout_marginEnd="15dp"
+                    android:src="@drawable/stop1"
+                    android:contentDescription="Stop" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_gravity="center"
+            android:layout_marginTop="25dp"
+            android:padding="5dp">
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center">
+                android:background="@drawable/button_bg_export"
+                android:layout_margin="10dp">
 
-                <Button
-                    android:id="@+id/playButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="@color/LIGHT_BLUE"
-                    android:layout_marginEnd="20dp"
-                    android:elevation="7dp"
-                    android:text="PLAY"
-                    android:fontFamily="@font/poppins_medium"
-                    android:textColor="@color/black"
-                    android:drawableStart="@drawable/play"
-                    android:padding="10dp" />
+            <Button
+                android:id="@+id/processAudioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:text="Process"
+                android:gravity="center"
+                android:fontFamily="@font/poppins_medium"
+                android:textColor="@color/white"
+                android:padding="5dp"
+                android:drawableStart="@drawable/process"
+                android:visibility="gone" />
 
-                <Button
-                    android:id="@+id/stopPlayButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="@color/LIGHT_BLUE"
-                    android:elevation="7dp"
-                    android:text="STOP"
-                    android:fontFamily="@font/poppins_medium"
-                    android:textColor="@color/black"
-                    android:drawableStart="@drawable/stop"
-                    android:padding="10dp"
-                    android:visibility="gone" />
-
-                <Button
-                    android:id="@+id/deleteButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:backgroundTint="@color/LIGHT_BLUE"
-                    android:elevation="7dp"
-                    android:text="DELETE"
-                    android:fontFamily="@font/poppins_medium"
-                    android:textColor="@color/black"
-                    android:drawableStart="@drawable/delete"
-                    android:padding="10dp"
-                    android:visibility="gone" />
-            </LinearLayout>
         </LinearLayout>
 
-        <Button
-            android:id="@+id/processAudioButton"
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/button_bg_export"
+                android:layout_margin="10dp">
+
+            <Button
+                android:id="@+id/newRecordingButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+
+                android:text="New Recording"
+                android:gravity="center"
+                android:fontFamily="@font/poppins_medium"
+                android:textColor="@color/white"
+                android:padding="5dp"
+                android:drawableStart="@drawable/start"
+                android:visibility="gone" />
+
+            </LinearLayout>
+
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:backgroundTint="@color/BLUE"
-            android:elevation="12dp"
-            android:layout_margin="25dp"
-            android:text="PROCESS AUDIO"
-            android:fontFamily="@font/poppins_medium"
-            android:textColor="@color/white"
-            android:drawableStart="@drawable/process"
-            android:padding="10dp"
-            android:visibility="gone"
-            android:layout_gravity="center" />
+            android:background="@drawable/button_bg_export">
+
+        <Button
+                android:id="@+id/deleteButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="Delete"
+                android:padding="5dp"
+                android:fontFamily="@font/poppins_medium"
+                android:textColor="@color/white"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        </LinearLayout>
+
     </LinearLayout>
 
     <FrameLayout
@@ -161,7 +278,6 @@
             android:indeterminateTintMode="src_in"/>
     </FrameLayout>
 
-    <!-- New touch block overlay -->
     <FrameLayout
         android:id="@+id/touchBlockOverlay"
         android:layout_width="match_parent"
@@ -172,5 +288,4 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
-
 </FrameLayout>

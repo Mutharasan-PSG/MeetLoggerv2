@@ -1,6 +1,7 @@
 package com.example.meetloggerv2
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
@@ -21,7 +22,9 @@ import android.text.TextWatcher
 import android.util.DisplayMetrics
 import android.util.Log
 import android.util.TypedValue
+import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -53,6 +56,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.Response
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
@@ -80,21 +84,46 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         }
     }
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
-    private var touchBlockOverlay: FrameLayout? = null // Reference to the overlay
-
+    private var touchBlockOverlay: FrameLayout? = null
+    // Timer variables for recording
+    private var recordingStartTime: Long = 0L
+    private var elapsedTimeBeforePause: Long = 0L
+    private val timerRunnable = object : Runnable {
+        override fun run() {
+            if (isRecording && !isPaused) {
+                val elapsedTime = System.currentTimeMillis() - recordingStartTime + elapsedTimeBeforePause
+                updateTimerDisplay(elapsedTime)
+                handler.postDelayed(this, 1000)
+            }
+        }
+    }
+    // SeekBar update for playback
+    private val updateSeekBarTask = object : Runnable {
+        override fun run() {
+            if (mediaPlayer?.isPlaying == true) {
+                val currentPosition = mediaPlayer!!.currentPosition
+                binding.seekBar.progress = currentPosition
+                binding.currentTime.text = formatTime(currentPosition)
+            }
+            handler.postDelayed(this, 1000)
+        }
+    }
     private val REQUEST_MICROPHONE_PERMISSION = 1001
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FragmentRecordAudioBottomsheetBinding.inflate(inflater, container, false)
-        touchBlockOverlay = binding.touchBlockOverlay // Initialize overlay
+        touchBlockOverlay = binding.touchBlockOverlay
         setupListeners()
         setupBackPressHandler()
+        setupMiniPlayerDragging()
 
         binding.startButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.start, 0, 0, 0)
         setDrawableSize(binding.startButton, R.drawable.start, 80, 80)
         binding.progressOverlay.visibility = View.GONE
+        binding.recordingTimer.visibility = View.GONE
+        binding.recordImageView.setImageResource(R.drawable.record)
         return binding.root
     }
 
@@ -138,7 +167,9 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private fun setupBackPressHandler() {
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (isProcessing || isSaving) {
+                if (isRecording || isSaving) {
+                    Toast.makeText(requireContext(), "Cannot close while recording or saving", Toast.LENGTH_SHORT).show()
+                } else if (isProcessing) {
                     Toast.makeText(requireContext(), "Operation in progress, please wait", Toast.LENGTH_SHORT).show()
                 } else {
                     isEnabled = false
@@ -177,14 +208,14 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private fun abortCurrentOperation() {
         if (isAdded) {
             binding.progressOverlay.visibility = View.GONE
-            touchBlockOverlay?.visibility = View.GONE // Hide overlay on abort
+            touchBlockOverlay?.visibility = View.GONE
             Toast.makeText(requireContext(), "Operation aborted due to no internet", Toast.LENGTH_SHORT).show()
         }
         isProcessing = false
         hasShownSlowToast = false
         cleanupTempFile(audioFile)
         binding.processAudioButton.isEnabled = true
-        binding.processAudioButton.text = "Process Audio"
+        binding.processAudioButton.text = "PROCESS"
         updateDismissalState()
     }
 
@@ -205,17 +236,21 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             stopRecording()
         }
 
-        binding.playButton.setOnClickListener {
-            if (!isPlaying) {
-                playAudio()
-            } else {
-                pauseAudio()
-            }
-        }
+        binding.playPauseButton.setOnClickListener { if (!isProcessing) togglePlayPause() }
+        binding.stopButtonMini.setOnClickListener { if (!isProcessing) stopPlayback() }
+        binding.prevButton.setOnClickListener { if (!isProcessing) rewindAudio() }
+        binding.nextButton.setOnClickListener { if (!isProcessing) fastForwardAudio() }
 
-        binding.stopPlayButton.setOnClickListener {
-            stopAudioPlayback()
-        }
+        binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser && !isProcessing) {
+                    mediaPlayer?.seekTo(progress)
+                    binding.currentTime.text = formatTime(progress)
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
 
         binding.processAudioButton.setOnClickListener {
             if (isProcessing) return@setOnClickListener
@@ -239,7 +274,46 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         binding.deleteButton.setOnClickListener {
             showDeleteConfirmationDialog()
         }
+
+        binding.newRecordingButton.setOnClickListener {
+            cleanupTempFile(audioFile)
+            resetUI()
+            Toast.makeText(context, "Ready for new recording", Toast.LENGTH_SHORT).show()
+        }
     }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupMiniPlayerDragging() {
+        binding.miniPlayer.setOnTouchListener { v, event ->
+            if (isProcessing) return@setOnTouchListener false
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = v.x
+                    initialY = v.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val deltaX = event.rawX - initialTouchX
+                    val deltaY = event.rawY - initialTouchY
+                    v.x = initialX + deltaX
+                    v.y = initialY + deltaY
+
+                    val parent = v.parent as View
+                    v.x = v.x.coerceIn(0f, parent.width - v.width.toFloat())
+                    v.y = v.y.coerceIn(0f, parent.height - v.height.toFloat())
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private var initialX = 0f
+    private var initialY = 0f
+    private var initialTouchX = 0f
+    private var initialTouchY = 0f
 
     private fun startRecording() {
         try {
@@ -260,9 +334,24 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             setDrawableSize(binding.startButton, R.drawable.pause, 80, 80)
             binding.stopButton.isVisible = true
             setDrawableSize(binding.stopButton, R.drawable.stop, 80, 80)
+
+            binding.recordingTimer.visibility = View.VISIBLE
+            binding.recordingTimer.text = "00:00"
+            recordingStartTime = System.currentTimeMillis()
+            elapsedTimeBeforePause = 0L
+            handler.post(timerRunnable)
+            lockUIDuringRecording()
         } catch (e: Exception) {
             Toast.makeText(context, "Error starting recording: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun lockUIDuringRecording() {
+        touchBlockOverlay?.visibility = View.VISIBLE
+        val dialog = dialog as? BottomSheetDialog
+        dialog?.setCancelable(false)
+        dialog?.setCanceledOnTouchOutside(false)
+        bottomSheetBehavior.isDraggable = false
     }
 
     private fun resumeRecording() {
@@ -272,12 +361,17 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             Glide.with(this).asGif().load(R.drawable.recording).into(binding.recordImageView)
             binding.startButton.text = "Pause"
             setDrawableSize(binding.startButton, R.drawable.pause, 80, 80)
+            recordingStartTime = System.currentTimeMillis()
+            binding.recordingTimer.visibility = View.VISIBLE
+            handler.post(timerRunnable)
         } else {
             mediaRecorder?.pause()
             isPaused = true
             binding.recordImageView.setImageResource(R.drawable.record)
             binding.startButton.text = "Resume"
             setDrawableSize(binding.startButton, R.drawable.resume, 80, 80)
+            elapsedTimeBeforePause += System.currentTimeMillis() - recordingStartTime
+            handler.removeCallbacks(timerRunnable)
         }
     }
 
@@ -292,10 +386,30 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             binding.recordImageView.setImageResource(R.drawable.record)
             binding.startButton.isVisible = false
             binding.stopButton.isVisible = false
+            handler.removeCallbacks(timerRunnable)
+            binding.recordingTimer.text = "00:00"
+            binding.recordingTimer.visibility = View.GONE
+            elapsedTimeBeforePause = 0L
             showSaveFileDialog()
         } catch (e: IllegalStateException) {
             Toast.makeText(context, "Error stopping recording: ${e.message}", Toast.LENGTH_SHORT).show()
+            unlockUIAfterRecording()
+            binding.recordingTimer.visibility = View.GONE
         }
+    }
+
+    private fun updateTimerDisplay(elapsedTime: Long) {
+        val seconds = (elapsedTime / 1000) % 60
+        val minutes = (elapsedTime / (1000 * 60)) % 60
+        binding.recordingTimer.text = String.format("%02d:%02d", minutes, seconds)
+    }
+
+    private fun unlockUIAfterRecording() {
+        touchBlockOverlay?.visibility = View.GONE
+        val dialog = dialog as? BottomSheetDialog
+        dialog?.setCancelable(true)
+        dialog?.setCanceledOnTouchOutside(true)
+        bottomSheetBehavior.isDraggable = true
     }
 
     private fun showSaveFileDialog() {
@@ -304,12 +418,13 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .setTitle("Save Audio File")
             .setView(dialogView)
             .setNegativeButton("Cancel", null)
+            .setCancelable(false)
             .create()
         val fileNameInput = dialogView.findViewById<EditText>(R.id.fileNameInput)
         val saveFileButton = dialogView.findViewById<Button>(R.id.saveFileButton)
 
-        // Show overlay before dialog appears
         touchBlockOverlay?.visibility = View.VISIBLE
+        lockUIDuringRecording()
 
         saveFileButton.setOnClickListener {
             val enteredFileName = fileNameInput.text.toString().trim()
@@ -318,21 +433,22 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 audioFile?.renameTo(newFile)
                 audioFile = newFile
                 isSaving = true
-                updateDismissalState()
                 binding.progressOverlay.visibility = View.VISIBLE
                 dialog.dismiss()
                 saveAudioToFirebase(Uri.fromFile(audioFile)) {
                     if (isAdded) {
                         binding.progressOverlay.visibility = View.GONE
-                        touchBlockOverlay?.visibility = View.GONE // Hide overlay after animation
+                        touchBlockOverlay?.visibility = View.GONE
                         isSaving = false
-                        updateDismissalState()
-                        binding.audioPlayerLayout.isVisible = true
-                        binding.recordedFileNameTextView.text = "Recorded File - $enteredFileName"
+                        unlockUIAfterRecording()
+                        binding.miniPlayer.visibility = View.VISIBLE
+                        binding.currentAudioName.text = enteredFileName
                         binding.processAudioButton.isVisible = true
-                        binding.playButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.play, 0, 0, 0)
-                        setDrawableSize(binding.playButton, R.drawable.play, 80, 80)
+                        binding.processAudioButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.process, 0, 0, 0)
                         setDrawableSize(binding.processAudioButton, R.drawable.process, 80, 80)
+                        binding.newRecordingButton.isVisible = true
+                        binding.newRecordingButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.start, 0, 0, 0)
+                        setDrawableSize(binding.newRecordingButton, R.drawable.start, 80, 80)
                         binding.deleteButton.isVisible = true
                         binding.deleteButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.delete, 0, 0, 0)
                         setDrawableSize(binding.deleteButton, R.drawable.delete, 80, 80)
@@ -344,9 +460,21 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         }
 
         dialog.setOnDismissListener {
-            handler.postDelayed({
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay after animation
-            }, 200) // Match animation duration
+            if (!isSaving) {
+                handler.postDelayed({
+                    touchBlockOverlay?.visibility = View.GONE
+                    unlockUIAfterRecording()
+                }, 200)
+            }
+        }
+
+        dialog.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                Toast.makeText(requireContext(), "Cannot close while saving is pending", Toast.LENGTH_SHORT).show()
+                true
+            } else {
+                false
+            }
         }
 
         dialog.show()
@@ -356,11 +484,13 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
             Toast.makeText(context, "User not logged in!", Toast.LENGTH_SHORT).show()
             onComplete()
+            unlockUIAfterRecording()
             return
         }
         if (!isNetworkAvailable()) {
             Toast.makeText(context, "No internet connection, saved locally only", Toast.LENGTH_SHORT).show()
             onComplete()
+            unlockUIAfterRecording()
             return
         }
 
@@ -373,11 +503,13 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .addOnSuccessListener {
                 if (!isAdded || !isNetworkAvailable()) {
                     onComplete()
+                    unlockUIAfterRecording()
                     return@addOnSuccessListener
                 }
                 storageRef.downloadUrl.addOnSuccessListener { downloadUri ->
                     if (!isAdded || !isNetworkAvailable()) {
                         onComplete()
+                        unlockUIAfterRecording()
                         return@addOnSuccessListener
                     }
                     val audioUrl = downloadUri.toString()
@@ -396,6 +528,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         .addOnSuccessListener {
                             if (!isAdded || !isNetworkAvailable()) {
                                 onComplete()
+                                unlockUIAfterRecording()
                                 return@addOnSuccessListener
                             }
                             Toast.makeText(context, "Audio saved to Firebase!", Toast.LENGTH_SHORT).show()
@@ -404,27 +537,33 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         .addOnFailureListener { e ->
                             if (!isAdded) {
                                 onComplete()
+                                unlockUIAfterRecording()
                                 return@addOnFailureListener
                             }
                             Toast.makeText(context, "Failed to save metadata: ${e.message}", Toast.LENGTH_SHORT).show()
                             onComplete()
+                            unlockUIAfterRecording()
                         }
                 }.addOnFailureListener { e ->
                     if (!isAdded) {
                         onComplete()
+                        unlockUIAfterRecording()
                         return@addOnFailureListener
                     }
                     Toast.makeText(context, "Failed to get download URL: ${e.message}", Toast.LENGTH_SHORT).show()
                     onComplete()
+                    unlockUIAfterRecording()
                 }
             }
             .addOnFailureListener { e ->
                 if (!isAdded) {
                     onComplete()
+                    unlockUIAfterRecording()
                     return@addOnFailureListener
                 }
                 Toast.makeText(context, "Failed to save to Firebase: ${e.message}", Toast.LENGTH_SHORT).show()
                 onComplete()
+                unlockUIAfterRecording()
             }
     }
 
@@ -441,7 +580,6 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .setCancelable(false)
             .create()
 
-        // Show overlay before dialog appears
         touchBlockOverlay?.visibility = View.VISIBLE
 
         alertDialog.setOnShowListener {
@@ -466,13 +604,13 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                     alertDialog.dismiss()
                     handler.postDelayed({
                         showSpeakerInputDialog()
-                    }, 200) // Match animation duration
+                    }, 200)
                 }
                 R.id.radioNo -> {
                     alertDialog.dismiss()
                     handler.postDelayed({
                         showFollowUpSelectionDialog()
-                    }, 200) // Match animation duration
+                    }, 200)
                 }
                 else -> Toast.makeText(requireContext(), "Please select an option", Toast.LENGTH_SHORT).show()
             }
@@ -481,15 +619,15 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         cancelButton.setOnClickListener {
             alertDialog.dismiss()
             handler.postDelayed({
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay after animation
+                touchBlockOverlay?.visibility = View.GONE
                 cleanupTempFile(audioFile)
-            }, 200) // Match animation duration
+            }, 200)
         }
 
         alertDialog.setOnDismissListener {
             handler.postDelayed({
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay after animation
-            }, 200) // Match animation duration
+                touchBlockOverlay?.visibility = View.GONE
+            }, 200)
         }
 
         alertDialog.show()
@@ -511,7 +649,6 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .setCancelable(false)
             .create()
 
-        // Show overlay before dialog appears
         touchBlockOverlay?.visibility = View.VISIBLE
 
         fun updateDialogHeight() {
@@ -546,7 +683,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             alertDialog.dismiss()
             handler.postDelayed({
                 showFollowUpSelectionDialog()
-            }, 200) // Match animation duration
+            }, 200)
         }
 
         backButton.setOnClickListener {
@@ -554,13 +691,13 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             alertDialog.dismiss()
             handler.postDelayed({
                 showSpeakerSelectionDialog()
-            }, 200) // Match animation duration
+            }, 200)
         }
 
         alertDialog.setOnDismissListener {
             handler.postDelayed({
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay after animation
-            }, 200) // Match animation duration
+                touchBlockOverlay?.visibility = View.GONE
+            }, 200)
         }
 
         alertDialog.show()
@@ -607,7 +744,6 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .setCancelable(false)
             .create()
 
-        // Show overlay before dialog appears
         touchBlockOverlay?.visibility = View.VISIBLE
 
         alertDialog.setOnShowListener {
@@ -621,7 +757,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             alertDialog.dismiss()
             handler.postDelayed({
                 showSpeakerInputDialog()
-            }, 200) // Match animation duration
+            }, 200)
         }
 
         val radioGroup = dialogView.findViewById<RadioGroup>(R.id.radioGroup)
@@ -648,22 +784,22 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             alertDialog.dismiss()
             handler.postDelayed({
                 processAudio(speakers, selectedFileName)
-            }, 200) // Match animation duration
+            }, 200)
             temporarySpeakerList = null
         }
 
         cancelButton.setOnClickListener {
             alertDialog.dismiss()
             handler.postDelayed({
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay after animation
+                touchBlockOverlay?.visibility = View.GONE
                 cleanupTempFile(audioFile)
-            }, 200) // Match animation duration
+            }, 200)
         }
 
         alertDialog.setOnDismissListener {
             handler.postDelayed({
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay after animation
-            }, 200) // Match animation duration
+                touchBlockOverlay?.visibility = View.GONE
+            }, 200)
         }
 
         alertDialog.show()
@@ -679,7 +815,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         isProcessing = true
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
-        touchBlockOverlay?.visibility = View.VISIBLE // Show overlay during fetch
+        touchBlockOverlay?.visibility = View.VISIBLE
 
         userFilesRef.get()
             .addOnSuccessListener { snapshot ->
@@ -688,7 +824,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                     return@addOnSuccessListener
                 }
                 isProcessing = false
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay on completion
+                touchBlockOverlay?.visibility = View.GONE
                 val fileNames = snapshot.documents.mapNotNull { it.getString("fileName") }
                 if (fileNames.isEmpty()) {
                     spinner.visibility = View.GONE
@@ -730,7 +866,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .addOnFailureListener { e ->
                 if (!isAdded) return@addOnFailureListener
                 isProcessing = false
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay on failure
+                touchBlockOverlay?.visibility = View.GONE
                 Log.e("FetchFiles", "Error fetching files: ${e.message}")
                 Toast.makeText(requireContext(), "Failed to load files: ${e.message}", Toast.LENGTH_SHORT).show()
                 spinner.visibility = View.GONE
@@ -753,7 +889,9 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             operationStartTime = System.currentTimeMillis()
             hasShownSlowToast = false
             binding.progressOverlay.visibility = View.VISIBLE
-            touchBlockOverlay?.visibility = View.VISIBLE // Show overlay during processing
+            touchBlockOverlay?.visibility = View.VISIBLE
+            binding.processAudioButton.text = "Processing..."
+            binding.processAudioButton.isEnabled = false
             updateDismissalState()
             Toast.makeText(context, "Processing audio...", Toast.LENGTH_SHORT).show()
             handler.post(internetCheckTask)
@@ -830,11 +968,11 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                     return@addOnCompleteListener
                 }
                 binding.progressOverlay.visibility = View.GONE
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay on completion
+                touchBlockOverlay?.visibility = View.GONE
                 isProcessing = false
                 handler.removeCallbacks(internetCheckTask)
                 binding.processAudioButton.isEnabled = true
-                binding.processAudioButton.text = "Process Audio"
+                binding.processAudioButton.text = "PROCESS"
                 updateDismissalState()
             }
     }
@@ -864,12 +1002,12 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         abortCurrentOperation()
                     } else {
                         binding.progressOverlay.visibility = View.GONE
-                        touchBlockOverlay?.visibility = View.GONE // Hide overlay on failure
+                        touchBlockOverlay?.visibility = View.GONE
                         isProcessing = false
                         handler.removeCallbacks(internetCheckTask)
                         Toast.makeText(context, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
                         binding.processAudioButton.isEnabled = true
-                        binding.processAudioButton.text = "Process Audio"
+                        binding.processAudioButton.text = "PROCESS"
                         updateDismissalState()
                     }
                 }
@@ -882,7 +1020,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         abortCurrentOperation()
                     } else {
                         binding.progressOverlay.visibility = View.GONE
-                        touchBlockOverlay?.visibility = View.GONE // Hide overlay on completion
+                        touchBlockOverlay?.visibility = View.GONE
                         isProcessing = false
                         handler.removeCallbacks(internetCheckTask)
                         if (response.isSuccessful) {
@@ -891,13 +1029,13 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                             Toast.makeText(context, "Processing started, you’ll be notified when ready", Toast.LENGTH_LONG).show()
                             Handler(Looper.getMainLooper()).postDelayed({
                                 binding.processAudioButton.isEnabled = true
-                                binding.processAudioButton.text = "Process Audio"
+                                binding.processAudioButton.text = "PROCESS"
                             }, 2000)
                         } else {
                             Log.e("UploadAudio", "Upload failed! Response Code: ${response.code}")
                             Toast.makeText(context, "Server processing failed: ${response.code}", Toast.LENGTH_SHORT).show()
                             binding.processAudioButton.isEnabled = true
-                            binding.processAudioButton.text = "Process Audio"
+                            binding.processAudioButton.text = "PROCESS"
                         }
                         updateDismissalState()
                     }
@@ -917,37 +1055,67 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 prepare()
                 start()
             }
-            binding.deleteButton.isVisible = false
+            binding.deleteButton.visibility = View.GONE
             isPlaying = true
             Glide.with(this).asGif().load(R.drawable.recording).into(binding.recordImageView)
-            binding.playButton.text = "Pause"
-            setDrawableSize(binding.playButton, R.drawable.pause, 80, 80)
-            binding.stopPlayButton.isVisible = true
-            setDrawableSize(binding.stopPlayButton, R.drawable.stop, 80, 80)
-            mediaPlayer?.setOnCompletionListener { stopAudioPlayback() }
+            binding.playPauseButton.setImageResource(R.drawable.pause1)
+            binding.seekBar.max = mediaPlayer!!.duration
+            binding.totalTime.text = formatTime(mediaPlayer!!.duration)
+            binding.currentTime.text = "00:00"
+            handler.post(updateSeekBarTask)
+            mediaPlayer?.setOnCompletionListener { stopPlayback() }
         } catch (e: Exception) {
             Toast.makeText(context, "Playback failed: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun pauseAudio() {
-        mediaPlayer?.pause()
-        isPlaying = false
-        binding.recordImageView.setImageResource(R.drawable.record)
-        binding.stopPlayButton.isVisible = false
-        binding.playButton.text = "Resume"
-        setDrawableSize(binding.playButton, R.drawable.resume, 80, 80)
+    private fun togglePlayPause() {
+        if (isPlaying) {
+            mediaPlayer?.pause()
+            binding.playPauseButton.setImageResource(R.drawable.play)
+            binding.recordImageView.setImageResource(R.drawable.record)
+            handler.removeCallbacks(updateSeekBarTask)
+        } else {
+            if (mediaPlayer == null) {
+                playAudio()
+            } else {
+                mediaPlayer?.start()
+                binding.playPauseButton.setImageResource(R.drawable.pause1)
+                Glide.with(this).asGif().load(R.drawable.recording).into(binding.recordImageView)
+                handler.post(updateSeekBarTask)
+            }
+        }
+        isPlaying = !isPlaying
     }
 
-    private fun stopAudioPlayback() {
+    private fun stopPlayback() {
         mediaPlayer?.release()
         mediaPlayer = null
         isPlaying = false
         binding.recordImageView.setImageResource(R.drawable.record)
-        binding.playButton.text = "Play"
-        setDrawableSize(binding.playButton, R.drawable.play, 80, 80)
-        binding.stopPlayButton.isVisible = false
-        binding.deleteButton.isVisible = true
+        binding.playPauseButton.setImageResource(R.drawable.play)
+        binding.deleteButton.visibility = View.VISIBLE
+        handler.removeCallbacks(updateSeekBarTask)
+        binding.currentTime.text = "00:00"
+        binding.seekBar.progress = 0
+    }
+
+    private fun rewindAudio() {
+        mediaPlayer?.let {
+            val newPosition = (it.currentPosition - 10000).coerceAtLeast(0)
+            it.seekTo(newPosition)
+            binding.seekBar.progress = newPosition
+            binding.currentTime.text = formatTime(newPosition)
+        }
+    }
+
+    private fun fastForwardAudio() {
+        mediaPlayer?.let {
+            val newPosition = (it.currentPosition + 10000).coerceAtMost(it.duration)
+            it.seekTo(newPosition)
+            binding.seekBar.progress = newPosition
+            binding.currentTime.text = formatTime(newPosition)
+        }
     }
 
     private fun showDeleteConfirmationDialog() {
@@ -958,7 +1126,6 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .setNegativeButton("Cancel", null)
             .create()
 
-        // Show overlay before dialog appears
         touchBlockOverlay?.visibility = View.VISIBLE
 
         dialog.setOnShowListener {
@@ -977,8 +1144,8 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
         dialog.setOnDismissListener {
             handler.postDelayed({
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay after animation
-            }, 200) // Match animation duration
+                touchBlockOverlay?.visibility = View.GONE
+            }, 200)
         }
 
         dialog.show()
@@ -1020,12 +1187,18 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         binding.startButton.text = "Start"
         setDrawableSize(binding.startButton, R.drawable.start, 80, 80)
         binding.stopButton.isVisible = false
-        binding.audioPlayerLayout.isVisible = false
+        binding.miniPlayer.visibility = View.GONE
         binding.processAudioButton.isVisible = false
+        binding.newRecordingButton.isVisible = false
         binding.deleteButton.isVisible = false
+        binding.recordingTimer.visibility = View.GONE
+        binding.recordingTimer.text = "00:00"
+        elapsedTimeBeforePause = 0L
+        handler.removeCallbacks(timerRunnable)
+        handler.removeCallbacks(updateSeekBarTask)
     }
 
-    private fun setDrawableSize(button: Button, drawableResId: Int, width: Int, height: Int) {
+    private fun setDrawableSize(button: TextView, drawableResId: Int, width: Int, height: Int) {
         val drawable: Drawable? = ContextCompat.getDrawable(requireContext(), drawableResId)
         drawable?.let {
             it.setBounds(0, 0, width, height)
@@ -1075,6 +1248,13 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         audioFile = null
     }
 
+    @SuppressLint("DefaultLocale")
+    private fun formatTime(milliseconds: Int): String {
+        val minutes = TimeUnit.MILLISECONDS.toMinutes(milliseconds.toLong())
+        val seconds = TimeUnit.MILLISECONDS.toSeconds(milliseconds.toLong()) % 60
+        return String.format("%02d:%02d", minutes, seconds)
+    }
+
     override fun onResume() {
         super.onResume()
         if (isProcessing) {
@@ -1083,9 +1263,9 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         } else if (isSaving) {
             Toast.makeText(requireContext(), "Previous save interrupted", Toast.LENGTH_SHORT).show()
             binding.progressOverlay.visibility = View.GONE
-            touchBlockOverlay?.visibility = View.GONE // Hide overlay on interrupt
+            touchBlockOverlay?.visibility = View.GONE
             isSaving = false
-            updateDismissalState()
+            unlockUIAfterRecording()
         }
         handler.post(internetCheckTask)
     }
@@ -1102,12 +1282,9 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         mediaPlayer?.release()
         mediaPlayer = null
         cleanupTempFile(audioFile)
-        handler.removeCallbacks(internetCheckTask)
-        touchBlockOverlay?.visibility = View.GONE // Ensure overlay is hidden on destroy
+        handler.removeCallbacks(timerRunnable)
+        handler.removeCallbacks(updateSeekBarTask)
+        touchBlockOverlay?.visibility = View.GONE
         _binding = null
-    }
-
-    companion object {
-        private const val MIC_PERMISSION_REQUEST = 1001
     }
 }
