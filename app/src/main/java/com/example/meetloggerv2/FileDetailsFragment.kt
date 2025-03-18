@@ -618,6 +618,7 @@ class FileDetailsFragment : Fragment() {
         val marginTop = 50f
         val marginBottom = 50f
         val lineHeight = 20f
+        val minWordsForJustification = 7
 
         val normalPaint = Paint().apply {
             color = Color.BLACK
@@ -634,26 +635,120 @@ class FileDetailsFragment : Fragment() {
         var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
         var canvas = page.canvas
 
-        if (content.startsWith("TRANSCRIPTION OF AUDIO")) {
-            canvas.drawText("TRANSCRIPTION OF AUDIO", marginLeft, currentY, boldPaint)
-            currentY += lineHeight * 1.5f
-        }
-
         val lines = content.split("\n")
+        val maxLineWidth = pageWidth - marginLeft - marginRight
 
         for (line in lines) {
-            if (line.matches(Regex("^Speaker [A-Z]+:.*"))) {
-                val parts = line.split(":", limit = 2)
-                val speaker = parts[0].trim()
-                var text = parts.getOrNull(1)?.trim() ?: ""
+            if (line.isBlank()) {
+                currentY += lineHeight
+                continue
+            }
 
-                text = formatSummarization(text)
+            var lineText = line.trim().replace(Regex("\\s+:\\s+"), ": ")
+            lineText = formatSummarization(lineText)
+            val colonIndex = lineText.indexOf(":")
+
+            // Bold specific headings
+            if (lineText.startsWith("SUMMARY OF THE CONTENT") ||
+                lineText.startsWith("TRANSCRIPTION OF SPEAKERS")) {
+                canvas.drawText(lineText, marginLeft, currentY, boldPaint)
+                currentY += lineHeight * 1.5f
+                continue
+            }
+
+            if (colonIndex > -1) {
+                val beforeColon = lineText.substring(0, colonIndex).trim()
+                val afterColon = lineText.substring(colonIndex + 1).trim()
+
+                canvas.drawText("$beforeColon:", marginLeft, currentY, boldPaint)
+
+                if (afterColon.isNotEmpty()) {
+                    currentY += lineHeight
+                    val words = afterColon.split(" ")
+                    val wordBuffer = mutableListOf<String>()
+
+                    for (word in words) {
+                        val testLine = (wordBuffer + word).joinToString(" ")
+                        val textWidth = normalPaint.measureText(testLine)
+
+                        if (textWidth > maxLineWidth) {
+                            if (wordBuffer.size >= minWordsForJustification) {
+                                drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
+                            } else {
+                                canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
+                            }
+                            currentY += lineHeight
+                            wordBuffer.clear()
+                        }
+                        wordBuffer.add(word)
+
+                        if (currentY > pageHeight - marginBottom) {
+                            document.finishPage(page)
+                            pageNumber++
+                            page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                            canvas = page.canvas
+                            currentY = marginTop
+                        }
+                    }
+
+                    if (wordBuffer.isNotEmpty()) {
+                        if (wordBuffer.size >= minWordsForJustification) {
+                            drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
+                        } else {
+                            canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
+                        }
+                        currentY += lineHeight
+                    }
+                } else {
+                    currentY += lineHeight
+                }
+            } else if (lineText.matches(Regex("^Speaker [A-Z]+:.*"))) {
+                val parts = lineText.split(":", limit = 2)
+                val speaker = parts[0].trim()
+                val text = parts.getOrNull(1)?.trim() ?: ""
 
                 canvas.drawText(speaker, marginLeft, currentY, boldPaint)
                 currentY += lineHeight
 
-                val words = text.split(" ")
-                val maxLineWidth = pageWidth - marginLeft - marginRight
+                if (text.isNotEmpty()) {
+                    val words = text.split(" ")
+                    val wordBuffer = mutableListOf<String>()
+
+                    for (word in words) {
+                        val testLine = (wordBuffer + word).joinToString(" ")
+                        val textWidth = normalPaint.measureText(testLine)
+
+                        if (textWidth > maxLineWidth) {
+                            if (wordBuffer.size >= minWordsForJustification) {
+                                drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
+                            } else {
+                                canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
+                            }
+                            currentY += lineHeight
+                            wordBuffer.clear()
+                        }
+                        wordBuffer.add(word)
+
+                        if (currentY > pageHeight - marginBottom) {
+                            document.finishPage(page)
+                            pageNumber++
+                            page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                            canvas = page.canvas
+                            currentY = marginTop
+                        }
+                    }
+
+                    if (wordBuffer.isNotEmpty()) {
+                        if (wordBuffer.size >= minWordsForJustification) {
+                            drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
+                        } else {
+                            canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
+                        }
+                        currentY += lineHeight
+                    }
+                }
+            } else {
+                val words = lineText.split(" ")
                 val wordBuffer = mutableListOf<String>()
 
                 for (word in words) {
@@ -661,7 +756,7 @@ class FileDetailsFragment : Fragment() {
                     val textWidth = normalPaint.measureText(testLine)
 
                     if (textWidth > maxLineWidth) {
-                        if (wordBuffer.size > 7 && currentY < pageHeight - marginBottom) {
+                        if (wordBuffer.size >= minWordsForJustification) {
                             drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
                         } else {
                             canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
@@ -669,7 +764,6 @@ class FileDetailsFragment : Fragment() {
                         currentY += lineHeight
                         wordBuffer.clear()
                     }
-
                     wordBuffer.add(word)
 
                     if (currentY > pageHeight - marginBottom) {
@@ -682,51 +776,21 @@ class FileDetailsFragment : Fragment() {
                 }
 
                 if (wordBuffer.isNotEmpty()) {
-                    if (wordBuffer.size > 7) {
+                    if (wordBuffer.size >= minWordsForJustification) {
                         drawJustifiedText(canvas, wordBuffer, marginLeft, currentY, maxLineWidth, normalPaint)
                     } else {
                         canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
                     }
                     currentY += lineHeight
                 }
-            } else {
-                var lineText = line.trim()
+            }
 
-                lineText = formatSummarization(lineText)
-
-                val words = lineText.split(" ")
-                val maxLineWidth = pageWidth - marginLeft - marginRight
-                val wordBuffer = mutableListOf<String>()
-
-                for (word in words) {
-                    val testLine = (wordBuffer + word).joinToString(" ")
-                    val textWidth = normalPaint.measureText(testLine)
-
-                    if (textWidth > maxLineWidth) {
-                        if (wordBuffer.size > 7) {
-                            canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
-                        } else {
-                            canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
-                        }
-                        currentY += lineHeight
-                        wordBuffer.clear()
-                    }
-
-                    wordBuffer.add(word)
-
-                    if (currentY > pageHeight - marginBottom) {
-                        document.finishPage(page)
-                        pageNumber++
-                        page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
-                        canvas = page.canvas
-                        currentY = marginTop
-                    }
-                }
-
-                if (wordBuffer.isNotEmpty()) {
-                    canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, normalPaint)
-                    currentY += lineHeight
-                }
+            if (currentY > pageHeight - marginBottom) {
+                document.finishPage(page)
+                pageNumber++
+                page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                canvas = page.canvas
+                currentY = marginTop
             }
         }
 
@@ -736,6 +800,7 @@ class FileDetailsFragment : Fragment() {
         outputStream.close()
     }
 
+    // The other two functions (formatSummarization and drawJustifiedText) remain unchanged
     private fun formatSummarization(text: String): String {
         var formattedText = text
         formattedText = formattedText.replace(Regex("\\*\\*(.*?)\\*\\*")) { match ->
@@ -769,31 +834,70 @@ class FileDetailsFragment : Fragment() {
 
         val document = XWPFDocument()
         val lines = content.split("\n")
+        var isSummarization = true
 
         for (line in lines) {
-            if (line.isBlank()) continue
+            if (line.isBlank()) {
+                document.createParagraph() // Add empty paragraph for line gap
+                continue
+            }
+
+            if (line.startsWith("Speaker")) {
+                isSummarization = false
+            }
 
             val para = document.createParagraph()
             para.alignment = ParagraphAlignment.BOTH
 
-            val speakerPattern = Regex("^(Speaker \\w+:)")
-            val matchResult = speakerPattern.find(line)
-
-            if (matchResult != null) {
-                para.spacingBefore = 200
-
-                val speakerName = matchResult.value
-                val remainingText = line.removePrefix(speakerName).trim()
-
-                val speakerRun = para.createRun()
-                speakerRun.isBold = true
-                speakerRun.setText(speakerName)
-
-                val contentRun = para.createRun()
-                contentRun.setText(" $remainingText")
+            // Add spacing based on section
+            if (isSummarization) {
+                para.spacingAfter = 200 // Add line gap for summarization
             } else {
-                val run = para.createRun()
-                run.setText(line)
+                para.spacingBefore = 200 // Keep existing spacing for transcription
+            }
+
+            val processedLine = line.trim().replace(Regex("\\s+:\\s+"), ": ") // Ensure single space around colon
+            val colonIndex = processedLine.indexOf(":")
+
+            when {
+                        processedLine == "SUMMARY OF THE CONTENT" ||
+                        processedLine == "TRANSCRIPTION OF SPEAKERS" -> {
+                    val boldRun = para.createRun()
+                    boldRun.isBold = true
+                    boldRun.setText(processedLine)
+                    para.spacingAfter = 300 // Slightly larger spacing after main headings
+                }
+                colonIndex > -1 -> {
+                    val beforeColon = processedLine.substring(0, colonIndex).trim()
+                    val afterColon = processedLine.substring(colonIndex + 1).trim()
+
+                    val boldRun = para.createRun()
+                    boldRun.isBold = true
+                    boldRun.setText("$beforeColon:")
+
+                    if (afterColon.isNotEmpty()) {
+                        val normalRun = para.createRun()
+                        normalRun.setText(" $afterColon")
+                    }
+                }
+                processedLine.matches(Regex("^Speaker [A-Z]+:.*")) -> {
+                    val parts = processedLine.split(":", limit = 2)
+                    val speakerName = parts[0].trim()
+                    val remainingText = parts.getOrNull(1)?.trim() ?: ""
+
+                    val speakerRun = para.createRun()
+                    speakerRun.isBold = true
+                    speakerRun.setText("$speakerName:")
+
+                    if (remainingText.isNotEmpty()) {
+                        val contentRun = para.createRun()
+                        contentRun.setText(" $remainingText")
+                    }
+                }
+                else -> {
+                    val run = para.createRun()
+                    run.setText(processedLine)
+                }
             }
         }
 
