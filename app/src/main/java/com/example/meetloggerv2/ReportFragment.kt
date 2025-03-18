@@ -1250,17 +1250,47 @@ class ReportFragment : Fragment() {
     }
 
     private fun showDeleteConfirmationDialog() {
+        // Inflate a custom layout for the message
+        val inflater = LayoutInflater.from(requireContext())
+        val customView = inflater.inflate(R.layout.dialog_delete_confirm_message, null)
+
+        // Find the message TextView and set Poppins font
+        val messageTextView = customView.findViewById<TextView>(R.id.dialog_message)
+        messageTextView.text = "Are you sure, you want to delete the selected files?"
+
+        // Set Poppins font using Typeface (for compatibility)
+        val poppinsTypeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_medium)
+        messageTextView.typeface = poppinsTypeface
+
         val dialog = AlertDialog.Builder(requireContext())
-            .setMessage("Are you sure you want to delete the selected documents?")
-            .setPositiveButton("OK") { _, _ -> deleteSelectedItems() }
+            .setView(customView)  // Use custom view instead of setMessage
+            .setPositiveButton("Delete") { _, _ -> deleteSelectedItems() }
             .setNegativeButton("Cancel") { _, _ -> toggleDeleteMode(false) }
             .setCancelable(false)
             .create()
 
+        touchBlockOverlay.visibility = View.VISIBLE
+
+        dialog.setOnDismissListener {
+            handler.postDelayed({
+                touchBlockOverlay.visibility = View.GONE
+            }, 200)
+        }
+
         dialog.show()
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.BLUE)
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.RED)
+
+
+        // Customize buttons with Poppins font
+        val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+
+        positiveButton.setTextColor(Color.BLUE)
+        positiveButton.typeface = poppinsTypeface
+
+        negativeButton.setTextColor(Color.RED)
+        negativeButton.typeface = poppinsTypeface
     }
+
 
     private fun deleteSelectedItems() {
         if (!isNetworkAvailable()) {

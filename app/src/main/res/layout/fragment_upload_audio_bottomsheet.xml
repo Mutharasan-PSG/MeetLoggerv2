@@ -16,9 +16,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins_medium"
-            android:layout_margin="10dp"
-            android:hint="Upload an Audio file in MP3, WAV OR AAC format"
-            android:textSize="16sp"
+            android:layout_margin="15dp"
+            android:hint="Upload an Audio file in MP3, WAV or AAC format"
+            android:textSize="17sp"
             android:textColor="@android:color/black" />
 
         <LinearLayout
@@ -26,7 +26,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_margin="9dp"
+            android:layout_margin="12dp"
             android:gravity="center"
             android:background="@drawable/rounded_image"
             android:layout_gravity="center"
@@ -54,7 +54,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins"
-            android:layout_margin="7dp"
+            android:layout_margin="10dp"
             android:text="No audio file selected"
             android:textSize="15sp"
             android:textColor="@color/red"
@@ -66,6 +66,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:layout_margin="10dp"
             android:layout_gravity="center"
             android:elevation="12dp"
             android:padding="9dp"

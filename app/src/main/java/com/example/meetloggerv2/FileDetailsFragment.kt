@@ -28,6 +28,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -84,14 +85,29 @@ class FileDetailsFragment : Fragment() {
         shareButton = view.findViewById(R.id.sharelayout)
 
         updateButton = Button(context).apply {
-            text = "Update"
+            text = "UPDATE"
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             visibility = View.GONE
+            // Set blue background
+            setBackgroundColor(ContextCompat.getColor(context, R.color.BLUE))
+            // Set white text color
+            setTextColor(Color.WHITE)
+            // Set Poppins font
+            typeface = ResourcesCompat.getFont(context, R.font.poppins_bold)
+
         }
+
         cancelButton = Button(context).apply {
-            text = "Cancel"
+            text = "CANCEL"
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             visibility = View.GONE
+            // Set blue background
+            setBackgroundColor(ContextCompat.getColor(context,R.color.BLUE))
+            // Set white text color
+            setTextColor(Color.WHITE)
+            // Set Poppins font
+            typeface = ResourcesCompat.getFont(context, R.font.poppins_bold)
+
         }
 
         bottomContainer.addView(updateButton)
@@ -127,7 +143,7 @@ class FileDetailsFragment : Fragment() {
             .addOnSuccessListener { document ->
                 if (document.exists()) {
                     val responseText = document.getString("Response") ?: "No response available"
-                    val cleanedText = responseText.replace("*", "").trim()
+                    val cleanedText = responseText.replace("*", "").replace("#", "").trim()
                     responseTextView.text = cleanedText
                 } else {
                     Toast.makeText(requireContext(), "File not found", Toast.LENGTH_SHORT).show()

@@ -88,9 +88,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@drawable/rounded_container"
+            android:background="@drawable/rounded_image"
             android:padding="15dp"
-            android:elevation="3dp"
             android:visibility="gone">
 
             <!-- File Name -->
@@ -100,7 +99,9 @@
                 android:layout_height="wrap_content"
                 android:text="Now Playing..."
                 android:textColor="@android:color/black"
-                android:textSize="16sp"
+                android:layout_marginBottom="4dp"
+                android:layout_marginTop="4dp"
+                android:textSize="17sp"
                 android:maxLines="1"
                 android:ellipsize="marquee"
                 android:marqueeRepeatLimit="marquee_forever"
@@ -232,7 +233,6 @@
                 android:id="@+id/newRecordingButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-
                 android:text="New Recording"
                 android:gravity="center"
                 android:fontFamily="@font/poppins_medium"

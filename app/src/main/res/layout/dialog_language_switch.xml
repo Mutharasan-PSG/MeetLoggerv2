@@ -8,10 +8,11 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:fontFamily="@font/poppins_medium"
         android:text="Select Language"
         android:textSize="18sp"
         android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="26dp"/>
 
     <Spinner
         android:id="@+id/languageSpinner"
@@ -35,7 +36,9 @@
             android:backgroundTint="@color/BLUE"
             android:layout_marginEnd="15dp"
             android:clickable="true"
-            android:text="Switch"/>
+            android:fontFamily="@font/poppins"
+            android:text="Switch"
+            android:textColor="@color/white"/>
 
         <Button
             android:id="@+id/cancelLanguageButton"
@@ -43,7 +46,8 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:backgroundTint="@color/Pink"
-            android:text="Cancel"/>
+            android:text="Cancel"
+            android:textColor="@color/white"/>
 
 
 
