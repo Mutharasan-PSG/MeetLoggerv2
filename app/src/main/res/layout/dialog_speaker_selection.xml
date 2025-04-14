@@ -3,6 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
+    android:background="@color/white"
     android:padding="16dp">
 
     <TextView
@@ -10,6 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="@font/poppins_medium"
+        android:textColor="@color/Grey"
         android:text="Do you want to include the speaker name?"
         android:textSize="18sp"
         android:layout_gravity="left"
@@ -27,6 +29,7 @@
             android:id="@+id/radioYes"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:textColor="@color/black"
             android:text="YES, include speaker name"
             android:textSize="16sp" />
 
@@ -38,6 +41,7 @@
             android:id="@+id/radioNo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:textColor="@color/black"
             android:text="NO, proceed without name"
             android:textSize="16sp" />
 
@@ -57,7 +61,8 @@
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins"
             android:text="Cancel"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:elevation="7dp"/>
 
         <Space
             android:layout_width="16dp"
@@ -68,6 +73,7 @@
             android:id="@+id/proceedButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:elevation="7dp"
             android:fontFamily="@font/poppins"
             android:text="Proceed"
             android:textSize="16sp" />

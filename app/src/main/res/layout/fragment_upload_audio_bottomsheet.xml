@@ -2,6 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/white"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <LinearLayout
@@ -15,11 +16,12 @@
             android:id="@+id/audioInstructionsTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:fontFamily="@font/poppins_medium"
+            android:fontFamily="@font/poppins"
             android:layout_margin="15dp"
-            android:hint="Upload an Audio file in MP3, WAV or AAC format"
+            android:textColor="@color/Grey"
+            android:text="Upload an Audio file in MP3, WAV or AAC format"
             android:textSize="17sp"
-            android:textColor="@android:color/black" />
+             />
 
         <LinearLayout
             android:id="@+id/uploadAudioButton"
@@ -68,7 +70,7 @@
             android:orientation="horizontal"
             android:layout_margin="10dp"
             android:layout_gravity="center"
-            android:elevation="12dp"
+            android:elevation="5dp"
             android:padding="9dp"
             android:clickable="true"
             android:focusable="true"

@@ -2,6 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/white"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <LinearLayout
@@ -12,11 +13,14 @@
         android:background="@android:color/white">
 
         <TextView
+            android:id="@+id/instructionText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="15dp"
             android:textSize="17dp"
-            android:text="Record live audio here. Tap the Start button to begin."
+            android:textColor="@color/Grey"
+            android:text="Begin recording audio by selecting the Start button."
+            android:justificationMode="inter_word"
             android:fontFamily="@font/poppins" />
 
         <LinearLayout
@@ -26,12 +30,13 @@
             android:orientation="horizontal"
             android:gravity="center"
             android:layout_gravity="center"
-            android:padding="6dp">
+            android:padding="12dp">
 
             <TextView
                 android:id="@+id/recording_timer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="30dp"
                 android:text="00:00"
                 android:textSize="28sp"
                 android:textColor="@color/BLUE"
@@ -42,7 +47,6 @@
                 android:layout_width="85dp"
                 android:layout_height="70dp"
                 android:scaleType="fitXY"
-                android:layout_margin="30dp"
                 android:src="@drawable/record"
                 android:layout_gravity="center"
                 android:contentDescription="Record Icon" />

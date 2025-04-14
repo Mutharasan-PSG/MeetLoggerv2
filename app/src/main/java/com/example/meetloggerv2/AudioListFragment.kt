@@ -390,7 +390,7 @@ class AudioListFragment : Fragment() {
         val popupView = LayoutInflater.from(requireContext()).inflate(R.layout.popup_menu_layout, null)
         val listView = popupView.findViewById<ListView>(R.id.popup_list)
 
-        val options = listOf("Rename", "Download", "Share", "Summarize")
+        val options = listOf("RENAME", "DOWNLOAD", "SHARE", "SUMMARIZE")
 
         val adapter = object : ArrayAdapter<String>(
             requireContext(),
@@ -404,7 +404,7 @@ class AudioListFragment : Fragment() {
                 textView.typeface = poppinsFont
                 textView.textSize = 16f
                 textView.setPadding(16, 8, 16, 2)
-                textView.setTextColor(Color.BLACK)
+                textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.Grey))
                 textView.gravity = Gravity.CENTER_VERTICAL
                 textView.text = options[position]
                 return view
@@ -412,7 +412,7 @@ class AudioListFragment : Fragment() {
         }
         listView.adapter = adapter
 
-        val popupWidth = (140 * resources.displayMetrics.density).toInt()
+        val popupWidth = (145 * resources.displayMetrics.density).toInt()
         val popupWindow = PopupWindow(
             popupView,
             popupWidth,
@@ -482,29 +482,46 @@ class AudioListFragment : Fragment() {
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
         touchBlockOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Downloading audio...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), "Preparing audio...", Toast.LENGTH_SHORT).show()
 
-        storageRef.getFile(tempFile).addOnSuccessListener {
+        // Fetch existing audioUrl
+        storageRef.downloadUrl.addOnSuccessListener { downloadUri ->
             if (!isAdded || !isNetworkAvailable()) {
                 abortCurrentOperation()
                 return@addOnSuccessListener
             }
-            progressOverlay.visibility = View.GONE
-            isProcessing = false
-            touchBlockOverlay.visibility = View.VISIBLE
-            Toast.makeText(requireContext(), "Audio downloaded", Toast.LENGTH_SHORT).show()
-            showSpeakerSelectionDialog(tempFile)
+            val audioUrl = downloadUri.toString()
+            // Download audio for backend upload
+            storageRef.getFile(tempFile).addOnSuccessListener {
+                if (!isAdded || !isNetworkAvailable()) {
+                    abortCurrentOperation()
+                    return@addOnSuccessListener
+                }
+                progressOverlay.visibility = View.GONE
+                isProcessing = false
+                touchBlockOverlay.visibility = View.VISIBLE
+                Toast.makeText(requireContext(), "Audio ready", Toast.LENGTH_SHORT).show()
+                showSpeakerSelectionDialog(tempFile, audioUrl)
+            }.addOnFailureListener { e ->
+                if (!isAdded) return@addOnFailureListener
+                progressOverlay.visibility = View.GONE
+                touchBlockOverlay.visibility = View.GONE
+                isProcessing = false
+                Toast.makeText(requireContext(), "Failed to download audio: ${e.message}", Toast.LENGTH_SHORT).show()
+                cleanupTempFile(tempFile)
+            }
         }.addOnFailureListener { e ->
             if (!isAdded) return@addOnFailureListener
             progressOverlay.visibility = View.GONE
-            touchBlockOverlay.visibility = View.GONE
+            touchBlockOverlay.visibility = View.VISIBLE
             isProcessing = false
-            Toast.makeText(requireContext(), "Failed to download audio: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Failed to get audio URL: ${e.message}", Toast.LENGTH_SHORT).show()
             cleanupTempFile(tempFile)
         }
     }
 
-    private fun showSpeakerSelectionDialog(audioFile: File) {
+    // Update showSpeakerSelectionDialog to pass audioUrl
+    private fun showSpeakerSelectionDialog(audioFile: File, audioUrl: String = "") {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_speaker_selection, null)
         val radioGroup = dialogView.findViewById<RadioGroup>(R.id.radioGroup)
         val radioYes = dialogView.findViewById<RadioButton>(R.id.radioYes)
@@ -540,13 +557,13 @@ class AudioListFragment : Fragment() {
                 R.id.radioYes -> {
                     alertDialog.dismiss()
                     handler.postDelayed({
-                        showSpeakerInputDialog(audioFile)
+                        showSpeakerInputDialog(audioFile, audioUrl)
                     }, 200)
                 }
                 R.id.radioNo -> {
                     alertDialog.dismiss()
                     handler.postDelayed({
-                        showFollowUpSelectionDialog(audioFile)
+                        showFollowUpSelectionDialog(audioFile, audioUrl)
                     }, 200)
                 }
                 else -> Toast.makeText(requireContext(), "Please select an option", Toast.LENGTH_SHORT).show()
@@ -570,7 +587,8 @@ class AudioListFragment : Fragment() {
         alertDialog.show()
     }
 
-    private fun showSpeakerInputDialog(audioFile: File) {
+    // Update showSpeakerInputDialog to pass audioUrl
+    private fun showSpeakerInputDialog(audioFile: File, audioUrl: String) {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_speaker_input, null)
         val speakerContainer = dialogView.findViewById<LinearLayout>(R.id.speakerContainer)
         val addSpeakerButton = dialogView.findViewById<Button>(R.id.addSpeakerButton)
@@ -622,7 +640,7 @@ class AudioListFragment : Fragment() {
             temporarySpeakerList = filledSpeakers
             alertDialog.dismiss()
             handler.postDelayed({
-                showFollowUpSelectionDialog(audioFile)
+                showFollowUpSelectionDialog(audioFile, audioUrl)
             }, 200)
         }
 
@@ -630,7 +648,7 @@ class AudioListFragment : Fragment() {
             Log.d("SpeakerInput", "User went back to selection dialog.")
             alertDialog.dismiss()
             handler.postDelayed({
-                showSpeakerSelectionDialog(audioFile)
+                showSpeakerSelectionDialog(audioFile, audioUrl)
             }, 200)
         }
 
@@ -666,7 +684,8 @@ class AudioListFragment : Fragment() {
         container.addView(speakerView)
     }
 
-    private fun showFollowUpSelectionDialog(audioFile: File) {
+    // Update showFollowUpSelectionDialog to pass audioUrl
+    private fun showFollowUpSelectionDialog(audioFile: File, audioUrl: String) {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_follow_up_selection, null)
         val backButton = dialogView.findViewById<ImageView>(R.id.backButton)
         val radioYes = dialogView.findViewById<RadioButton>(R.id.radioYes)
@@ -700,7 +719,7 @@ class AudioListFragment : Fragment() {
         backButton.setOnClickListener {
             alertDialog.dismiss()
             handler.postDelayed({
-                showSpeakerInputDialog(audioFile)
+                showSpeakerInputDialog(audioFile, audioUrl)
             }, 200)
         }
 
@@ -728,7 +747,7 @@ class AudioListFragment : Fragment() {
             val speakers = temporarySpeakerList ?: emptyList()
             alertDialog.dismiss()
             handler.postDelayed({
-                processAudio(audioFile, speakers, selectedFileName)
+                processAudio(audioFile, speakers, selectedFileName, audioUrl)
             }, 200)
             temporarySpeakerList = null
         }
@@ -748,6 +767,163 @@ class AudioListFragment : Fragment() {
         }
 
         alertDialog.show()
+    }
+
+    private fun processAudio(audioFile: File, speakerNames: List<String>, followUpFileName: String = "", audioUrl: String = "") {
+        if (!isNetworkAvailable()) {
+            touchBlockOverlay.visibility = View.GONE
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            cleanupTempFile(audioFile)
+            return
+        }
+
+        val userId = FirebaseAuth.getInstance().currentUser?.uid
+        if (userId == null) {
+            touchBlockOverlay.visibility = View.GONE
+            Toast.makeText(requireContext(), "User not logged in", Toast.LENGTH_SHORT).show()
+            cleanupTempFile(audioFile)
+            return
+        }
+
+        if (!audioFile.exists()) {
+            touchBlockOverlay.visibility = View.GONE
+            Toast.makeText(requireContext(), "Audio file not found", Toast.LENGTH_SHORT).show()
+            cleanupTempFile(audioFile)
+            return
+        }
+
+        val filteredSpeakers = speakerNames.filter { it.isNotBlank() }
+        Log.d("ProcessAudio", "Processing audio with speakers: $filteredSpeakers, followUp: $followUpFileName")
+
+        // Generate new file name with " (Re-summarized)"
+        val originalFileName = audioFile.name
+        val baseName = originalFileName.substringBeforeLast(".mp3")
+        var newFileName = "$baseName (Re-summarized).mp3"
+        var counter = 1
+        val db = FirebaseFirestore.getInstance()
+        val userFilesRef = db.collection("ProcessedDocs").document(userId).collection("UserFiles")
+
+        // Check for existing names and append counter if needed
+        fun checkAndSetFileName(callback: (String) -> Unit) {
+            userFilesRef.document(newFileName).get().addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    counter++
+                    newFileName = "$baseName (Re-summarized $counter).mp3"
+                    checkAndSetFileName(callback)
+                } else {
+                    callback(newFileName)
+                }
+            }.addOnFailureListener { e ->
+                Log.e("ProcessAudio", "Failed to check file name: ${e.message}")
+                Toast.makeText(requireContext(), "Error checking file name", Toast.LENGTH_SHORT).show()
+                cleanupTempFile(audioFile)
+            }
+        }
+
+        isProcessing = true
+        operationStartTime = System.currentTimeMillis()
+        hasShownSlowToast = false
+        progressOverlay.visibility = View.VISIBLE
+        touchBlockOverlay.visibility = View.VISIBLE
+        Toast.makeText(requireContext(), "Preparing re-summarization...", Toast.LENGTH_SHORT).show()
+
+        checkAndSetFileName { finalFileName ->
+            val fileData = hashMapOf(
+                "fileName" to finalFileName,
+                "audioUrl" to audioUrl,
+                "status" to "processing",
+                "timestamp_clientUpload" to FieldValue.serverTimestamp(),
+                "followUpFileName" to followUpFileName
+            )
+
+            userFilesRef.document(finalFileName)
+                .set(fileData)
+                .addOnSuccessListener {
+                    if (!isAdded || !isNetworkAvailable()) {
+                        abortCurrentOperation()
+                        cleanupTempFile(audioFile)
+                        return@addOnSuccessListener
+                    }
+                    Toast.makeText(requireContext(), "Metadata saved for re-summarization", Toast.LENGTH_SHORT).show()
+                    uploadAudioToBackend(audioFile, userId, filteredSpeakers, followUpFileName, finalFileName)
+                }
+                .addOnFailureListener { e ->
+                    if (!isAdded) return@addOnFailureListener
+                    progressOverlay.visibility = View.GONE
+                    touchBlockOverlay.visibility = View.GONE
+                    isProcessing = false
+                    Toast.makeText(requireContext(), "Failed to save metadata: ${e.message}", Toast.LENGTH_SHORT).show()
+                    cleanupTempFile(audioFile)
+                }
+        }
+    }
+
+    private fun uploadAudioToBackend(file: File, userId: String, speakerNames: List<String>, followUpFileName: String, fileName: String = file.name) {
+        if (!isNetworkAvailable()) {
+            touchBlockOverlay.visibility = View.GONE
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            progressOverlay.visibility = View.GONE
+            isProcessing = false
+            cleanupTempFile(file)
+            return
+        }
+
+        val serverUrl = "https://meetloggerserver.onrender.com/upload"
+
+        val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("file", file.name, file.asRequestBody("audio/mp3".toMediaTypeOrNull()))
+            .addFormDataPart("userId", userId)
+            .addFormDataPart("fileName", fileName) // Use the new fileName
+            .addFormDataPart("speakers", Gson().toJson(speakerNames))
+            .addFormDataPart("followUpFileName", followUpFileName)
+            .build()
+
+        val request = Request.Builder()
+            .url(serverUrl)
+            .post(requestBody)
+            .build()
+
+        Toast.makeText(requireContext(), "Sending audio to server...", Toast.LENGTH_SHORT).show()
+
+        val client = OkHttpClient()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (!isAdded) return
+                requireActivity().runOnUiThread {
+                    if (!isNetworkAvailable()) {
+                        abortCurrentOperation()
+                    } else {
+                        progressOverlay.visibility = View.GONE
+                        touchBlockOverlay.visibility = View.GONE
+                        isProcessing = false
+                        Toast.makeText(requireContext(), "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                    cleanupTempFile(file)
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (!isAdded) return
+                requireActivity().runOnUiThread {
+                    if (!isNetworkAvailable()) {
+                        abortCurrentOperation()
+                    } else {
+                        progressOverlay.visibility = View.GONE
+                        touchBlockOverlay.visibility = View.GONE
+                        isProcessing = false
+                        if (response.isSuccessful) {
+                            val responseBody = response.body?.string()
+                            Log.d("UploadAudio", "Upload successful! Response: $responseBody")
+                            Toast.makeText(requireContext(), "Processing started, you’ll be notified when ready", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Log.e("UploadAudio", "Upload failed! Response Code: ${response.code}")
+                            Toast.makeText(requireContext(), "Server processing failed: ${response.code}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    cleanupTempFile(file)
+                }
+            }
+        })
     }
 
     private fun fetchUserFiles(userFilesRef: CollectionReference, spinner: Spinner, proceedButton: Button) {
@@ -816,175 +992,6 @@ class AudioListFragment : Fragment() {
                 Toast.makeText(requireContext(), "Failed to load files: ${e.message}", Toast.LENGTH_SHORT).show()
                 spinner.visibility = View.GONE
             }
-    }
-
-    private fun processAudio(audioFile: File, speakerNames: List<String>, followUpFileName: String = "") {
-        if (!isNetworkAvailable()) {
-            touchBlockOverlay.visibility = View.GONE
-            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
-            cleanupTempFile(audioFile)
-            return
-        }
-
-        val userId = FirebaseAuth.getInstance().currentUser?.uid
-        if (userId == null) {
-            touchBlockOverlay.visibility = View.GONE
-            Toast.makeText(requireContext(), "User not logged in", Toast.LENGTH_SHORT).show()
-            cleanupTempFile(audioFile)
-            return
-        }
-
-        if (!audioFile.exists()) {
-            touchBlockOverlay.visibility = View.GONE
-            Toast.makeText(requireContext(), "Audio file not found", Toast.LENGTH_SHORT).show()
-            cleanupTempFile(audioFile)
-            return
-        }
-
-        val filteredSpeakers = speakerNames.filter { it.isNotBlank() }
-        Log.d("ProcessAudio", "Processing audio with speakers: $filteredSpeakers, followUp: $followUpFileName")
-
-        val fileName = audioFile.name
-        val storageRef = FirebaseStorage.getInstance().reference.child("AudioFiles/$userId/$fileName")
-        val metadata = storageMetadata { contentType = "audio/mpeg" }
-
-        isProcessing = true
-        operationStartTime = System.currentTimeMillis()
-        hasShownSlowToast = false
-        progressOverlay.visibility = View.VISIBLE
-        touchBlockOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Uploading audio to Firebase...", Toast.LENGTH_SHORT).show()
-
-        storageRef.putFile(Uri.fromFile(audioFile), metadata)
-            .addOnSuccessListener {
-                if (!isAdded || !isNetworkAvailable()) {
-                    abortCurrentOperation()
-                    cleanupTempFile(audioFile)
-                    return@addOnSuccessListener
-                }
-                storageRef.downloadUrl.addOnSuccessListener { downloadUri ->
-                    if (!isAdded || !isNetworkAvailable()) {
-                        abortCurrentOperation()
-                        cleanupTempFile(audioFile)
-                        return@addOnSuccessListener
-                    }
-                    val audioUrl = downloadUri.toString()
-                    val fileData = hashMapOf(
-                        "fileName" to fileName,
-                        "audioUrl" to audioUrl,
-                        "status" to "processing",
-                        "timestamp_clientUpload" to FieldValue.serverTimestamp(),
-                        "followUpFileName" to followUpFileName
-                    )
-
-                    FirebaseFirestore.getInstance()
-                        .collection("ProcessedDocs")
-                        .document(userId)
-                        .collection("UserFiles")
-                        .document(fileName)
-                        .set(fileData)
-                        .addOnSuccessListener {
-                            if (!isAdded || !isNetworkAvailable()) {
-                                abortCurrentOperation()
-                                cleanupTempFile(audioFile)
-                                return@addOnSuccessListener
-                            }
-                            Toast.makeText(requireContext(), "Audio metadata saved", Toast.LENGTH_SHORT).show()
-                            uploadAudioToBackend(audioFile, userId, filteredSpeakers, followUpFileName)
-                        }
-                        .addOnFailureListener { e ->
-                            if (!isAdded) return@addOnFailureListener
-                            progressOverlay.visibility = View.GONE
-                            touchBlockOverlay.visibility = View.GONE
-                            isProcessing = false
-                            Toast.makeText(requireContext(), "Failed to save metadata: ${e.message}", Toast.LENGTH_SHORT).show()
-                            cleanupTempFile(audioFile)
-                        }
-                }.addOnFailureListener { e ->
-                    if (!isAdded) return@addOnFailureListener
-                    progressOverlay.visibility = View.GONE
-                    touchBlockOverlay.visibility = View.GONE
-                    isProcessing = false
-                    Toast.makeText(requireContext(), "Failed to get download URL: ${e.message}", Toast.LENGTH_SHORT).show()
-                    cleanupTempFile(audioFile)
-                }
-            }
-            .addOnFailureListener { e ->
-                if (!isAdded) return@addOnFailureListener
-                progressOverlay.visibility = View.GONE
-                touchBlockOverlay.visibility = View.GONE
-                isProcessing = false
-                Toast.makeText(requireContext(), "Failed to upload to Firebase: ${e.message}", Toast.LENGTH_SHORT).show()
-                cleanupTempFile(audioFile)
-            }
-    }
-
-    private fun uploadAudioToBackend(file: File, userId: String, speakerNames: List<String>, followUpFileName: String) {
-        if (!isNetworkAvailable()) {
-            touchBlockOverlay.visibility = View.GONE
-            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
-            progressOverlay.visibility = View.GONE
-            isProcessing = false
-            cleanupTempFile(file)
-            return
-        }
-
-        val serverUrl = "https://meetloggerserver.onrender.com/upload"
-
-        val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("file", file.name, file.asRequestBody("audio/mp3".toMediaTypeOrNull()))
-            .addFormDataPart("userId", userId)
-            .addFormDataPart("fileName", file.name)
-            .addFormDataPart("speakers", Gson().toJson(speakerNames))
-            .addFormDataPart("followUpFileName", followUpFileName)
-            .build()
-
-        val request = Request.Builder()
-            .url(serverUrl)
-            .post(requestBody)
-            .build()
-
-        Toast.makeText(requireContext(), "Sending audio to server...", Toast.LENGTH_SHORT).show()
-
-        val client = OkHttpClient()
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                if (!isAdded) return
-                requireActivity().runOnUiThread {
-                    if (!isNetworkAvailable()) {
-                        abortCurrentOperation()
-                    } else {
-                        progressOverlay.visibility = View.GONE
-                        touchBlockOverlay.visibility = View.GONE
-                        isProcessing = false
-                        Toast.makeText(requireContext(), "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-                    cleanupTempFile(file)
-                }
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                if (!isAdded) return
-                requireActivity().runOnUiThread {
-                    if (!isNetworkAvailable()) {
-                        abortCurrentOperation()
-                    } else {
-                        progressOverlay.visibility = View.GONE
-                        touchBlockOverlay.visibility = View.GONE
-                        isProcessing = false
-                        if (response.isSuccessful) {
-                            val responseBody = response.body?.string()
-                            Log.d("UploadAudio", "Upload successful! Response: $responseBody")
-                            Toast.makeText(requireContext(), "Processing started, you’ll be notified when ready", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Log.e("UploadAudio", "Upload failed! Response Code: ${response.code}")
-                            Toast.makeText(requireContext(), "Server processing failed: ${response.code}", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    cleanupTempFile(file)
-                }
-            }
-        })
     }
 
     private fun cleanupTempFile(file: File?) {

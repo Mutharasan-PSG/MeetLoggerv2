@@ -3,23 +3,29 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
+    android:background="@color/white"
     android:padding="16dp">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fontFamily="@font/poppins_medium"
-        android:text="Select Language"
+        android:fontFamily="@font/poppins"
+        android:textColor="@color/Grey"
+        android:text="CHOOSE LANGUAGE"
         android:textSize="18sp"
-        android:textStyle="bold"
         android:layout_marginBottom="26dp"/>
 
     <Spinner
         android:id="@+id/languageSpinner"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:background="@drawable/spinner_border"
         android:layout_gravity="center"
         android:gravity="center"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp"
+        android:paddingStart="1dp"
+        android:paddingEnd="1dp"
         android:layout_marginBottom="16dp"/>
 
     <LinearLayout
@@ -33,21 +39,21 @@
             android:id="@+id/changeLanguageButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:backgroundTint="@color/BLUE"
             android:layout_marginEnd="15dp"
             android:clickable="true"
+            android:elevation="7dp"
             android:fontFamily="@font/poppins"
             android:text="Switch"
-            android:textColor="@color/white"/>
+            android:textColor="@color/BLUE"/>
 
         <Button
             android:id="@+id/cancelLanguageButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:clickable="true"
-            android:backgroundTint="@color/Pink"
+            android:elevation="7dp"
             android:text="Cancel"
-            android:textColor="@color/white"/>
+            android:textColor="@color/red"/>
 
 
 

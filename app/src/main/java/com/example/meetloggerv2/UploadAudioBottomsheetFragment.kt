@@ -96,7 +96,7 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
     override fun onStart() {
         super.onStart()
-        setFixedBottomSheetHeight(0.4)
+        setFixedBottomSheetHeight(0.5)
         setupBottomSheetBehavior()
     }
 
@@ -558,6 +558,7 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         "fileName" to fileName,
                         "audioUrl" to audioUrl,
                         "status" to "processing",
+                        "OriginalLanguage" to "en",
                         "timestamp_clientUpload" to FieldValue.serverTimestamp(),
                         "followUpFileName" to followUpFileName
                     )

@@ -254,6 +254,7 @@ class ReportFragment : Fragment() {
         listView.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             if (!isDeleteMode && !isRenaming && !isProcessing) {
                 val (selectedFileName, _, _) = filteredList[position]
+                Log.d(TAG, "ListView clicked at position $position, selected short fileName: $selectedFileName")
                 openFileDetailsFragment(selectedFileName)
             } else if (!isRenaming && !isProcessing) {
                 // Toggle checkbox state in delete mode
@@ -267,7 +268,7 @@ class ReportFragment : Fragment() {
                     } else {
                         selectedItems.remove(position)
                     }
-                    Log.d(TAG, "Clicked position $position, new state: $newCheckedState, selectedItems: $selectedItems")
+                    Log.d(TAG, "Clicked position $position in delete mode, new state: $newCheckedState, selectedItems: $selectedItems")
                     adapter.notifyDataSetChanged()
                     updateDeleteIconVisibility()
                     updateSelectAllCheckboxState()
@@ -341,7 +342,7 @@ class ReportFragment : Fragment() {
         val popupView = LayoutInflater.from(requireContext()).inflate(R.layout.popup_menu_layout, null)
         val listView = popupView.findViewById<ListView>(R.id.popup_list)
 
-        val options = listOf("Rename", "Export", "Share")
+        val options = listOf("RENAME", "EXPORT", "SHARE", "COPY")
 
         val adapter = object : ArrayAdapter<String>(
             requireContext(),
@@ -355,7 +356,7 @@ class ReportFragment : Fragment() {
                 textView.typeface = poppinsFont
                 textView.textSize = 16f
                 textView.setPadding(16, 8, 16, 8)
-                textView.setTextColor(Color.BLACK)
+                textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.Grey))
                 textView.gravity = Gravity.CENTER_VERTICAL
                 textView.text = options[position]
                 return view
@@ -377,10 +378,12 @@ class ReportFragment : Fragment() {
         popupWindow.isClippingEnabled = false
 
         listView.setOnItemClickListener { _, _, index, _ ->
+            val (displayedFileName, _, _) = filteredList[position]
             when (options[index]) {
                 "Rename" -> startRenaming(position)
-                "Export" -> exportFile(filteredList[position].first)
-                "Share" -> shareFile(filteredList[position].first)
+                "Export" -> exportFile(displayedFileName)
+                "Share" -> initiateShareFile(displayedFileName)
+                "Copy" -> showCopyDialog(position)
             }
             popupWindow.dismiss()
         }
@@ -411,13 +414,150 @@ class ReportFragment : Fragment() {
         popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, xOffset, yOffset)
     }
 
+    private fun showCopyDialog(position: Int) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_copy_file, null)
+        val editText = dialogView.findViewById<EditText>(R.id.editTextNewFileName)
+        val proceedButton = dialogView.findViewById<Button>(R.id.buttonProceed)
+        val cancelButton = dialogView.findViewById<Button>(R.id.buttonCancel)
+
+        val (displayedFileName, _, _) = filteredList[position]
+        editText.setText("Copy of $displayedFileName")
+        editText.setSelection(editText.text.length)
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+
+        proceedButton.setOnClickListener {
+            val newNameWithoutExt = editText.text.toString().trim()
+            if (newNameWithoutExt.isEmpty()) {
+                Toast.makeText(requireContext(), "File name cannot be empty", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val fullFileName = fileNamesList.find { it.first.substringBeforeLast(".") == displayedFileName }?.first
+            if (fullFileName == null) {
+                Log.w(TAG, "Full file name not found for: $displayedFileName")
+                Toast.makeText(requireContext(), "Error: File not found", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+                return@setOnClickListener
+            }
+
+            val extension = fullFileName.substringAfterLast(".", "mp3")
+            val newFullName = "$newNameWithoutExt.$extension"
+
+            if (fileNamesList.any { it.first == newFullName }) {
+                Toast.makeText(requireContext(), "File name already exists", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            dialog.dismiss()
+            copyFile(position, newFullName)
+        }
+
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun copyFile(position: Int, newFullName: String) {
+        if (!isNetworkAvailable()) {
+            Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val (displayedFileName, _, _) = filteredList[position]
+        val oldFullName = fileNamesList.find { it.first.substringBeforeLast(".") == displayedFileName }?.first
+        if (oldFullName == null) {
+            Log.w(TAG, "Original file not found for copying: $displayedFileName")
+            Toast.makeText(requireContext(), "Error: File not found", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
+            Log.e(TAG, "No user ID found for copying")
+            Toast.makeText(requireContext(), "User not authenticated", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        isProcessing = true
+        operationStartTime = System.currentTimeMillis()
+        hasShownSlowToast = false
+        progressOverlay.visibility = View.VISIBLE
+        Toast.makeText(requireContext(), "Copying file...", Toast.LENGTH_SHORT).show()
+
+        val db = FirebaseFirestore.getInstance()
+        val oldDocRef = db.collection("ProcessedDocs").document(userId)
+            .collection("UserFiles").document(oldFullName)
+        val newDocRef = db.collection("ProcessedDocs").document(userId)
+            .collection("UserFiles").document(newFullName)
+
+        oldDocRef.get().addOnSuccessListener { document ->
+            if (!isAdded || !isNetworkAvailable()) {
+                abortCurrentOperation()
+                return@addOnSuccessListener
+            }
+            if (document.exists()) {
+                val documentData = document.data ?: run {
+                    Log.w(TAG, "No data in document: $oldFullName")
+                    progressOverlay.visibility = View.GONE
+                    isProcessing = false
+                    Toast.makeText(requireContext(), "Error: File data not found", Toast.LENGTH_SHORT).show()
+                    return@addOnSuccessListener
+                }
+
+                // Create new data map, excluding AudioLink
+                val newData = documentData.toMutableMap().apply {
+                    put("fileName", newFullName)
+                    remove("AudioLink") // Ensure no audio reference
+                }
+
+                // Copy Firestore document only
+                newDocRef.set(newData).addOnSuccessListener {
+                    if (!isAdded) return@addOnSuccessListener
+                    Log.d(TAG, "File copied successfully: $newFullName")
+                    progressOverlay.visibility = View.GONE
+                    isProcessing = false
+                    Toast.makeText(requireContext(), "File copied successfully", Toast.LENGTH_SHORT).show()
+                    scheduleFetchDebounce()
+                }.addOnFailureListener { e ->
+                    if (!isAdded) return@addOnFailureListener
+                    Log.e(TAG, "Failed to copy Firestore document: ${e.message}", e)
+                    progressOverlay.visibility = View.GONE
+                    isProcessing = false
+                    Toast.makeText(requireContext(), "Failed to copy file", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                if (!isAdded) return@addOnSuccessListener
+                Log.w(TAG, "Original document not found: $oldFullName")
+                progressOverlay.visibility = View.GONE
+                isProcessing = false
+                Toast.makeText(requireContext(), "Error: File not found", Toast.LENGTH_SHORT).show()
+            }
+        }.addOnFailureListener { e ->
+            if (!isAdded) return@addOnFailureListener
+            Log.e(TAG, "Failed to fetch original document: ${e.message}", e)
+            progressOverlay.visibility = View.GONE
+            isProcessing = false
+            Toast.makeText(requireContext(), "Failed to copy file", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun startRenaming(position: Int) {
         if (!isNetworkAvailable()) {
             Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
             return
         }
 
-        Log.d(TAG, "Starting rename for position: $position")
+        Log.d(TAG, "Starting rename for position: $position, fileName: ${filteredList[position].first}")
         isRenaming = true
         renamingPosition = position
         deleteIcon.visibility = View.GONE
@@ -513,7 +653,6 @@ class ReportFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
-        touchBlockOverlay.visibility = View.VISIBLE
         Log.d(TAG, "Starting rename from $oldFullName to $newFullName")
         Toast.makeText(requireContext(), "Renaming file...", Toast.LENGTH_SHORT).show()
 
@@ -661,7 +800,11 @@ class ReportFragment : Fragment() {
             return
         }
 
-        val fullFileName = fileNamesList.find { it.first.startsWith(displayedFileName) }?.first ?: return
+        val fullFileName = fileNamesList.find { it.first.startsWith(displayedFileName) }?.first ?: run {
+            Log.w(TAG, "No full file name found for export: $displayedFileName")
+            return
+        }
+        Log.d(TAG, "Exporting file, displayedFileName: $displayedFileName, resolved fullFileName: $fullFileName")
         fetchAndProcessContent(fullFileName) { formattedContent ->
             if (!isAdded || !isNetworkAvailable()) {
                 abortCurrentOperation()
@@ -671,19 +814,23 @@ class ReportFragment : Fragment() {
         }
     }
 
-    private fun shareFile(displayedFileName: String) {
+    private fun initiateShareFile(displayedFileName: String) {
         if (!isNetworkAvailable()) {
             Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val fullFileName = fileNamesList.find { it.first.startsWith(displayedFileName) }?.first ?: return
+        val fullFileName = fileNamesList.find { it.first.startsWith(displayedFileName) }?.first ?: run {
+            Log.w(TAG, "No full file name found for share: $displayedFileName")
+            return
+        }
+        Log.d(TAG, "Initiating share for file, displayedFileName: $displayedFileName, resolved fullFileName: $fullFileName")
         fetchAndProcessContent(fullFileName) { formattedContent ->
             if (!isAdded || !isNetworkAvailable()) {
                 abortCurrentOperation()
                 return@fetchAndProcessContent
             }
-            exportAndShareContent(fullFileName, formattedContent)
+            showShareFormatDialog(fullFileName, formattedContent)
         }
     }
 
@@ -718,7 +865,7 @@ class ReportFragment : Fragment() {
                 if (document.exists()) {
                     val responseText = document.getString("Response") ?: "No response available"
                     val cleanedText = responseText.replace("*", "").trim()
-                    Log.d(TAG, "Content fetched successfully: $cleanedText")
+                    Log.d(TAG, "Content fetched successfully for $fileName: $cleanedText")
                     callback(cleanedText)
                 } else {
                     Log.w(TAG, "Document not found in Firestore for: $fileName")
@@ -729,7 +876,7 @@ class ReportFragment : Fragment() {
                 if (!isAdded) return@addOnFailureListener
                 progressOverlay.visibility = View.GONE
                 isProcessing = false
-                Log.e(TAG, "Failed to fetch file details: ${e.message}", e)
+                Log.e(TAG, "Failed to fetch file details for $fileName: ${e.message}", e)
                 Toast.makeText(requireContext(), "Failed to load file details", Toast.LENGTH_SHORT).show()
             }
     }
@@ -748,6 +895,25 @@ class ReportFragment : Fragment() {
         dialogView.findViewById<LinearLayout>(R.id.docxButtonLayout).setOnClickListener {
             dialog.dismiss()
             exportContent(fileName, content, "DOCX")
+        }
+
+        dialog.show()
+    }
+
+    private fun showShareFormatDialog(fileName: String, content: String) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_export_options, null)
+        val dialog = AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .create()
+
+        dialogView.findViewById<LinearLayout>(R.id.pdfButtonLayout).setOnClickListener {
+            dialog.dismiss()
+            exportAndShareContent(fileName, content, "PDF")
+        }
+
+        dialogView.findViewById<LinearLayout>(R.id.docxButtonLayout).setOnClickListener {
+            dialog.dismiss()
+            exportAndShareContent(fileName, content, "DOCX")
         }
 
         dialog.show()
@@ -773,9 +939,10 @@ class ReportFragment : Fragment() {
                 val cleanFileName = fileName.substringBeforeLast(".")
                 putExtra(Intent.EXTRA_TITLE, "$cleanFileName.${if (format == "PDF") "pdf" else "docx"}")
             }
+            Log.d(TAG, "Starting export intent for $fileName in $format format")
             startActivityForResult(intent, 100)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch export intent: ${e.message}", e)
+            Log.e(TAG, "Failed to launch export intent for $fileName: ${e.message}", e)
             Toast.makeText(requireContext(), "Failed to save file", Toast.LENGTH_SHORT).show()
         }
     }
@@ -842,7 +1009,7 @@ class ReportFragment : Fragment() {
         }
     }
 
-    private fun exportAndShareContent(fileName: String, content: String) {
+    private fun exportAndShareContent(fileName: String, content: String, format: String) {
         if (!isNetworkAvailable()) {
             Toast.makeText(requireContext(), "No internet connection", Toast.LENGTH_SHORT).show()
             return
@@ -861,7 +1028,6 @@ class ReportFragment : Fragment() {
 
         try {
             val cleanFileName = fileName.substringBeforeLast(".")
-            val format = if (content.contains("Speaker")) "PDF" else "DOCX"
             val tempFile = File(requireContext().cacheDir, "$cleanFileName.${if (format == "PDF") "pdf" else "docx"}")
             tempShareFile = tempFile
             val outputStream = FileOutputStream(tempFile)
@@ -886,6 +1052,7 @@ class ReportFragment : Fragment() {
             progressOverlay.visibility = View.GONE
             isProcessing = false
             Toast.makeText(requireContext(), "File ready to share", Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "Starting share intent for $fileName in $format format")
             startActivity(Intent.createChooser(shareIntent, "Share Document"))
         } catch (e: Exception) {
             if (!isAdded) return
@@ -937,7 +1104,6 @@ class ReportFragment : Fragment() {
             lineText = formatSummarization(lineText)
             val colonIndex = lineText.indexOf(":")
 
-            // Bold specific headings
             if (lineText.startsWith("SUMMARY OF THE CONTENT") ||
                 lineText.startsWith("TRANSCRIPTION OF SPEAKERS")) {
                 canvas.drawText(lineText, marginLeft, currentY, boldPaint)
@@ -1089,7 +1255,6 @@ class ReportFragment : Fragment() {
         outputStream.close()
     }
 
-    // The other two functions (formatSummarization and drawJustifiedText) remain unchanged
     private fun formatSummarization(text: String): String {
         var formattedText = text
         formattedText = formattedText.replace(Regex("\\*\\*(.*?)\\*\\*")) { match ->
@@ -1127,7 +1292,7 @@ class ReportFragment : Fragment() {
 
         for (line in lines) {
             if (line.isBlank()) {
-                document.createParagraph() // Add empty paragraph for line gap
+                document.createParagraph()
                 continue
             }
 
@@ -1138,14 +1303,13 @@ class ReportFragment : Fragment() {
             val para = document.createParagraph()
             para.alignment = ParagraphAlignment.BOTH
 
-            // Add spacing based on section
             if (isSummarization) {
-                para.spacingAfter = 200 // Add line gap for summarization
+                para.spacingAfter = 200
             } else {
-                para.spacingBefore = 200 // Keep existing spacing for transcription
+                para.spacingBefore = 200
             }
 
-            val processedLine = line.trim().replace(Regex("\\s+:\\s+"), ": ") // Ensure single space around colon
+            val processedLine = line.trim().replace(Regex("\\s+:\\s+"), ": ")
             val colonIndex = processedLine.indexOf(":")
 
             when {
@@ -1154,7 +1318,7 @@ class ReportFragment : Fragment() {
                     val boldRun = para.createRun()
                     boldRun.isBold = true
                     boldRun.setText(processedLine)
-                    para.spacingAfter = 300 // Slightly larger spacing after main headings
+                    para.spacingAfter = 300
                 }
                 colonIndex > -1 -> {
                     val beforeColon = processedLine.substring(0, colonIndex).trim()
@@ -1250,20 +1414,16 @@ class ReportFragment : Fragment() {
     }
 
     private fun showDeleteConfirmationDialog() {
-        // Inflate a custom layout for the message
         val inflater = LayoutInflater.from(requireContext())
         val customView = inflater.inflate(R.layout.dialog_delete_confirm_message, null)
 
-        // Find the message TextView and set Poppins font
         val messageTextView = customView.findViewById<TextView>(R.id.dialog_message)
         messageTextView.text = "Are you sure, you want to delete the selected files?"
-
-        // Set Poppins font using Typeface (for compatibility)
         val poppinsTypeface = ResourcesCompat.getFont(requireContext(), R.font.poppins_medium)
         messageTextView.typeface = poppinsTypeface
 
         val dialog = AlertDialog.Builder(requireContext())
-            .setView(customView)  // Use custom view instead of setMessage
+            .setView(customView)
             .setPositiveButton("Delete") { _, _ -> deleteSelectedItems() }
             .setNegativeButton("Cancel") { _, _ -> toggleDeleteMode(false) }
             .setCancelable(false)
@@ -1279,8 +1439,6 @@ class ReportFragment : Fragment() {
 
         dialog.show()
 
-
-        // Customize buttons with Poppins font
         val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
         val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
 
@@ -1290,7 +1448,6 @@ class ReportFragment : Fragment() {
         negativeButton.setTextColor(Color.RED)
         negativeButton.typeface = poppinsTypeface
     }
-
 
     private fun deleteSelectedItems() {
         if (!isNetworkAvailable()) {
@@ -1321,18 +1478,21 @@ class ReportFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
+        selectAllCheckbox.visibility = View.GONE
         Toast.makeText(requireContext(), "Deleting files...", Toast.LENGTH_SHORT).show()
 
-        val itemsToDelete = mutableListOf<String>()
+        // Use a Set to avoid duplicates
+        val itemsToDelete = mutableSetOf<String>()
         synchronized(filteredList) {
             selectedItems.forEach { position ->
                 if (position in 0 until filteredList.size) {
                     val (shortName, _, _) = filteredList[position]
-                    val fullName = fileNamesList.find { it.first.startsWith(shortName) }?.first
+                    // Exact match for base name
+                    val fullName = fileNamesList.find { it.first.substringBeforeLast(".") == shortName }?.first
                     if (fullName != null) {
                         itemsToDelete.add(fullName)
                     } else {
-                        Log.w(TAG, "No full file name found for: $shortName")
+                        Log.w(TAG, "No full file name found for shortName: $shortName")
                     }
                 } else {
                     Log.w(TAG, "Invalid position: $position, filteredList size: ${filteredList.size}")
@@ -1368,11 +1528,9 @@ class ReportFragment : Fragment() {
 
                 synchronized(fileNamesList) {
                     synchronized(filteredList) {
-                        itemsToDelete.forEach { fullName ->
-                            fileNamesList.removeAll { it.first == fullName }
-                            val shortName = fullName.substringBeforeLast(".")
-                            filteredList.removeAll { it.first == shortName }
-                        }
+                        // Remove deleted items from both lists
+                        fileNamesList.removeAll { it.first in itemsToDelete }
+                        filteredList.removeAll { itemsToDelete.contains(it.first + ".mp3") }
                         progressOverlay.visibility = View.GONE
                         isProcessing = false
                         Toast.makeText(requireContext(), "Files deleted successfully", Toast.LENGTH_SHORT).show()
@@ -1445,17 +1603,19 @@ class ReportFragment : Fragment() {
                             Log.w(TAG, "Null filename in document: ${document.id}")
                             return@forEach
                         }
-                        val timestamp = document.getTimestamp("timestamp_clientUpload") ?: return@forEach
+                        // Use a default timestamp if missing to avoid skipping files
+                        val timestamp = document.getTimestamp("timestamp_clientUpload") ?: Timestamp(0, 0)
                         val status = document.getString("status") ?: "processing"
                         fileNamesList.add(Triple(fileName, timestamp, status))
                         Log.d(TAG, "Added file: $fileName with timestamp: $timestamp")
                     }
 
-                    fileNamesList.sortByDescending { it.second }
+                    // Sort files, prioritizing those with valid timestamps
+                    fileNamesList.sortByDescending { it.second.seconds + it.second.nanoseconds / 1_000_000_000.0 }
 
                     filteredList.clear()
                     filteredList.addAll(fileNamesList.map { Triple(it.first.substringBeforeLast("."), it.second, it.third) })
-                    Log.d(TAG, "Updated filteredList with ${filteredList.size} items")
+                    Log.d(TAG, "Updated filteredList with ${filteredList.size} items: ${filteredList.map { it.first }}")
                     isDataLoaded = true
                     togglePlaceholder()
                     adapter.notifyDataSetChanged()
@@ -1501,15 +1661,34 @@ class ReportFragment : Fragment() {
             return
         }
 
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val db = FirebaseFirestore.getInstance()
-        val userFilesRef = db.collection("ProcessedDocs").document(userId).collection("UserFiles")
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
+            Log.e(TAG, "No user ID found, cannot open FileDetailsFragment")
+            return
+        }
 
-        val fullFileName = fileNamesList.find { it.first.startsWith(displayedFileName) }?.first ?: return
+        // Log available file names for debugging
+        Log.d(TAG, "Available fileNamesList: ${fileNamesList.map { it.first }}")
+        Log.d(TAG, "Searching for displayedFileName: $displayedFileName")
+
+        // Find all matching files (in case of duplicates)
+        val matchingFiles = fileNamesList.filter { it.first.substringBeforeLast(".") == displayedFileName }
+        if (matchingFiles.isEmpty()) {
+            Log.w(TAG, "No full file name found for displayedFileName: $displayedFileName")
+            Toast.makeText(requireContext(), "File not found", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (matchingFiles.size > 1) {
+            Log.w(TAG, "Multiple files match displayedFileName: $displayedFileName, matches: ${matchingFiles.map { it.first }}")
+            // Optionally, handle ambiguity (e.g., pick the most recent)
+        }
+
+        val fullFileName = matchingFiles.first().first
+        Log.d(TAG, "Resolved fullFileName: $fullFileName from displayedFileName: $displayedFileName")
 
         val fileDetailsFragment = FileDetailsFragment().apply {
             arguments = Bundle().apply {
                 putString("fileName", fullFileName)
+                Log.d(TAG, "Bundle prepared with fileName: $fullFileName")
             }
         }
 
@@ -1522,6 +1701,7 @@ class ReportFragment : Fragment() {
         )
         transaction.replace(R.id.fragment_container, fileDetailsFragment)
         transaction.addToBackStack(null)
+        Log.d(TAG, "Committing transaction for FileDetailsFragment with fileName: $fullFileName")
         transaction.commit()
     }
 

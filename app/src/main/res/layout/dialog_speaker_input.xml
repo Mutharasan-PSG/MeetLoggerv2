@@ -1,6 +1,7 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/white"
     android:padding="16dp">
 
     <!-- Back Button at the Top Left -->
@@ -49,8 +50,7 @@
             android:layout_marginEnd="15dp"
             android:layout_gravity="center"
             android:elevation="7dp"
-            android:backgroundTint="@color/BLUE"
-            android:textColor="@color/white"
+            android:textColor="@color/black"
             android:text="ADD SPEAKER"
             android:fontFamily="@font/poppins"
             android:contentDescription="Add Speaker"/>
@@ -65,8 +65,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:elevation="7dp"
-            android:backgroundTint="@color/BLUE"
-            android:textColor="@color/white"
+            android:textColor="@color/BLUE"
             android:text="PROCEED"/>
 
     </LinearLayout>

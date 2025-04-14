@@ -294,7 +294,7 @@ class HomeFragment : Fragment() {
         val userFilesRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles")
 
         val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_YEAR, -7)
+        calendar.add(Calendar.DAY_OF_YEAR, -14)
         val sevenDaysAgo = Timestamp(calendar.time)
 
         userFilesRef.addSnapshotListener { snapshot, error ->

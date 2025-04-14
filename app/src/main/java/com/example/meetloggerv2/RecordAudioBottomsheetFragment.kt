@@ -124,7 +124,24 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         binding.progressOverlay.visibility = View.GONE
         binding.recordingTimer.visibility = View.GONE
         binding.recordImageView.setImageResource(R.drawable.record)
+        setInstructionText(InstructionState.INITIAL) // Set initial instruction
         return binding.root
+    }
+
+    // Enum to manage instruction states
+    private enum class InstructionState {
+        INITIAL, RECORDING, SAVED
+    }
+
+    // Helper function to set instruction text
+    private fun setInstructionText(state: InstructionState) {
+        val instruction = when (state) {
+            InstructionState.INITIAL -> "Begin recording audio by selecting the Start button."
+            InstructionState.RECORDING -> "Control the recording using the Pause/Resume and Stop buttons."
+            InstructionState.SAVED -> "Play the recorded audio, process it, or start a new recording."
+        }
+        binding.instructionText.text = instruction
+        Log.d("RecordAudioFragment", "Instruction set to: $instruction")
     }
 
     override fun onStart() {
@@ -278,6 +295,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         binding.newRecordingButton.setOnClickListener {
             cleanupTempFile(audioFile)
             resetUI()
+            setInstructionText(InstructionState.INITIAL) // Reset instruction on new recording
             Toast.makeText(context, "Ready for new recording", Toast.LENGTH_SHORT).show()
         }
     }
@@ -341,6 +359,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             elapsedTimeBeforePause = 0L
             handler.post(timerRunnable)
             lockUIDuringRecording()
+            setInstructionText(InstructionState.RECORDING) // Update instruction
         } catch (e: Exception) {
             Toast.makeText(context, "Error starting recording: ${e.message}", Toast.LENGTH_SHORT).show()
         }
@@ -364,6 +383,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             recordingStartTime = System.currentTimeMillis()
             binding.recordingTimer.visibility = View.VISIBLE
             handler.post(timerRunnable)
+            setInstructionText(InstructionState.RECORDING) // Update instruction
         } else {
             mediaRecorder?.pause()
             isPaused = true
@@ -372,6 +392,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             setDrawableSize(binding.startButton, R.drawable.resume, 80, 80)
             elapsedTimeBeforePause += System.currentTimeMillis() - recordingStartTime
             handler.removeCallbacks(timerRunnable)
+            setInstructionText(InstructionState.RECORDING) // Keep recording instruction during pause
         }
     }
 
@@ -452,6 +473,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         binding.deleteButton.isVisible = true
                         binding.deleteButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.delete, 0, 0, 0)
                         setDrawableSize(binding.deleteButton, R.drawable.delete, 80, 80)
+                        setInstructionText(InstructionState.SAVED) // Update instruction after save
                     }
                 }
             } else {
@@ -464,6 +486,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 handler.postDelayed({
                     touchBlockOverlay?.visibility = View.GONE
                     unlockUIAfterRecording()
+                    setInstructionText(InstructionState.RECORDING) // Keep recording instruction if dialog canceled
                 }, 200)
             }
         }
@@ -517,6 +540,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         "fileName" to fileName,
                         "audioUrl" to audioUrl,
                         "status" to "saved",
+                        "OriginalLanguage" to "en",
                         "timestamp_clientUpload" to FieldValue.serverTimestamp()
                     )
                     FirebaseFirestore.getInstance()
@@ -1026,7 +1050,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         if (response.isSuccessful) {
                             val responseBody = response.body?.string()
                             Log.d("UploadAudio", "Upload successful! Response: $responseBody")
-                            Toast.makeText(context, "Processing started, you’ll be notified when ready", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Processing started, you’ll be notified when ready-scheduler", Toast.LENGTH_LONG).show()
                             Handler(Looper.getMainLooper()).postDelayed({
                                 binding.processAudioButton.isEnabled = true
                                 binding.processAudioButton.text = "PROCESS"
@@ -1161,6 +1185,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         Toast.makeText(context, "Audio deleted locally", Toast.LENGTH_SHORT).show()
         deleteFromFirebaseStorage(fileName)
         resetUI()
+        setInstructionText(InstructionState.INITIAL) // Reset instruction on delete
     }
 
     private fun deleteFromFirebaseStorage(fileName: String) {

@@ -46,12 +46,12 @@ android {
     packagingOptions {
         exclude("META-INF/DEPENDENCIES")
     }
+
 }
 
 dependencies{
 
-
-    implementation ("com.google.mlkit:translate:17.0.3")
+   implementation ("com.google.mlkit:translate:17.0.3")
 
 implementation ("com.itextpdf:itext7-core:7.1.14")
 

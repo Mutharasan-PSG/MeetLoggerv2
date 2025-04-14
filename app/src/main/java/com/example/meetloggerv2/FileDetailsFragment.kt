@@ -9,27 +9,20 @@ import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AnimationUtils
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.EditText
-import android.widget.FrameLayout
-import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.ScrollView
-import android.widget.Spinner
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
+import android.widget.AdapterView.OnItemSelectedListener
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentTransaction
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.mlkit.common.model.DownloadConditions
@@ -40,6 +33,9 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
+import java.text.SimpleDateFormat
+import java.util.*
+import com.google.firebase.Timestamp
 
 class FileDetailsFragment : Fragment() {
 
@@ -51,7 +47,8 @@ class FileDetailsFragment : Fragment() {
     private var fileName: String? = null
     private var isBottomContainerVisible = true
     private var isEditing = false
-    private var isTranslating = false // New flag for translation state
+    private var isTranslating = false
+    private var isContentTranslated = false
     private lateinit var editText: EditText
     private lateinit var editButton: View
     private lateinit var exportButton: View
@@ -59,10 +56,75 @@ class FileDetailsFragment : Fragment() {
     private lateinit var updateButton: Button
     private lateinit var cancelButton: Button
     private var selectedLanguageCode = "en"
+    private var originalLanguageCode: String? = null
+
+    // Define language list as a class-level constant
+    private val languages = listOf(
+        "English" to "en",
+        "French" to "fr",
+        "German" to "de",
+        "Afrikaans" to "af",
+        "Arabic" to "ar",
+        "Belarusian" to "be",
+        "Bulgarian" to "bg",
+        "Bengali" to "bn",
+        "Catalan" to "ca",
+        "Czech" to "cs",
+        "Welsh" to "cy",
+        "Danish" to "da",
+        "Greek" to "el",
+        "Spanish" to "es",
+        "Esperanto" to "eo",
+        "Estonian" to "et",
+        "Persian" to "fa",
+        "Finnish" to "fi",
+        "Irish" to "ga",
+        "Galician" to "gl",
+        "Gujarati" to "gu",
+        "Hebrew" to "he",
+        "Hindi" to "hi",
+        "Croatian" to "hr",
+        "Haitian" to "ht",
+        "Hungarian" to "hu",
+        "Indonesian" to "id",
+        "Icelandic" to "is",
+        "Italian" to "it",
+        "Japanese" to "ja",
+        "Georgian" to "ka",
+        "Kannada" to "kn",
+        "Korean" to "ko",
+        "Lithuanian" to "lt",
+        "Latvian" to "lv",
+        "Macedonian" to "mk",
+        "Marathi" to "mr",
+        "Malay" to "ms",
+        "Maltese" to "mt",
+        "Dutch" to "nl",
+        "Norwegian" to "no",
+        "Polish" to "pl",
+        "Portuguese" to "pt",
+        "Romanian" to "ro",
+        "Russian" to "ru",
+        "Slovak" to "sk",
+        "Slovenian" to "sl",
+        "Albanian" to "sq",
+        "Swedish" to "sv",
+        "Swahili" to "sw",
+        "Tamil" to "ta",
+        "Telugu" to "te",
+        "Thai" to "th",
+        "Tagalog" to "tl",
+        "Turkish" to "tr",
+        "Ukrainian" to "uk",
+        "Urdu" to "ur",
+        "Vietnamese" to "vi",
+        "Chinese" to "zh"
+    ).sortedBy { it.first }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         fileName = arguments?.getString("fileName")
+        Log.d("FileDetailsFragment", "onCreate: fileName = $fileName")
     }
 
     override fun onCreateView(
@@ -88,26 +150,18 @@ class FileDetailsFragment : Fragment() {
             text = "UPDATE"
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             visibility = View.GONE
-            // Set blue background
             setBackgroundColor(ContextCompat.getColor(context, R.color.BLUE))
-            // Set white text color
             setTextColor(Color.WHITE)
-            // Set Poppins font
             typeface = ResourcesCompat.getFont(context, R.font.poppins_bold)
-
         }
 
         cancelButton = Button(context).apply {
             text = "CANCEL"
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             visibility = View.GONE
-            // Set blue background
-            setBackgroundColor(ContextCompat.getColor(context,R.color.BLUE))
-            // Set white text color
+            setBackgroundColor(ContextCompat.getColor(context, R.color.BLUE))
             setTextColor(Color.WHITE)
-            // Set Poppins font
             typeface = ResourcesCompat.getFont(context, R.font.poppins_bold)
-
         }
 
         bottomContainer.addView(updateButton)
@@ -121,8 +175,7 @@ class FileDetailsFragment : Fragment() {
         setupButtonAnimation(shareButton)
         setupEditControls()
         setupLanguageSwitch()
-        setupBackPressHandler() // New: Handle back press restriction
-
+        setupBackPressHandler()
         setupScrollListener()
         fetchFileDetails()
 
@@ -131,8 +184,13 @@ class FileDetailsFragment : Fragment() {
 
     private fun fetchFileDetails() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        if (fileName == null) return
+        if (fileName == null) {
+            Log.e("FileDetailsFragment", "fetchFileDetails: fileName is null")
+            Toast.makeText(requireContext(), "No file specified", Toast.LENGTH_SHORT).show()
+            return
+        }
 
+        Log.d("FileDetailsFragment", "fetchFileDetails: Fetching for fileName = $fileName")
         val db = FirebaseFirestore.getInstance()
         val fileRef = db.collection("ProcessedDocs")
             .document(userId)
@@ -145,11 +203,17 @@ class FileDetailsFragment : Fragment() {
                     val responseText = document.getString("Response") ?: "No response available"
                     val cleanedText = responseText.replace("*", "").replace("#", "").trim()
                     responseTextView.text = cleanedText
+                    originalLanguageCode = document.getString("OriginalLanguage") ?: "en"
+                    selectedLanguageCode = originalLanguageCode ?: "en" // Reset to original
+                    isContentTranslated = false // Reset translation state
+                    Log.d("FileDetailsFragment", "fetchFileDetails: Loaded Response = $cleanedText, OriginalLanguage = $originalLanguageCode")
                 } else {
+                    Log.w("FileDetailsFragment", "fetchFileDetails: Document does not exist for $fileName")
                     Toast.makeText(requireContext(), "File not found", Toast.LENGTH_SHORT).show()
                 }
             }
-            .addOnFailureListener {
+            .addOnFailureListener { exception ->
+                Log.e("FileDetailsFragment", "fetchFileDetails: Failed for $fileName, error = ${exception.message}")
                 Toast.makeText(requireContext(), "Failed to load file details", Toast.LENGTH_SHORT).show()
             }
     }
@@ -173,7 +237,7 @@ class FileDetailsFragment : Fragment() {
 
     private fun setupEditControls() {
         updateButton.setOnClickListener {
-            saveEditedContent()
+            checkAndSaveEditedContent()
         }
 
         cancelButton.setOnClickListener {
@@ -203,6 +267,7 @@ class FileDetailsFragment : Fragment() {
         shareButton.visibility = View.GONE
         updateButton.visibility = View.VISIBLE
         cancelButton.visibility = View.VISIBLE
+        languageSwitchButton.isEnabled = false
     }
 
     private fun switchToViewMode() {
@@ -220,6 +285,72 @@ class FileDetailsFragment : Fragment() {
         shareButton.visibility = View.VISIBLE
         updateButton.visibility = View.GONE
         cancelButton.visibility = View.GONE
+        languageSwitchButton.isEnabled = true
+    }
+
+    private fun checkAndSaveEditedContent() {
+        if (originalLanguageCode == null) {
+            Toast.makeText(requireContext(), "Original language not found", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val updatedContent = editText.text.toString().trim()
+        if (updatedContent.isEmpty()) {
+            Toast.makeText(requireContext(), "Content cannot be empty", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (!isContentTranslated) {
+            // Editing in original language, update directly
+            saveEditedContent()
+        } else {
+            // Editing translated content, show dialog
+            showSaveOptionsDialog()
+        }
+    }
+
+    private fun showSaveOptionsDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_save_options, null)
+        val dialog = AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .create()
+
+        dialogView.findViewById<Button>(R.id.overwrite_button).setOnClickListener {
+            dialog.dismiss()
+            // Warn about overwriting with translated edits using XML dialog
+            val warningView = layoutInflater.inflate(R.layout.dialog_overwrite_warning, null)
+            val warningDialog = AlertDialog.Builder(requireContext())
+                .setView(warningView)
+                .create()
+
+            val originalLangName = languages.find { it.second == originalLanguageCode }?.first ?: "unknown"
+            val currentLangName = languages.find { it.second == selectedLanguageCode }?.first ?: "unknown"
+            warningView.findViewById<TextView>(R.id.warning_message).text =
+                "Overwriting will replace the original content ($originalLangName language) with edits made in $currentLangName."
+
+            warningView.findViewById<Button>(R.id.yes_button).setOnClickListener {
+                warningDialog.dismiss()
+                saveEditedContent()
+            }
+
+            warningView.findViewById<Button>(R.id.no_button).setOnClickListener {
+                warningDialog.dismiss()
+            }
+
+            warningDialog.show()
+        }
+
+        dialogView.findViewById<Button>(R.id.new_copy_button).setOnClickListener {
+            dialog.dismiss()
+            saveAsNewCopy()
+        }
+
+        dialogView.findViewById<ImageView>(R.id.cancel_button).setOnClickListener {
+            dialog.dismiss()
+            switchToViewMode()
+        }
+
+        dialog.show()
     }
 
     private fun saveEditedContent() {
@@ -234,19 +365,137 @@ class FileDetailsFragment : Fragment() {
 
         val updatedContent = editText.text.toString()
 
-        fileRef.update("Response", updatedContent)
+        fileRef.update("Response", updatedContent,
+            "OriginalLanguage", selectedLanguageCode
+        )
             .addOnSuccessListener {
                 responseTextView.text = updatedContent
+                originalLanguageCode = selectedLanguageCode
+                isContentTranslated = false // Reset since we're updating the original
+                selectedLanguageCode = originalLanguageCode ?: "en"
                 switchToViewMode()
                 Toast.makeText(requireContext(), "Content updated successfully", Toast.LENGTH_SHORT).show()
+                Log.d("FileDetailsFragment", "saveEditedContent: Updated Response for $fileName")
             }
-            .addOnFailureListener {
+            .addOnFailureListener {e ->
                 Toast.makeText(requireContext(), "Failed to update content", Toast.LENGTH_SHORT).show()
+                Log.e("FileDetailsFragment", "saveEditedContent: Failed for $fileName, error = ${e.message}")
             }
+    }
+
+    private fun saveAsNewCopy() {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
+            Log.e("FileDetailsFragment", "saveAsNewCopy: No user ID found")
+            Toast.makeText(requireContext(), "User not authenticated", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (fileName == null) {
+            Log.e("FileDetailsFragment", "saveAsNewCopy: fileName is null")
+            Toast.makeText(requireContext(), "File name not provided", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance()
+        val originalFileRef = db.collection("ProcessedDocs")
+            .document(userId)
+            .collection("UserFiles")
+            .document(fileName!!)
+
+        val updatedContent = editText.text.toString()
+        val cleanFileName = fileName!!.substringBeforeLast(".")
+
+        // Map selectedLanguageCode to full language name
+        val fullLanguageName = languages.find { it.second == selectedLanguageCode }?.first
+            ?: run {
+                Log.w("FileDetailsFragment", "Language code $selectedLanguageCode not found, defaulting to code")
+                selectedLanguageCode
+            }
+        val newFileName = "$cleanFileName ($fullLanguageName).mp3"
+
+        val newFileRef = db.collection("ProcessedDocs")
+            .document(userId)
+            .collection("UserFiles")
+            .document(newFileName)
+
+        val istTimestamp = Timestamp.now()
+
+        originalFileRef.get()
+            .addOnSuccessListener { document ->
+                if (!isAdded) return@addOnSuccessListener
+                if (document.exists()) {
+                    // Copy all fields from the original document
+                    val data = document.data?.toMutableMap() ?: mutableMapOf()
+
+                    // Update or set required fields
+                    data["fileName"] = newFileName
+                    data["Response"] = updatedContent
+                    data["OriginalLanguage"] = selectedLanguageCode
+                    data["NewFileCreated"] = istTimestamp
+
+                    // Ensure critical fields are present
+                    if (!data.containsKey("timestamp_clientUpload")) {
+                        data["timestamp_clientUpload"] = istTimestamp
+                        Log.d("FileDetailsFragment", "saveAsNewCopy: Added missing timestamp_clientUpload for $newFileName")
+                    }
+                    if (!data.containsKey("status")) {
+                        data["status"] = "processed" // Default to 'processed' for new copies
+                        Log.d("FileDetailsFragment", "saveAsNewCopy: Added missing status for $newFileName")
+                    }
+
+                    newFileRef.set(data)
+                        .addOnSuccessListener {
+                            if (!isAdded) return@addOnSuccessListener
+                            switchToViewMode()
+                            Toast.makeText(requireContext(), "New file created: $newFileName", Toast.LENGTH_SHORT).show()
+                            Log.d("FileDetailsFragment", "saveAsNewCopy: New file created with name = $newFileName")
+                            openNewFileDetailsFragment(newFileName)
+                        }
+                        .addOnFailureListener { e ->
+                            if (!isAdded) return@addOnFailureListener
+                            Toast.makeText(requireContext(), "Failed to create new file: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Log.e("FileDetailsFragment", "saveAsNewCopy: Failed for $newFileName, error = ${e.message}")
+                        }
+                } else {
+                    Toast.makeText(requireContext(), "Original file not found", Toast.LENGTH_SHORT).show()
+                    Log.w("FileDetailsFragment", "saveAsNewCopy: Original file $fileName not found")
+                }
+            }
+            .addOnFailureListener { e ->
+                if (!isAdded) return@addOnFailureListener
+                Toast.makeText(requireContext(), "Failed to fetch original file: ${e.message}", Toast.LENGTH_SHORT).show()
+                Log.e("FileDetailsFragment", "saveAsNewCopy: Failed to fetch $fileName, error = ${e.message}")
+            }
+    }
+
+    private fun openNewFileDetailsFragment(newFileName: String) {
+        val fileDetailsFragment = FileDetailsFragment().apply {
+            arguments = Bundle().apply {
+                putString("fileName", newFileName)
+            }
+        }
+
+        val transaction: FragmentTransaction = parentFragmentManager.beginTransaction()
+        transaction.setCustomAnimations(
+            R.anim.slide_in_right,
+            R.anim.slide_out_left,
+            R.anim.slide_in_left,
+            R.anim.slide_out_right
+        )
+        transaction.replace(R.id.fragment_container, fileDetailsFragment)
+        transaction.addToBackStack(null)
+        transaction.commit()
     }
 
     private fun setupLanguageSwitch() {
         languageSwitchButton.setOnClickListener {
+            if (isEditing) {
+                Toast.makeText(
+                    requireContext(),
+                    "Cannot change language while editing",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
             if (isTranslating) {
                 Toast.makeText(requireContext(), "Translation in progress, please wait", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -278,68 +527,6 @@ class FileDetailsFragment : Fragment() {
         val changeLanguageButton = dialogView.findViewById<Button>(R.id.changeLanguageButton)
         val cancelButton = dialogView.findViewById<Button>(R.id.cancelLanguageButton)
 
-        val languages = listOf(
-            "English" to "en",
-            "Spanish" to "es",
-            "French" to "fr",
-            "German" to "de",
-            "Afrikaans" to "af",
-            "Arabic" to "ar",
-            "Belarusian" to "be",
-            "Bulgarian" to "bg",
-            "Bengali" to "bn",
-            "Catalan" to "ca",
-            "Czech" to "cs",
-            "Welsh" to "cy",
-            "Danish" to "da",
-            "Greek" to "el",
-            "Esperanto" to "eo",
-            "Estonian" to "et",
-            "Persian" to "fa",
-            "Finnish" to "fi",
-            "Irish" to "ga",
-            "Galician" to "gl",
-            "Gujarati" to "gu",
-            "Hebrew" to "he",
-            "Hindi" to "hi",
-            "Croatian" to "hr",
-            "Haitian" to "ht",
-            "Hungarian" to "hu",
-            "Indonesian" to "id",
-            "Icelandic" to "is",
-            "Italian" to "it",
-            "Japanese" to "ja",
-            "Georgian" to "ka",
-            "Kannada" to "kn",
-            "Korean" to "ko",
-            "Lithuanian" to "lt",
-            "Latvian" to "lv",
-            "Macedonian" to "mk",
-            "Marathi" to "mr",
-            "Malay" to "ms",
-            "Maltese" to "mt",
-            "Dutch" to "nl",
-            "Norwegian" to "no",
-            "Polish" to "pl",
-            "Portuguese" to "pt",
-            "Romanian" to "ro",
-            "Russian" to "ru",
-            "Slovak" to "sk",
-            "Slovenian" to "sl",
-            "Albanian" to "sq",
-            "Swedish" to "sv",
-            "Swahili" to "sw",
-            "Tamil" to "ta",
-            "Telugu" to "te",
-            "Thai" to "th",
-            "Tagalog" to "tl",
-            "Turkish" to "tr",
-            "Ukrainian" to "uk",
-            "Urdu" to "ur",
-            "Vietnamese" to "vi",
-            "Chinese" to "zh"
-        )
-
         val languageNames = languages.map { it.first }
         val adapter = ArrayAdapter(
             requireContext(),
@@ -350,26 +537,32 @@ class FileDetailsFragment : Fragment() {
         }
         languageSpinner.adapter = adapter
 
-        val defaultPosition = languages.indexOfFirst { it.second == "en" }
+        // Set default to original language if available
+        val defaultPosition = languages.indexOfFirst { it.second == (originalLanguageCode ?: "en") }
         languageSpinner.setSelection(defaultPosition)
 
-        languageSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+        languageSpinner.onItemSelectedListener = object : OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
                 selectedLanguageCode = languages[position].second
             }
 
             override fun onNothingSelected(parent: AdapterView<*>) {
-                selectedLanguageCode = "en"
+                selectedLanguageCode = originalLanguageCode ?: "en"
             }
         }
 
         changeLanguageButton.setOnClickListener {
             dialog.dismiss()
-            isTranslating = true
-            progressOverlay.visibility = View.VISIBLE
-            translateContent(selectedLanguageCode) {
-                progressOverlay.visibility = View.GONE
-                isTranslating = false
+            if (selectedLanguageCode == originalLanguageCode) {
+                Toast.makeText(requireContext(), "Content is already in the selected language", Toast.LENGTH_SHORT).show()
+                fetchFileDetails()
+            } else {
+                isTranslating = true
+                progressOverlay.visibility = View.VISIBLE
+                translateContent(selectedLanguageCode) {
+                    progressOverlay.visibility = View.GONE
+                    isTranslating = false
+                }
             }
         }
 
@@ -381,84 +574,124 @@ class FileDetailsFragment : Fragment() {
     }
 
     private fun translateContent(targetLanguageCode: String, onComplete: () -> Unit) {
-        if (targetLanguageCode == "en") {
+        if (originalLanguageCode == null) {
+            Toast.makeText(requireContext(), "Original language not found", Toast.LENGTH_SHORT).show()
+            onComplete()
+            return
+        }
+
+        if (targetLanguageCode == originalLanguageCode) {
             fetchFileDetails()
             onComplete()
             return
         }
 
-        val originalContent = responseTextView.text.toString()
-        if (originalContent.isEmpty()) {
-            Toast.makeText(requireContext(), "No content to translate", Toast.LENGTH_SHORT).show()
+        // Fetch original content from Firestore to ensure translation from source
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
+            Toast.makeText(requireContext(), "User not authenticated", Toast.LENGTH_SHORT).show()
             onComplete()
             return
         }
 
-        val options = TranslatorOptions.Builder()
-            .setSourceLanguage("en")
-            .setTargetLanguage(targetLanguageCode)
-            .build()
+        val db = FirebaseFirestore.getInstance()
+        val fileRef = db.collection("ProcessedDocs")
+            .document(userId)
+            .collection("UserFiles")
+            .document(fileName!!)
 
-        val translator = Translation.getClient(options)
-        val conditions = DownloadConditions.Builder()
-            .requireWifi()
-            .build()
+        fileRef.get().addOnSuccessListener { document ->
+            if (!isAdded) {
+                onComplete()
+                return@addOnSuccessListener
+            }
 
-        translator.downloadModelIfNeeded(conditions)
-            .addOnSuccessListener {
-                if (!isAdded) {
+            if (document.exists()) {
+                val originalContent = document.getString("Response") ?: run {
+                    Toast.makeText(requireContext(), "No content to translate", Toast.LENGTH_SHORT).show()
                     onComplete()
                     return@addOnSuccessListener
                 }
-                val segments = splitContentIntoSegments(originalContent)
-                val translatedSegments = mutableListOf<String>()
-
-                val translationTasks = segments.map { segment ->
-                    if (segment.isTranslatable) {
-                        translator.translate(segment.text)
-                            .continueWith { task -> Pair(segment, task.result) }
-                    } else {
-                        com.google.android.gms.tasks.Tasks.forResult(Pair(segment, segment.text))
-                    }
+                val cleanedContent = originalContent.replace("*", "").replace("#", "").trim()
+                if (cleanedContent.isEmpty()) {
+                    Toast.makeText(requireContext(), "No content to translate", Toast.LENGTH_SHORT).show()
+                    onComplete()
+                    return@addOnSuccessListener
                 }
 
-                com.google.android.gms.tasks.Tasks.whenAllSuccess<Pair<ContentSegment, String>>(translationTasks)
-                    .addOnSuccessListener { results ->
+                val options = TranslatorOptions.Builder()
+                    .setSourceLanguage(originalLanguageCode!!)
+                    .setTargetLanguage(targetLanguageCode)
+                    .build()
+
+                val translator = Translation.getClient(options)
+                val conditions = DownloadConditions.Builder()
+                    .build()
+
+                translator.downloadModelIfNeeded(conditions)
+                    .addOnSuccessListener {
                         if (!isAdded) {
                             onComplete()
                             return@addOnSuccessListener
                         }
-                        val translatedContent = results.joinToString("") { pair ->
-                            if (pair.first.isTranslatable) pair.second + pair.first.suffix
-                            else pair.second
+                        val segments = splitContentIntoSegments(cleanedContent)
+                        val translationTasks = segments.map { segment ->
+                            translator.translate(segment.text)
+                                .continueWith { task -> Pair(segment, task.result) }
                         }
-                        responseTextView.text = translatedContent
-                        Toast.makeText(requireContext(), "Translated successfully", Toast.LENGTH_SHORT).show()
-                        onComplete()
+
+                        com.google.android.gms.tasks.Tasks.whenAllSuccess<Pair<ContentSegment, String>>(translationTasks)
+                            .addOnSuccessListener { results ->
+                                if (!isAdded) {
+                                    onComplete()
+                                    return@addOnSuccessListener
+                                }
+                                val translatedContent = results.joinToString("") { pair ->
+                                    pair.second + pair.first.suffix
+                                }
+                                responseTextView.text = translatedContent
+                                isContentTranslated = true // Mark content as translated
+                                selectedLanguageCode = targetLanguageCode
+                                Toast.makeText(requireContext(), "Translated successfully", Toast.LENGTH_SHORT).show()
+                                Log.d("FileDetailsFragment", "translateContent: Translated to $targetLanguageCode: $translatedContent")
+                                onComplete()
+                            }
+                            .addOnFailureListener { exception ->
+                                if (!isAdded) {
+                                    onComplete()
+                                    return@addOnFailureListener
+                                }
+                                Toast.makeText(requireContext(), "Translation failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                                Log.e("FileDetailsFragment", "translateContent: Translation failed for $targetLanguageCode, error = ${exception.message}")
+                                onComplete()
+                            }
                     }
                     .addOnFailureListener { exception ->
                         if (!isAdded) {
                             onComplete()
                             return@addOnFailureListener
                         }
-                        Toast.makeText(requireContext(), "Translation failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), "Model download failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                        Log.e("FileDetailsFragment", "translateContent: Model download failed for $targetLanguageCode, error = ${exception.message}")
                         onComplete()
                     }
-            }
-            .addOnFailureListener { exception ->
-                if (!isAdded) {
-                    onComplete()
-                    return@addOnFailureListener
-                }
-                Toast.makeText(requireContext(), "Model download failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "File not found", Toast.LENGTH_SHORT).show()
+                Log.w("FileDetailsFragment", "translateContent: File $fileName not found")
                 onComplete()
             }
+        }.addOnFailureListener { exception ->
+            if (!isAdded) {
+                onComplete()
+                return@addOnFailureListener
+            }
+            Toast.makeText(requireContext(), "Failed to fetch original content: ${exception.message}", Toast.LENGTH_SHORT).show()
+            Log.e("FileDetailsFragment", "translateContent: Failed to fetch $fileName, error = ${exception.message}")
+            onComplete()
+        }
     }
 
-    // Data class to hold segment information (unchanged)
     private data class ContentSegment(
         val text: String,
-        val isTranslatable: Boolean,
         val suffix: String
     )
 
@@ -468,41 +701,20 @@ class FileDetailsFragment : Fragment() {
 
         for (paragraph in paragraphs) {
             if (paragraph.isBlank()) {
-                segments.add(ContentSegment("", false, "\n\n"))
+                segments.add(ContentSegment("", "\n\n"))
                 continue
             }
 
             val lines = paragraph.split("\n").filter { it.isNotBlank() }
-            var currentText = StringBuilder()
-            var isFirstSpeakerInParagraph = true
-
-            for (line in lines) {
-                val speakerPattern = Regex("^Speaker [A-Z]+:")
-                val matchResult = speakerPattern.find(line)
-
-                if (matchResult != null) {
-                    if (currentText.isNotEmpty()) {
-                        segments.add(ContentSegment(currentText.toString().trim(), true, "\n\n"))
-                        currentText = StringBuilder()
-                    }
-
-                    val speakerLabel = matchResult.value
-                    segments.add(ContentSegment(speakerLabel, false, " "))
-
-                    val textToTranslate = line.substringAfter(speakerLabel).trim()
-                    if (textToTranslate.isNotEmpty()) {
-                        currentText.append(textToTranslate).append("\n")
-                    }
-                } else {
-                    currentText.append(line.trim()).append("\n")
-                }
-            }
-
-            if (currentText.isNotEmpty()) {
-                segments.add(ContentSegment(currentText.toString().trim(), true, "\n\n"))
+            for ((index, line) in lines.withIndex()) {
+                val isLastLine = index == lines.size - 1
+                // Translate each line, preserving structure with appropriate suffix
+                val suffix = if (isLastLine) "\n\n" else "\n"
+                segments.add(ContentSegment(line.trim(), suffix))
             }
         }
 
+        // Remove trailing \n\n from the last segment if present
         if (segments.isNotEmpty() && segments.last().suffix == "\n\n") {
             segments[segments.lastIndex] = segments.last().copy(suffix = "")
         }
@@ -512,7 +724,7 @@ class FileDetailsFragment : Fragment() {
 
     private fun showExportDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_export_options, null)
-        val dialog = android.app.AlertDialog.Builder(requireContext())
+        val dialog = AlertDialog.Builder(requireContext())
             .setView(dialogView)
             .create()
 
@@ -531,7 +743,7 @@ class FileDetailsFragment : Fragment() {
 
     private fun showShareDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_export_options, null)
-        val dialog = android.app.AlertDialog.Builder(requireContext())
+        val dialog = AlertDialog.Builder(requireContext())
             .setView(dialogView)
             .create()
 
@@ -664,7 +876,6 @@ class FileDetailsFragment : Fragment() {
             lineText = formatSummarization(lineText)
             val colonIndex = lineText.indexOf(":")
 
-            // Bold specific headings
             if (lineText.startsWith("SUMMARY OF THE CONTENT") ||
                 lineText.startsWith("TRANSCRIPTION OF SPEAKERS")) {
                 canvas.drawText(lineText, marginLeft, currentY, boldPaint)
@@ -816,7 +1027,6 @@ class FileDetailsFragment : Fragment() {
         outputStream.close()
     }
 
-    // The other two functions (formatSummarization and drawJustifiedText) remain unchanged
     private fun formatSummarization(text: String): String {
         var formattedText = text
         formattedText = formattedText.replace(Regex("\\*\\*(.*?)\\*\\*")) { match ->
@@ -854,7 +1064,7 @@ class FileDetailsFragment : Fragment() {
 
         for (line in lines) {
             if (line.isBlank()) {
-                document.createParagraph() // Add empty paragraph for line gap
+                document.createParagraph()
                 continue
             }
 
@@ -865,23 +1075,22 @@ class FileDetailsFragment : Fragment() {
             val para = document.createParagraph()
             para.alignment = ParagraphAlignment.BOTH
 
-            // Add spacing based on section
             if (isSummarization) {
-                para.spacingAfter = 200 // Add line gap for summarization
+                para.spacingAfter = 200
             } else {
-                para.spacingBefore = 200 // Keep existing spacing for transcription
+                para.spacingBefore = 200
             }
 
-            val processedLine = line.trim().replace(Regex("\\s+:\\s+"), ": ") // Ensure single space around colon
+            val processedLine = line.trim().replace(Regex("\\s+:\\s+"), ": ")
             val colonIndex = processedLine.indexOf(":")
 
             when {
-                        processedLine == "SUMMARY OF THE CONTENT" ||
+                processedLine == "SUMMARY OF THE CONTENT" ||
                         processedLine == "TRANSCRIPTION OF SPEAKERS" -> {
                     val boldRun = para.createRun()
                     boldRun.isBold = true
                     boldRun.setText(processedLine)
-                    para.spacingAfter = 300 // Slightly larger spacing after main headings
+                    para.spacingAfter = 300
                 }
                 colonIndex > -1 -> {
                     val beforeColon = processedLine.substring(0, colonIndex).trim()
