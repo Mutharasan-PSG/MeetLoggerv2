@@ -403,6 +403,8 @@ class FileDetailsFragment : Fragment() {
 
         val updatedContent = editText.text.toString()
         val cleanFileName = fileName!!.substringBeforeLast(".")
+        // Extract the original extension, default to ".mp3" if none (rare case)
+        val originalExtension = fileName!!.substringAfterLast(".", "mp3")
 
         // Map selectedLanguageCode to full language name
         val fullLanguageName = languages.find { it.second == selectedLanguageCode }?.first
@@ -410,7 +412,8 @@ class FileDetailsFragment : Fragment() {
                 Log.w("FileDetailsFragment", "Language code $selectedLanguageCode not found, defaulting to code")
                 selectedLanguageCode
             }
-        val newFileName = "$cleanFileName ($fullLanguageName).mp3"
+        val newFileName = "$cleanFileName ($fullLanguageName).$originalExtension"
+        val displayFileName = "$cleanFileName ($fullLanguageName)" // Name without extension for Toast
 
         val newFileRef = db.collection("ProcessedDocs")
             .document(userId)
@@ -446,7 +449,7 @@ class FileDetailsFragment : Fragment() {
                         .addOnSuccessListener {
                             if (!isAdded) return@addOnSuccessListener
                             switchToViewMode()
-                            Toast.makeText(requireContext(), "New file created: $newFileName", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(requireContext(), "New file created: $displayFileName", Toast.LENGTH_SHORT).show()
                             Log.d("FileDetailsFragment", "saveAsNewCopy: New file created with name = $newFileName")
                             openNewFileDetailsFragment(newFileName)
                         }

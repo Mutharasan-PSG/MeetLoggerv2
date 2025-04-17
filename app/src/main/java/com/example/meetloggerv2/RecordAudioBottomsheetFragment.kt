@@ -12,6 +12,7 @@ import android.media.MediaRecorder
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -108,7 +109,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             handler.postDelayed(this, 1000)
         }
     }
-    private val REQUEST_MICROPHONE_PERMISSION = 1001
+    private val PERMISSION_REQUEST_CODE = 1002
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -185,7 +186,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (isRecording || isSaving) {
-                    Toast.makeText(requireContext(), "Cannot close while recording or saving", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Cannot exit while recording or saving", Toast.LENGTH_SHORT).show()
                 } else if (isProcessing) {
                     Toast.makeText(requireContext(), "Operation in progress, please wait", Toast.LENGTH_SHORT).show()
                 } else {
@@ -238,15 +239,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
     private fun setupListeners() {
         binding.startButton.setOnClickListener {
-            if (checkMicrophonePermission() && checkNotificationPermission()) {
-                if (!isRecording) {
-                    startRecording()
-                } else {
-                    resumeRecording()
-                }
-            } else {
-                requestPermissions()
-            }
+            checkAndRequestPermissions()
         }
 
         binding.stopButton.setOnClickListener {
@@ -493,7 +486,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
         dialog.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                Toast.makeText(requireContext(), "Cannot close while saving is pending", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Cannot exit while saving is pending", Toast.LENGTH_SHORT).show()
                 true
             } else {
                 false
@@ -521,7 +514,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         val storageRef = FirebaseStorage.getInstance().reference.child("AudioFiles/$userId/$fileName")
         val metadata = storageMetadata { contentType = "audio/mpeg" }
 
-        Toast.makeText(context, "Saving audio to Firebase...", Toast.LENGTH_SHORT).show()
+       // Toast.makeText(context, "Saving audio to Firebase...", Toast.LENGTH_SHORT).show()
         storageRef.putFile(uri, metadata)
             .addOnSuccessListener {
                 if (!isAdded || !isNetworkAvailable()) {
@@ -555,7 +548,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                                 unlockUIAfterRecording()
                                 return@addOnSuccessListener
                             }
-                            Toast.makeText(context, "Audio saved to Firebase!", Toast.LENGTH_SHORT).show()
+                           // Toast.makeText(context, "Audio saved to Firebase!", Toast.LENGTH_SHORT).show()
                             onComplete()
                         }
                         .addOnFailureListener { e ->
@@ -917,7 +910,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             binding.processAudioButton.text = "Processing..."
             binding.processAudioButton.isEnabled = false
             updateDismissalState()
-            Toast.makeText(context, "Processing audio...", Toast.LENGTH_SHORT).show()
+         //   Toast.makeText(context, "Processing audio...", Toast.LENGTH_SHORT).show()
             handler.post(internetCheckTask)
             uploadAudioToFirebase(uri, followUpFileName)
             uploadAudioToBackend(file, userId, filteredSpeakers, followUpFileName)
@@ -971,7 +964,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                                 abortCurrentOperation()
                                 return@addOnSuccessListener
                             }
-                            Toast.makeText(context, "Audio metadata saved successfully!", Toast.LENGTH_SHORT).show()
+                          //  Toast.makeText(context, "Audio metadata saved successfully!", Toast.LENGTH_SHORT).show()
                         }
                         .addOnFailureListener { e ->
                             if (!isAdded) return@addOnFailureListener
@@ -1016,7 +1009,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .build()
         val request = Request.Builder().url(serverUrl).post(requestBody).build()
 
-        Toast.makeText(context, "Sending audio to server...", Toast.LENGTH_SHORT).show()
+      //  Toast.makeText(context, "Sending audio to server...", Toast.LENGTH_SHORT).show()
         val client = OkHttpClient()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -1231,32 +1224,104 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         }
     }
 
-    private fun checkMicrophonePermission(): Boolean {
-        return ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-    }
+    private fun checkAndRequestPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
 
-    private fun checkNotificationPermission(): Boolean {
-        return NotificationManagerCompat.from(requireContext()).areNotificationsEnabled()
-    }
-
-    private fun requestPermissions() {
-        if (!checkMicrophonePermission()) {
-            requestMicrophonePermission()
+        // Check microphone permission
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
         }
-        if (!checkNotificationPermission()) {
-            requestNotificationPermission()
+
+        // Check notification permission (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            requestPermissions(
+                permissionsToRequest.toTypedArray(),
+                PERMISSION_REQUEST_CODE
+            )
+        } else {
+            // Both permissions are granted, proceed with recording
+            if (!isRecording) {
+                startRecording()
+            } else {
+                resumeRecording()
+            }
         }
     }
 
-    private fun requestMicrophonePermission() {
-        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MICROPHONE_PERMISSION)
-    }
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            var microphoneGranted = true
+            var notificationGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU // Assume true for pre-Android 13
 
-    private fun requestNotificationPermission() {
-        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-            putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().packageName)
+            for (i in permissions.indices) {
+                when (permissions[i]) {
+                    Manifest.permission.RECORD_AUDIO -> {
+                        if (grantResults.getOrNull(i) == PackageManager.PERMISSION_GRANTED) {
+                          /*  Toast.makeText(
+                                requireContext(),
+                                "Microphone permission granted",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                           */
+                        } else {
+                            microphoneGranted = false
+                            Toast.makeText(
+                                requireContext(),
+                                "Enable the microphone permission",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                    Manifest.permission.POST_NOTIFICATIONS -> {
+                        if (grantResults.getOrNull(i) == PackageManager.PERMISSION_GRANTED) {
+                           /* Toast.makeText(
+                                requireContext(),
+                                "Notification permission granted",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                            */
+                        } else {
+                            notificationGranted = false
+                            Toast.makeText(
+                                requireContext(),
+                                "Enable the notification permission",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+            }
+
+            // Proceed with recording only if both permissions are granted
+            if (microphoneGranted && notificationGranted) {
+                if (!isRecording) {
+                    startRecording()
+                } else {
+                    resumeRecording()
+                }
+            }
         }
-        startActivity(intent)
     }
 
     private fun cleanupTempFile(file: File?) {
@@ -1313,3 +1378,4 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         _binding = null
     }
 }
+

@@ -382,7 +382,7 @@ class AudioListFragment : Fragment() {
         isProcessing = false
         hasShownSlowToast = false
         cleanupTempFile(tempAudioFile)
-        Toast.makeText(requireContext(), "Operation aborted due to no internet", Toast.LENGTH_SHORT).show()
+     //   Toast.makeText(requireContext(), "Operation aborted due to no internet", Toast.LENGTH_SHORT).show()
         adapter.notifyDataSetChanged()
     }
 
@@ -424,16 +424,21 @@ class AudioListFragment : Fragment() {
         popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), android.R.drawable.dialog_holo_light_frame))
         popupWindow.elevation = 2f
         popupWindow.isClippingEnabled = false
+        popupWindow.isFocusable = true
 
         listView.setOnItemClickListener { _, _, index, _ ->
+            Log.d("AudioListFragment", "Popup option clicked: ${options[index]}")
             when (options[index]) {
-                "Rename" -> startRenaming(position)
-                "Download" -> startDownload(filteredList[position])
-                "Share" -> shareAudio(filteredList[position])
-                "Summarize" -> summarizeAudio(filteredList[position])
+                "RENAME" -> startRenaming(position)
+                "DOWNLOAD" -> startDownload(filteredList[position])
+                "SHARE" -> shareAudio(filteredList[position])
+                "SUMMARIZE" -> summarizeAudio(filteredList[position])
             }
             popupWindow.dismiss()
         }
+
+        listView.isClickable = true
+        listView.isFocusable = true
 
         val anchorLocation = IntArray(2)
         anchorView.getLocationOnScreen(anchorLocation)
@@ -482,7 +487,7 @@ class AudioListFragment : Fragment() {
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
         touchBlockOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Preparing audio...", Toast.LENGTH_SHORT).show()
+      //  Toast.makeText(requireContext(), "Preparing audio...", Toast.LENGTH_SHORT).show()
 
         // Fetch existing audioUrl
         storageRef.downloadUrl.addOnSuccessListener { downloadUri ->
@@ -500,7 +505,7 @@ class AudioListFragment : Fragment() {
                 progressOverlay.visibility = View.GONE
                 isProcessing = false
                 touchBlockOverlay.visibility = View.VISIBLE
-                Toast.makeText(requireContext(), "Audio ready", Toast.LENGTH_SHORT).show()
+              //  Toast.makeText(requireContext(), "Audio ready", Toast.LENGTH_SHORT).show()
                 showSpeakerSelectionDialog(tempFile, audioUrl)
             }.addOnFailureListener { e ->
                 if (!isAdded) return@addOnFailureListener
@@ -825,7 +830,7 @@ class AudioListFragment : Fragment() {
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
         touchBlockOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Preparing re-summarization...", Toast.LENGTH_SHORT).show()
+       // Toast.makeText(requireContext(), "Preparing re-summarization...", Toast.LENGTH_SHORT).show()
 
         checkAndSetFileName { finalFileName ->
             val fileData = hashMapOf(
@@ -844,7 +849,7 @@ class AudioListFragment : Fragment() {
                         cleanupTempFile(audioFile)
                         return@addOnSuccessListener
                     }
-                    Toast.makeText(requireContext(), "Metadata saved for re-summarization", Toast.LENGTH_SHORT).show()
+                  //  Toast.makeText(requireContext(), "Metadata saved for re-summarization", Toast.LENGTH_SHORT).show()
                     uploadAudioToBackend(audioFile, userId, filteredSpeakers, followUpFileName, finalFileName)
                 }
                 .addOnFailureListener { e ->
@@ -883,7 +888,7 @@ class AudioListFragment : Fragment() {
             .post(requestBody)
             .build()
 
-        Toast.makeText(requireContext(), "Sending audio to server...", Toast.LENGTH_SHORT).show()
+      //  Toast.makeText(requireContext(), "Sending audio to server...", Toast.LENGTH_SHORT).show()
 
         val client = OkHttpClient()
         client.newCall(request).enqueue(object : Callback {
@@ -1082,7 +1087,7 @@ class AudioListFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Renaming file...", Toast.LENGTH_SHORT).show()
+       // Toast.makeText(requireContext(), "Renaming file...", Toast.LENGTH_SHORT).show()
 
         renameAudioFile(oldFullName, newFullName, oldNameWithoutExtension, newNameWithoutExtension) { success ->
             if (!isAdded || !isNetworkAvailable()) {
@@ -1279,7 +1284,7 @@ class AudioListFragment : Fragment() {
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
         touchBlockOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Downloading audio...", Toast.LENGTH_SHORT).show()
+       // Toast.makeText(requireContext(), "Downloading audio...", Toast.LENGTH_SHORT).show()
 
         storageRef.getBytes(Long.MAX_VALUE).addOnSuccessListener { bytes ->
             if (!isAdded || !isNetworkAvailable()) {
@@ -1294,7 +1299,7 @@ class AudioListFragment : Fragment() {
                     progressOverlay.visibility = View.GONE
                     touchBlockOverlay.visibility = View.GONE
                     isProcessing = false
-                    Toast.makeText(requireContext(), "Audio saved successfully", Toast.LENGTH_SHORT).show()
+                   // Toast.makeText(requireContext(), "Audio saved successfully", Toast.LENGTH_SHORT).show()
                 } else {
                     progressOverlay.visibility = View.GONE
                     touchBlockOverlay.visibility = View.GONE
@@ -1332,7 +1337,7 @@ class AudioListFragment : Fragment() {
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
         touchBlockOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Preparing to share...", Toast.LENGTH_SHORT).show()
+      //  Toast.makeText(requireContext(), "Preparing to share...", Toast.LENGTH_SHORT).show()
 
         storageRef.getFile(tempFile).addOnSuccessListener {
             if (!isAdded || !isNetworkAvailable()) {
@@ -1349,7 +1354,7 @@ class AudioListFragment : Fragment() {
             progressOverlay.visibility = View.GONE
             touchBlockOverlay.visibility = View.GONE
             isProcessing = false
-            Toast.makeText(requireContext(), "Audio ready to share", Toast.LENGTH_SHORT).show()
+         //   Toast.makeText(requireContext(), "Audio ready to share", Toast.LENGTH_SHORT).show()
             startActivity(Intent.createChooser(shareIntent, "Share Audio"))
         }.addOnFailureListener { e ->
             if (!isAdded) return@addOnFailureListener
@@ -1477,7 +1482,7 @@ class AudioListFragment : Fragment() {
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
         touchBlockOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Deleting files...", Toast.LENGTH_SHORT).show()
+       // Toast.makeText(requireContext(), "Deleting files...", Toast.LENGTH_SHORT).show()
 
         val itemsToDelete = selectedItems.map { filteredList[it] }.toList()
         var deleteCount = 0
@@ -1532,7 +1537,7 @@ class AudioListFragment : Fragment() {
             hasShownSlowToast = false
             progressOverlay.visibility = View.VISIBLE
             touchBlockOverlay.visibility = View.VISIBLE
-            Toast.makeText(requireContext(), "Downloading audio...", Toast.LENGTH_SHORT).show()
+           // Toast.makeText(requireContext(), "Downloading audio...", Toast.LENGTH_SHORT).show()
 
             storageRef.getFile(localFile).addOnSuccessListener {
                 if (!isAdded || !isNetworkAvailable()) {
@@ -1542,7 +1547,7 @@ class AudioListFragment : Fragment() {
                 progressOverlay.visibility = View.GONE
                 touchBlockOverlay.visibility = View.GONE
                 isProcessing = false
-                Toast.makeText(requireContext(), "Audio ready to play", Toast.LENGTH_SHORT).show()
+            //    Toast.makeText(requireContext(), "Audio ready to play", Toast.LENGTH_SHORT).show()
                 playAudio(localFile.absolutePath, fileName)
             }.addOnFailureListener { e ->
                 if (!isAdded) return@addOnFailureListener
@@ -1750,7 +1755,7 @@ class AudioListFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (isProcessing) {
-            Toast.makeText(requireContext(), "Previous operation interrupted", Toast.LENGTH_SHORT).show()
+           // Toast.makeText(requireContext(), "Previous operation interrupted", Toast.LENGTH_SHORT).show()
             abortCurrentOperation()
             fetchAudioFiles(false)
         }

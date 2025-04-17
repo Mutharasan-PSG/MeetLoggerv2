@@ -376,17 +376,23 @@ class ReportFragment : Fragment() {
         popupWindow.setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), android.R.drawable.dialog_holo_light_frame))
         popupWindow.elevation = 2f
         popupWindow.isClippingEnabled = false
+        popupWindow.isFocusable = true
 
         listView.setOnItemClickListener { _, _, index, _ ->
+            Log.d("ReportFragment", "Popup option clicked: ${options[index]}")
             val (displayedFileName, _, _) = filteredList[position]
             when (options[index]) {
-                "Rename" -> startRenaming(position)
-                "Export" -> exportFile(displayedFileName)
-                "Share" -> initiateShareFile(displayedFileName)
-                "Copy" -> showCopyDialog(position)
+                "RENAME" -> startRenaming(position)
+                "EXPORT" -> exportFile(displayedFileName)
+                "SHARE" -> initiateShareFile(displayedFileName)
+                "COPY" -> showCopyDialog(position)
             }
             popupWindow.dismiss()
         }
+
+
+        listView.isClickable = true
+        listView.isFocusable = true
 
         val anchorLocation = IntArray(2)
         anchorView.getLocationOnScreen(anchorLocation)
@@ -492,7 +498,7 @@ class ReportFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Copying file...", Toast.LENGTH_SHORT).show()
+       // Toast.makeText(requireContext(), "Copying file...", Toast.LENGTH_SHORT).show()
 
         val db = FirebaseFirestore.getInstance()
         val oldDocRef = db.collection("ProcessedDocs").document(userId)
@@ -654,7 +660,7 @@ class ReportFragment : Fragment() {
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
         Log.d(TAG, "Starting rename from $oldFullName to $newFullName")
-        Toast.makeText(requireContext(), "Renaming file...", Toast.LENGTH_SHORT).show()
+       // Toast.makeText(requireContext(), "Renaming file...", Toast.LENGTH_SHORT).show()
 
         updateFileNameInDatabase(oldFullName, newFullName) { success ->
             if (!isAdded || !isNetworkAvailable()) {
@@ -976,7 +982,7 @@ class ReportFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Saving file...", Toast.LENGTH_SHORT).show()
+      //  Toast.makeText(requireContext(), "Saving file...", Toast.LENGTH_SHORT).show()
 
         try {
             val outputStream = requireContext().contentResolver.openOutputStream(uri)
@@ -1024,7 +1030,7 @@ class ReportFragment : Fragment() {
         operationStartTime = System.currentTimeMillis()
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
-        Toast.makeText(requireContext(), "Preparing to share...", Toast.LENGTH_SHORT).show()
+       // Toast.makeText(requireContext(), "Preparing to share...", Toast.LENGTH_SHORT).show()
 
         try {
             val cleanFileName = fileName.substringBeforeLast(".")
@@ -1051,7 +1057,7 @@ class ReportFragment : Fragment() {
             }
             progressOverlay.visibility = View.GONE
             isProcessing = false
-            Toast.makeText(requireContext(), "File ready to share", Toast.LENGTH_SHORT).show()
+          //  Toast.makeText(requireContext(), "File ready to share", Toast.LENGTH_SHORT).show()
             Log.d(TAG, "Starting share intent for $fileName in $format format")
             startActivity(Intent.createChooser(shareIntent, "Share Document"))
         } catch (e: Exception) {
@@ -1362,7 +1368,13 @@ class ReportFragment : Fragment() {
         filteredList.clear()
 
         if (query.isNullOrEmpty()) {
-            filteredList.addAll(fileNamesList)
+            // If fileNamesList is empty, trigger a fetch to ensure data is loaded
+            if (fileNamesList.isEmpty() && isNetworkAvailable() && isAdded) {
+                Log.d(TAG, "fileNamesList empty on clear search, triggering fetch")
+                fetchFileNames(false) // Silent fetch to avoid progress overlay
+            }
+            // Copy full list, transforming to match displayed names (without extension)
+            filteredList.addAll(fileNamesList.map { Triple(it.first.substringBeforeLast("."), it.second, it.third) })
         } else {
             val lowerCaseQuery = query.toLowerCase()
             fileNamesList.forEach { (fileName, timestamp, status) ->
@@ -1376,13 +1388,13 @@ class ReportFragment : Fragment() {
             if (filteredList.isEmpty()) {
                 if (fileNamesList.isEmpty()) {
                     placeholderText.text = "No files found"
-                    placeholderImage.visibility = View.GONE
+                    placeholderImage.visibility = View.VISIBLE
+                    placeholderText.visibility = View.VISIBLE
                 } else {
-                    placeholderText.visibility = View.GONE
+                    placeholderText.text = "No files found"
                     placeholderImage.visibility = View.GONE
+                    placeholderText.visibility = View.VISIBLE
                 }
-                placeholderText.visibility = View.VISIBLE
-                placeholderText.text = "No files found"
                 listView.visibility = View.GONE
             } else {
                 placeholderText.visibility = View.GONE
@@ -1393,6 +1405,7 @@ class ReportFragment : Fragment() {
             updateDeleteIconVisibility()
             updateSelectAllCheckboxState()
         }
+        Log.d(TAG, "filterFiles: query='$query', filteredList size=${filteredList.size}, items=${filteredList.map { it.first }}")
         return true
     }
 
@@ -1479,7 +1492,7 @@ class ReportFragment : Fragment() {
         hasShownSlowToast = false
         progressOverlay.visibility = View.VISIBLE
         selectAllCheckbox.visibility = View.GONE
-        Toast.makeText(requireContext(), "Deleting files...", Toast.LENGTH_SHORT).show()
+      //  Toast.makeText(requireContext(), "Deleting files...", Toast.LENGTH_SHORT).show()
 
         // Use a Set to avoid duplicates
         val itemsToDelete = mutableSetOf<String>()
@@ -1603,18 +1616,29 @@ class ReportFragment : Fragment() {
                             Log.w(TAG, "Null filename in document: ${document.id}")
                             return@forEach
                         }
-                        // Use a default timestamp if missing to avoid skipping files
                         val timestamp = document.getTimestamp("timestamp_clientUpload") ?: Timestamp(0, 0)
                         val status = document.getString("status") ?: "processing"
                         fileNamesList.add(Triple(fileName, timestamp, status))
                         Log.d(TAG, "Added file: $fileName with timestamp: $timestamp")
                     }
 
-                    // Sort files, prioritizing those with valid timestamps
+                    // Sort files by timestamp, descending
                     fileNamesList.sortByDescending { it.second.seconds + it.second.nanoseconds / 1_000_000_000.0 }
 
+                    // Reapply current search query to filteredList
+                    val currentQuery = searchView.query?.toString()
                     filteredList.clear()
-                    filteredList.addAll(fileNamesList.map { Triple(it.first.substringBeforeLast("."), it.second, it.third) })
+                    if (currentQuery.isNullOrEmpty()) {
+                        filteredList.addAll(fileNamesList.map { Triple(it.first.substringBeforeLast("."), it.second, it.third) })
+                    } else {
+                        val lowerCaseQuery = currentQuery.toLowerCase()
+                        fileNamesList.forEach { (fileName, timestamp, status) ->
+                            if (fileName.toLowerCase().contains(lowerCaseQuery)) {
+                                filteredList.add(Triple(fileName.substringBeforeLast("."), timestamp, status))
+                            }
+                        }
+                    }
+
                     Log.d(TAG, "Updated filteredList with ${filteredList.size} items: ${filteredList.map { it.first }}")
                     isDataLoaded = true
                     togglePlaceholder()
@@ -1663,6 +1687,7 @@ class ReportFragment : Fragment() {
 
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
             Log.e(TAG, "No user ID found, cannot open FileDetailsFragment")
+            Toast.makeText(requireContext(), "User not authenticated", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -1670,19 +1695,25 @@ class ReportFragment : Fragment() {
         Log.d(TAG, "Available fileNamesList: ${fileNamesList.map { it.first }}")
         Log.d(TAG, "Searching for displayedFileName: $displayedFileName")
 
-        // Find all matching files (in case of duplicates)
+        // Find all matching files
         val matchingFiles = fileNamesList.filter { it.first.substringBeforeLast(".") == displayedFileName }
         if (matchingFiles.isEmpty()) {
             Log.w(TAG, "No full file name found for displayedFileName: $displayedFileName")
             Toast.makeText(requireContext(), "File not found", Toast.LENGTH_SHORT).show()
+            // Trigger a fetch to refresh data and retry
+            if (isNetworkAvailable()) {
+                Log.d(TAG, "Triggering fetch due to no matching file")
+                fetchFileNames(false) // Silent fetch
+            }
             return
         }
         if (matchingFiles.size > 1) {
             Log.w(TAG, "Multiple files match displayedFileName: $displayedFileName, matches: ${matchingFiles.map { it.first }}")
-            // Optionally, handle ambiguity (e.g., pick the most recent)
+            // Pick the most recent file based on timestamp
         }
 
-        val fullFileName = matchingFiles.first().first
+        val fullFileName = matchingFiles.maxByOrNull { it.second.seconds + it.second.nanoseconds / 1_000_000_000.0 }?.first
+            ?: matchingFiles.first().first
         Log.d(TAG, "Resolved fullFileName: $fullFileName from displayedFileName: $displayedFileName")
 
         val fileDetailsFragment = FileDetailsFragment().apply {

@@ -1,12 +1,19 @@
 package com.example.meetloggerv2
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.Typeface
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.TextPaint
+import android.text.style.TypefaceSpan
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -18,18 +25,19 @@ import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SearchView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import com.bumptech.glide.Glide
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.Calendar
 import java.util.Locale
-import androidx.core.view.size
-import androidx.core.view.get
-import com.google.firebase.Timestamp
 
 class HomeFragment : Fragment() {
 
@@ -56,6 +64,8 @@ class HomeFragment : Fragment() {
     }
     private val fetchDebounceTask = Runnable { fetchFileNamesAndStatus() }
     private val TAG = "HomeFragment"
+
+    private val PERMISSION_REQUEST_CODE = 1001
 
     @RequiresApi(Build.VERSION_CODES.P)
     override fun onCreateView(
@@ -98,6 +108,8 @@ class HomeFragment : Fragment() {
 
         handler.post(internetCheckTask) // Start internet monitoring
         checkInternetAndLoad()
+
+        checkNotificationAndMicrophonePermissions()
 
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?) = filterFiles(query)
@@ -146,24 +158,6 @@ class HomeFragment : Fragment() {
         }
 
         return view
-    }
-
-    @RequiresApi(Build.VERSION_CODES.P)
-    private fun applyPoppinsFontToBottomNav(bottomNavBar: BottomNavigationView) {
-        val poppinsFont = ResourcesCompat.getFont(requireContext(), R.font.poppins_medium)
-        val menu = bottomNavBar.menu
-        for (i in 0 until menu.size) {
-            val menuItem = menu[i]
-            // Create a SpannableString to apply the typeface
-            val spannableTitle = android.text.SpannableString(menuItem.title)
-            spannableTitle.setSpan(
-                poppinsFont?.let { android.text.style.TypefaceSpan(it) },
-                0,
-                spannableTitle.length,
-                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            menuItem.title = spannableTitle
-        }
     }
 
     private fun isNetworkAvailable(): Boolean {
@@ -403,6 +397,85 @@ class HomeFragment : Fragment() {
         handler.postDelayed(fetchDebounceTask, 1000) // 1s debounce
     }
 
+    private fun checkNotificationAndMicrophonePermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        // Check notification permission (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // Check microphone permission (all versions)
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+
+        // Request permissions if any are not granted
+        if (permissionsToRequest.isNotEmpty()) {
+            requestPermissions(
+                permissionsToRequest.toTypedArray(),
+                PERMISSION_REQUEST_CODE
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            for (i in permissions.indices) {
+                when (permissions[i]) {
+                    Manifest.permission.POST_NOTIFICATIONS -> {
+                        if (grantResults.getOrNull(i) == PackageManager.PERMISSION_GRANTED) {
+                           /* Toast.makeText(
+                                requireContext(),
+                                "Notification permission granted",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                            */
+                        } else {
+                            Toast.makeText(
+                                requireContext(),
+                                "Enable the notification permission",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                    Manifest.permission.RECORD_AUDIO -> {
+                        if (grantResults.getOrNull(i) == PackageManager.PERMISSION_GRANTED) {
+                          /*  Toast.makeText(
+                                requireContext(),
+                                "Microphone permission granted",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                           */
+                        } else {
+                            Toast.makeText(
+                                requireContext(),
+                                "Enable the microphone permission",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+            }
+        }
+    }
     override fun onResume() {
         super.onResume()
         // Ensure "Home" is highlighted when returning to the fragment
@@ -410,6 +483,7 @@ class HomeFragment : Fragment() {
         bottomNavBar?.selectedItemId = R.id.menu_home
         handler.post(internetCheckTask)
         scheduleFetchDebounce()
+
     }
 
     override fun onPause() {
@@ -423,4 +497,41 @@ class HomeFragment : Fragment() {
         handler.removeCallbacks(internetCheckTask)
         handler.removeCallbacks(fetchDebounceTask)
     }
+
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun applyPoppinsFontToBottomNav(bottomNavBar: BottomNavigationView) {
+        val poppinsFont = ResourcesCompat.getFont(requireContext(), R.font.poppins_medium)
+        val menu = bottomNavBar.menu
+        for (i in 0 until menu.size()) { // Use size() instead of size
+            val menuItem = menu.getItem(i) // Use getItem(i) instead of [i]
+            // Create a SpannableString to apply the typeface
+            val spannableTitle = SpannableString(menuItem.title)
+            poppinsFont?.let {
+                // Use CustomTypefaceSpan for applying custom typeface
+                spannableTitle.setSpan(
+                    CustomTypefaceSpan("", it),
+                    0,
+                    spannableTitle.length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            menuItem.title = spannableTitle
+        }
+    }
+    // CustomTypefaceSpan class to apply custom typeface
+    class CustomTypefaceSpan(family: String, private val typeface: Typeface) : TypefaceSpan(family) {
+        override fun updateDrawState(ds: TextPaint) {
+            applyCustomTypeface(ds, typeface)
+        }
+
+        override fun updateMeasureState(paint: TextPaint) {
+            applyCustomTypeface(paint, typeface)
+        }
+
+        private fun applyCustomTypeface(paint: TextPaint, tf: Typeface) {
+            paint.typeface = tf
+        }
+    }
+
 }
+

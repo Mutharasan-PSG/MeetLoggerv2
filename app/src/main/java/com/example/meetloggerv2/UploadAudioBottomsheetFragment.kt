@@ -1,14 +1,17 @@
 package com.example.meetloggerv2
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -58,9 +61,12 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private var isProcessing = false
     private var operationStartTime: Long = 0L
     private var hasShownSlowToast = false
+    private var firebaseUploadDone = false // Class-level flag
+    private var backendUploadDone = false
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
     private var touchBlockOverlay: FrameLayout? = null // Reference to the overlay
+    private val PERMISSION_REQUEST_CODE = 1003
 
     private val internetCheckTask = object : Runnable {
         override fun run() {
@@ -107,11 +113,8 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
         binding.processAudioButton.setOnClickListener {
             if (isProcessing) return@setOnClickListener
-            if (!isNetworkAvailable()) {
-                Toast.makeText(context, "No internet connection", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            showSpeakerSelectionDialog()
+            checkAndRequestNotificationPermission()
+
         }
     }
 
@@ -520,10 +523,12 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
             isProcessing = true
             operationStartTime = System.currentTimeMillis()
             hasShownSlowToast = false
+            firebaseUploadDone = false // Reset flag
+            backendUploadDone = false // Reset flag
             binding.progressOverlay.visibility = View.VISIBLE
-            touchBlockOverlay?.visibility = View.VISIBLE // Show overlay during processing
+            touchBlockOverlay?.visibility = View.VISIBLE
             updateDismissalState()
-            Toast.makeText(context, "Processing audio...", Toast.LENGTH_SHORT).show()
+         //   Toast.makeText(context, "Processing audio...", Toast.LENGTH_SHORT).show()
             handler.post(internetCheckTask)
             uploadAudioToFirebase(uri, followUpFileName)
             uploadAudioToBackend(file, userId, filteredSpeakers, followUpFileName)
@@ -573,33 +578,24 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
                                 abortCurrentOperation()
                                 return@addOnSuccessListener
                             }
-                            Toast.makeText(context, "Audio metadata saved successfully!", Toast.LENGTH_SHORT).show()
+                            Log.d("UploadAudio", "Firebase metadata saved successfully for $fileName")
+                            checkBothUploadsCompleted(firebaseDone = true)
                         }
                         .addOnFailureListener { e ->
                             if (!isAdded) return@addOnFailureListener
-                            Toast.makeText(context, "Failed to save metadata: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Log.e("UploadAudio", "Failed to save Firebase metadata: ${e.message}")
+                            abortCurrentOperation("Failed to save metadata: ${e.message}")
                         }
                 }.addOnFailureListener { e ->
                     if (!isAdded) return@addOnFailureListener
-                    Toast.makeText(context, "Failed to get download URL: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Log.e("UploadAudio", "Failed to get Firebase download URL: ${e.message}")
+                    abortCurrentOperation("Failed to get download URL: ${e.message}")
                 }
             }
             .addOnFailureListener { e ->
                 if (!isAdded) return@addOnFailureListener
-                Toast.makeText(context, "Failed to upload to Firebase: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-            .addOnCompleteListener {
-                if (!isAdded) return@addOnCompleteListener
-                if (isProcessing && isNetworkAvailable()) {
-                    return@addOnCompleteListener
-                }
-                binding.progressOverlay.visibility = View.GONE
-                touchBlockOverlay?.visibility = View.GONE // Hide overlay on completion
-                isProcessing = false
-                handler.removeCallbacks(internetCheckTask)
-                binding.processAudioButton.isEnabled = true
-                binding.processAudioText.text = "Process Audio"
-                updateDismissalState()
+                Log.e("UploadAudio", "Failed to upload to Firebase: ${e.message}")
+                abortCurrentOperation("Failed to upload to Firebase: ${e.message}")
             }
     }
 
@@ -618,24 +614,13 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
             .build()
         val request = Request.Builder().url(serverUrl).post(requestBody).build()
 
-        Toast.makeText(context, "Sending audio to server...", Toast.LENGTH_SHORT).show()
         val client = OkHttpClient()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 if (!isAdded) return
                 requireActivity().runOnUiThread {
-                    if (!isNetworkAvailable()) {
-                        abortCurrentOperation()
-                    } else {
-                        binding.progressOverlay.visibility = View.GONE
-                        touchBlockOverlay?.visibility = View.GONE // Hide overlay on failure
-                        isProcessing = false
-                        handler.removeCallbacks(internetCheckTask)
-                        Toast.makeText(context, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                        binding.processAudioButton.isEnabled = true
-                        binding.processAudioText.text = "Process Audio"
-                        updateDismissalState()
-                    }
+                    Log.e("UploadAudio", "Backend upload failed: ${e.message}")
+                    abortCurrentOperation("Upload failed: ${e.message}")
                 }
             }
 
@@ -644,30 +629,64 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
                 requireActivity().runOnUiThread {
                     if (!isNetworkAvailable()) {
                         abortCurrentOperation()
+                        return@runOnUiThread
+                    }
+                    if (response.isSuccessful) {
+                        val responseBody = response.body?.string()
+                        Log.d("UploadAudio", "Backend upload successful! Response: $responseBody")
+                        checkBothUploadsCompleted(backendDone = true)
                     } else {
-                        binding.progressOverlay.visibility = View.GONE
-                        touchBlockOverlay?.visibility = View.GONE // Hide overlay on completion
-                        isProcessing = false
-                        handler.removeCallbacks(internetCheckTask)
-                        if (response.isSuccessful) {
-                            val responseBody = response.body?.string()
-                            Log.d("UploadAudio", "Upload successful! Response: $responseBody")
-                            Toast.makeText(context, "Processing started, you’ll be notified when ready", Toast.LENGTH_LONG).show()
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                binding.processAudioButton.isEnabled = true
-                                binding.processAudioText.text = "Process Audio"
-                            }, 2000)
-                        } else {
-                            Log.e("UploadAudio", "Upload failed! Response Code: ${response.code}")
-                            Toast.makeText(context, "Server processing failed: ${response.code}", Toast.LENGTH_SHORT).show()
-                            binding.processAudioButton.isEnabled = true
-                            binding.processAudioText.text = "Process Audio"
-                        }
-                        updateDismissalState()
+                        Log.e("UploadAudio", "Backend upload failed! Response Code: ${response.code}")
+                        abortCurrentOperation("Server processing failed: ${response.code}")
                     }
                 }
             }
         })
+    }
+
+    private fun checkBothUploadsCompleted(firebaseDone: Boolean = false, backendDone: Boolean = false) {
+        if (firebaseDone) firebaseUploadDone = true
+        if (backendDone) backendUploadDone = true
+
+        if (firebaseUploadDone && backendUploadDone) {
+            // Both uploads completed successfully
+            if (!isAdded) return
+            binding.progressOverlay.visibility = View.GONE
+            touchBlockOverlay?.visibility = View.GONE
+            isProcessing = false
+            handler.removeCallbacks(internetCheckTask)
+            binding.processAudioButton.isEnabled = true
+            binding.processAudioText.text = "Process Audio"
+            updateDismissalState()
+            Toast.makeText(context, "Processing started, you’ll be notified when ready", Toast.LENGTH_LONG).show()
+            Handler(Looper.getMainLooper()).postDelayed({
+                binding.processAudioButton.isEnabled = true
+                binding.processAudioText.text = "Process Audio"
+            }, 2000)
+            // Reset flags for next upload
+            firebaseUploadDone = false
+            backendUploadDone = false
+        }
+    }
+
+    private fun abortCurrentOperation(errorMessage: String? = null) {
+        if (isAdded) {
+            binding.progressOverlay.visibility = View.GONE
+            touchBlockOverlay?.visibility = View.GONE
+            if (errorMessage != null) {
+                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Operation aborted due to no internet", Toast.LENGTH_SHORT).show()
+            }
+        }
+        isProcessing = false
+        hasShownSlowToast = false
+        firebaseUploadDone = false // Reset flag
+        backendUploadDone = false // Reset flag
+        handler.removeCallbacks(internetCheckTask)
+        binding.processAudioButton.isEnabled = true
+        binding.processAudioText.text = "Process Audio"
+        updateDismissalState()
     }
 
     private fun uriToFile(uri: Uri): File? {
@@ -706,6 +725,67 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
             }
         }
         return fileName
+    }
+
+    private fun checkAndRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                // Request notification permission
+                requestPermissions(
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    PERMISSION_REQUEST_CODE
+                )
+            } else {
+                // Permission granted, proceed with processing
+                if (isNetworkAvailable()) {
+                    showSpeakerSelectionDialog()
+                } else {
+                    Toast.makeText(context, "No internet connection", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            // Pre-Android 13, no permission needed, proceed with processing
+            if (isNetworkAvailable()) {
+                showSpeakerSelectionDialog()
+            } else {
+                Toast.makeText(context, "No internet connection", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                /*Toast.makeText(
+                    requireContext(),
+                    "Notification permission granted",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                 */
+                // Permission granted, proceed with processing
+                if (isNetworkAvailable()) {
+                    showSpeakerSelectionDialog()
+                } else {
+                    Toast.makeText(context, "No internet connection", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(
+                    requireContext(),
+                    "Enbale the notification permission",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
     }
 
     override fun onResume() {
