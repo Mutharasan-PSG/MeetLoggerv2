@@ -40,6 +40,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 import com.google.firebase.Timestamp
+import java.util.Locale
 
 class ReportFragment : Fragment() {
 
@@ -1376,9 +1377,9 @@ class ReportFragment : Fragment() {
             // Copy full list, transforming to match displayed names (without extension)
             filteredList.addAll(fileNamesList.map { Triple(it.first.substringBeforeLast("."), it.second, it.third) })
         } else {
-            val lowerCaseQuery = query.toLowerCase()
+            val lowerCaseQuery = query.lowercase(Locale.getDefault())
             fileNamesList.forEach { (fileName, timestamp, status) ->
-                if (fileName.toLowerCase().contains(lowerCaseQuery)) {
+                if (fileName.lowercase(Locale.getDefault()).contains(lowerCaseQuery)) {
                     filteredList.add(Triple(fileName.substringBeforeLast("."), timestamp, status))
                 }
             }
@@ -1631,9 +1632,9 @@ class ReportFragment : Fragment() {
                     if (currentQuery.isNullOrEmpty()) {
                         filteredList.addAll(fileNamesList.map { Triple(it.first.substringBeforeLast("."), it.second, it.third) })
                     } else {
-                        val lowerCaseQuery = currentQuery.toLowerCase()
+                        val lowerCaseQuery = currentQuery.lowercase(Locale.getDefault())
                         fileNamesList.forEach { (fileName, timestamp, status) ->
-                            if (fileName.toLowerCase().contains(lowerCaseQuery)) {
+                            if (fileName.lowercase(Locale.getDefault()).contains(lowerCaseQuery)) {
                                 filteredList.add(Triple(fileName.substringBeforeLast("."), timestamp, status))
                             }
                         }

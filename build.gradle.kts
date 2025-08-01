@@ -6,7 +6,7 @@ buildscript {
         maven { url = uri("https://webrtc.org/maven") }
     }
     dependencies {
-        classpath("com.google.gms:google-services:4.4.2")
+        classpath("com.google.gms:google-services:4.4.3")
     }
 }
 

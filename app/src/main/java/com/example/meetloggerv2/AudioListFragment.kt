@@ -50,6 +50,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.Response
 import java.io.File
 import java.io.IOException
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class AudioListFragment : Fragment() {
@@ -1693,9 +1694,9 @@ class AudioListFragment : Fragment() {
         if (query.isNullOrEmpty()) {
             filteredList.addAll(fileNamesList)
         } else {
-            val lowerCaseQuery = query.toLowerCase()
+            val lowerCaseQuery = query.lowercase(Locale.getDefault())
             fileNamesList.forEach { fileName ->
-                if (fileName.toLowerCase().contains(lowerCaseQuery)) {
+                if (fileName.lowercase(Locale.getDefault()).contains(lowerCaseQuery)) {
                     filteredList.add(fileName)
                 }
             }
