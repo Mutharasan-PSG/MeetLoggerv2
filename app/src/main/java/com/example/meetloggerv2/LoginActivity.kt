@@ -20,9 +20,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.*
 import com.google.firebase.firestore.FirebaseFirestore
 
 class LoginActivity : AppCompatActivity() {
@@ -38,39 +36,26 @@ class LoginActivity : AppCompatActivity() {
 
         sessionManager = SessionManager(this)
 
-        // Set status bar color to black
-      //window.statusBarColor = ContextCompat.getColor(this, R.color.black)
-
-        // Set the navigation bar color (below the screen content) to black as well
-       // window.navigationBarColor = ContextCompat.getColor(this, R.color.black)
-
-        // Hide the action bar (if applicable), if you don't want it to show
-      // supportActionBar?.hide()
-
-
-        // Configure Google Sign-In
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id)) // Ensure this is correct
+            .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
 
         googleSignInClient = GoogleSignIn.getClient(this, gso)
-
-        // Initialize Firestore
         firestore = FirebaseFirestore.getInstance()
 
-        // Initialize ActivityResultLauncher
-        signInResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-                try {
-                    val account = task.getResult(ApiException::class.java)
-                    handleSignInResult(account)
-                } catch (e: ApiException) {
-                    Log.e("LoginActivity", "Google sign-in failed: ${e.message}")
+        signInResultLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == RESULT_OK) {
+                    val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    try {
+                        val account = task.getResult(ApiException::class.java)
+                        handleSignInResult(account)
+                    } catch (e: ApiException) {
+                        Log.e("LoginActivity", "Google sign-in failed: ${e.message}")
+                    }
                 }
             }
-        }
 
         val signInButton = findViewById<LinearLayout>(R.id.btn_google_sign_in)
         signInButton.setOnClickListener {
@@ -81,14 +66,12 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
-        // Apply color changes to specific words in Privacy text
         val privacyTextView = findViewById<TextView>(R.id.privacy)
-        val privacyText = "By signing in, you agree to our Terms, Privacy Policy, and Cookies Use."
+        val privacyText =
+            "By signing in, you agree to our Terms, Privacy Policy, and Cookies Use."
 
-        // Create SpannableString
         val spannableString = SpannableString(privacyText)
 
-        // Change text color for the specified words to blue
         spannableString.setSpan(
             ForegroundColorSpan(ContextCompat.getColor(this, R.color.BLUE)),
             privacyText.indexOf("Terms"),
@@ -108,8 +91,18 @@ class LoginActivity : AppCompatActivity() {
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
 
-        // Set the styled text to the TextView
         privacyTextView.text = spannableString
+
+        val guestButton = findViewById<LinearLayout>(R.id.btn_guest_sign_in)
+        val guestAuthManager = GuestAuthManager(this)
+
+        guestButton.setOnClickListener {
+            if (NetworkUtil.isNetworkAvailable(this)) {
+                guestAuthManager.loginAsGuest()
+            } else {
+                showCustomToast("No internet connection", 2000)
+            }
+        }
     }
 
     private fun signInWithGoogle() {
@@ -122,17 +115,48 @@ class LoginActivity : AppCompatActivity() {
             showCustomToast("Please wait...", 2000)
 
             val credential = GoogleAuthProvider.getCredential(account.idToken, null)
-            FirebaseAuth.getInstance().signInWithCredential(credential).addOnCompleteListener(this) { task ->
+            val currentUser = FirebaseAuth.getInstance().currentUser
+
+            if (currentUser != null) {
+                currentUser.linkWithCredential(credential)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val user = FirebaseAuth.getInstance().currentUser
+                            Log.d("LoginActivity", "Linked UID: ${user?.uid}")
+
+                            showCustomToast("Account linked", 2000)
+
+                            if (user != null) {
+                                navigateToHome(user)
+                            }
+                        } else {
+                            Log.e("LoginActivity", "Linking failed", task.exception)
+                            handleLinkError(credential)
+                        }
+                    }
+            } else {
+                showCustomToast("Guest session missing", 2000)
+            }
+        }
+    }
+
+    private fun handleLinkError(credential: AuthCredential) {
+        FirebaseAuth.getInstance().signInWithCredential(credential)
+            .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val user = FirebaseAuth.getInstance().currentUser
+                    Log.d("LoginActivity", "Signed in existing user: ${user?.uid}")
+
+                    showCustomToast("Logged into existing account", 2000)
+
                     if (user != null) {
                         navigateToHome(user)
                     }
                 } else {
-                    Log.e("LoginActivity", "Firebase sign-in failed", task.exception)
+                    Log.e("LoginActivity", "Fallback sign-in failed", task.exception)
+                    showCustomToast("Login failed", 2000)
                 }
             }
-        }
     }
 
     private fun navigateToHome(user: FirebaseUser) {
@@ -152,12 +176,9 @@ class LoginActivity : AppCompatActivity() {
                             Log.d("LoginActivity", "User added to Firestore successfully")
                         }
                         .addOnFailureListener { e ->
-                            Log.e("LoginActivity", "Failed to add user to Firestore: ${e.message}")
+                            Log.e("LoginActivity", "Failed to add user: ${e.message}")
                         }
                 }
-            }
-            .addOnFailureListener { e ->
-                Log.e("LoginActivity", "Error checking Firestore for existing user: ${e.message}")
             }
 
         sessionManager.setLoggedIn(true)
@@ -176,14 +197,3 @@ class LoginActivity : AppCompatActivity() {
         }, duration.toLong())
     }
 }
-  /* private fun customizeGoogleSignInButton(signInButton: LinearLayout) {
-        val googleLogo = signInButton.findViewById<ImageView>(R.id.google_logo)
-        val googleSignInText = signInButton.findViewById<TextView>(R.id.google_sign_in_text)
-
-        // Set text color and background color from colors.xml
-        googleSignInText.setTextColor(ContextCompat.getColor(this, R.color.black))
-
-        signInButton.background = ContextCompat.getDrawable(this, R.drawable.rounded_corners)
-        // Optionally, you can set other customizations like text size, padding, etc.
-    } */
-
