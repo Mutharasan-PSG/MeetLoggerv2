@@ -1,6 +1,7 @@
 package com.example.meetloggerv2
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -110,6 +111,7 @@ class LoginActivity : AppCompatActivity() {
         signInResultLauncher.launch(signInIntent)
     }
 
+    // UPDATED WITH PROFILE FIX
     private fun handleSignInResult(account: GoogleSignInAccount?) {
         if (account != null) {
             showCustomToast("Please wait...", 2000)
@@ -122,7 +124,18 @@ class LoginActivity : AppCompatActivity() {
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
                             val user = FirebaseAuth.getInstance().currentUser
+
+                            // FIX: Update profile manually
+                            val profileUpdates = UserProfileChangeRequest.Builder()
+                                .setDisplayName(account.displayName)
+                                .setPhotoUri(account.photoUrl)
+                                .build()
+
+                            user?.updateProfile(profileUpdates)
+
                             Log.d("LoginActivity", "Linked UID: ${user?.uid}")
+                            Log.d("LoginActivity", "Name: ${account.displayName}")
+                            Log.d("LoginActivity", "Photo: ${account.photoUrl}")
 
                             showCustomToast("Account linked", 2000)
 
