@@ -1,7 +1,8 @@
-package com.example.meetloggerv2
+package com.example.meetloggerv2.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.meetloggerv2.data.model.User
 import com.google.gson.Gson
 
 class SessionManager(context: Context) {

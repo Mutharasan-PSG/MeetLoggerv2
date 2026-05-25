@@ -23,6 +23,6 @@
         android:text="Save"
         android:layout_gravity="center"
         android:backgroundTint="@color/BLUE"
-        android:textColor="@color/black"
+        android:textColor="@color/white"
         android:padding="8dp" />
 </LinearLayout>

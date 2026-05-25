@@ -1,8 +1,9 @@
-package com.example.meetloggerv2
+package com.example.meetloggerv2.ui.home
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
+import com.example.meetloggerv2.R
 
 class HomeActivity : AppCompatActivity() {
 

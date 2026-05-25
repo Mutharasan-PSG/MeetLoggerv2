@@ -198,71 +198,51 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_gravity="center"
-            android:layout_marginTop="25dp"
-            android:padding="5dp">
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/button_bg_export"
-                android:layout_margin="10dp">
+            android:gravity="center"
+            android:layout_marginTop="25dp">
 
             <Button
                 android:id="@+id/processAudioButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginEnd="20dp"
+                android:layout_margin="5dp"
                 android:text="Process"
-                android:gravity="center"
+                android:textAllCaps="true"
+                android:backgroundTint="@color/BLUE"
                 android:fontFamily="@font/poppins_medium"
                 android:textColor="@color/white"
-                android:padding="5dp"
                 android:drawableStart="@drawable/process"
+                android:drawablePadding="8dp"
                 android:visibility="gone" />
-
-        </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/button_bg_export"
-                android:layout_margin="10dp">
 
             <Button
                 android:id="@+id/newRecordingButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="New Recording"
-                android:gravity="center"
+                android:layout_margin="5dp"
+                android:text="New"
+                android:textAllCaps="true"
+                android:backgroundTint="@color/BLUE"
                 android:fontFamily="@font/poppins_medium"
                 android:textColor="@color/white"
-                android:padding="5dp"
                 android:drawableStart="@drawable/start"
+                android:drawablePadding="8dp"
                 android:visibility="gone" />
 
-            </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/button_bg_export">
-
-        <Button
+            <Button
                 android:id="@+id/deleteButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="center"
+                android:layout_margin="5dp"
                 android:text="Delete"
-                android:padding="5dp"
+                android:textAllCaps="true"
+                android:backgroundTint="@color/red"
                 android:fontFamily="@font/poppins_medium"
                 android:textColor="@color/white"
                 android:visibility="gone" />
-        </LinearLayout>
 
         </LinearLayout>
 

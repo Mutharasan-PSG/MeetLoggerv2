@@ -1,4 +1,4 @@
-package com.example.meetloggerv2
+package com.example.meetloggerv2.ui.profile
 
 import android.content.Intent
 import android.os.Bundle
@@ -9,23 +9,26 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import com.bumptech.glide.Glide
+import com.example.meetloggerv2.R
+import com.example.meetloggerv2.data.local.SessionManager
+import com.example.meetloggerv2.ui.home.HomeViewModel
+import com.example.meetloggerv2.ui.login.LoginActivity
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 
 class ProfileFragment : Fragment() {
 
     private lateinit var sessionManager: SessionManager
     private lateinit var googleSignInClient: GoogleSignInClient
-    private lateinit var firestore: FirebaseFirestore
+    private val viewModel: HomeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configureGoogleSignIn()
-        firestore = FirebaseFirestore.getInstance()
     }
 
     override fun onCreateView(
@@ -40,41 +43,56 @@ class ProfileFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         initializeUI(view)
+        setupObservers(view)
 
-        val user = sessionManager.getUserDetails()
-        user?.let {
-            populateUserDetails(view, it)
+        val userId = sessionManager.getUserId()
+        if (userId != null) {
+            viewModel.loadUserProfile(userId)
+        }
+    }
+
+    private fun setupObservers(view: View) {
+        viewModel.userProfile.observe(viewLifecycleOwner) { data ->
+            if (data != null) {
+                populateUserDetails(view, data)
+            }
         }
     }
 
     private fun initializeUI(view: View) {
         val signOutButton: LinearLayout = view.findViewById(R.id.btn_sign_out)
-
         signOutButton.setOnClickListener {
             signOut()
+        }
+
+        val versionTextView: TextView = view.findViewById(R.id.version)
+        try {
+            val pInfo = requireContext().packageManager.getPackageInfo(requireContext().packageName, 0)
+            versionTextView.text = "version ${pInfo.versionName}"
+        } catch (_: Exception) {
+            versionTextView.text = "version 1.0"
         }
     }
 
     private fun configureGoogleSignIn() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id)) // Ensure this is correct
+            .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
-
         googleSignInClient = GoogleSignIn.getClient(requireContext(), gso)
         sessionManager = SessionManager(requireContext())
     }
 
-    private fun populateUserDetails(view: View, user: User) {
+    private fun populateUserDetails(view: View, data: Map<String, Any>) {
         val nameTextView: TextView = view.findViewById(R.id.profile_name)
         val emailTextView: TextView = view.findViewById(R.id.profile_email)
         val profileImageView: ImageView = view.findViewById(R.id.profile_image)
 
-        nameTextView.text = user.name
-        emailTextView.text = user.email
+        nameTextView.text = data["name"] as? String ?: ""
+        emailTextView.text = data["email"] as? String ?: ""
 
         Glide.with(this)
-            .load(user.photoUrl)
+            .load(data["photoUrl"] as? String)
             .placeholder(R.drawable.default_profile_pic)
             .error(R.drawable.default_profile_pic)
             .into(profileImageView)
@@ -82,10 +100,8 @@ class ProfileFragment : Fragment() {
 
     private fun signOut() {
         FirebaseAuth.getInstance().signOut()
-
         googleSignInClient.signOut().addOnCompleteListener {
             sessionManager.clearSession()
-            // Navigate to LoginActivity
             startActivity(Intent(requireContext(), LoginActivity::class.java))
             requireActivity().finish()
         }

@@ -61,8 +61,10 @@
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins"
             android:text="Cancel"
+            android:textColor="@color/red"
             android:textSize="16sp"
-            android:elevation="7dp"/>
+            android:elevation="7dp"
+            android:backgroundTint="@color/white"/>
 
         <Space
             android:layout_width="16dp"
@@ -76,7 +78,9 @@
             android:elevation="7dp"
             android:fontFamily="@font/poppins"
             android:text="Proceed"
-            android:textSize="16sp" />
+            android:textColor="@color/BLUE"
+            android:textSize="16sp"
+            android:backgroundTint="@color/white"/>
 
 
     </LinearLayout>

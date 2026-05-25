@@ -1,4 +1,4 @@
-package com.example.meetloggerv2
+package com.example.meetloggerv2.data.model
 
 data class User(
     val id: String,

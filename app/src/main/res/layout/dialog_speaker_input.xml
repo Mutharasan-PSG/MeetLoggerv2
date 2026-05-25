@@ -53,6 +53,7 @@
             android:textColor="@color/black"
             android:text="ADD SPEAKER"
             android:fontFamily="@font/poppins"
+            android:backgroundTint="@color/white"
             android:contentDescription="Add Speaker"/>
 
         <Button
@@ -66,6 +67,7 @@
             android:layout_height="wrap_content"
             android:elevation="7dp"
             android:textColor="@color/BLUE"
+            android:backgroundTint="@color/white"
             android:text="PROCEED"/>
 
     </LinearLayout>

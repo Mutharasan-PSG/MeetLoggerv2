@@ -11,11 +11,14 @@ lameAndroid = "0.1.0"
 material = "1.12.0"
 activity = "1.10.1"
 constraintlayout = "2.2.1"
+lifecycle = "2.8.7"
 googleGmsGoogleServices = "4.4.3"
 firebaseFirestore = "26.0.0"
 firebaseAuthKtx = "23.2.1"
 legacySupportV4 = "1.0.0"
 mobileFfmpegFull = "4.4"
+retrofit = "2.11.0"
+okhttp = "4.12.0"
 recyclerview = "1.4.0"
 firebaseCrashlyticsBuildtools = "3.0.5"
 firebaseMessagingKtx = "24.1.2"
@@ -31,6 +34,9 @@ lame-android = { module = "com.github.tonal:lame-android", version.ref = "lameAn
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
+androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version = "1.8.6" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
 androidx-legacy-support-v4 = { group = "androidx.legacy", name = "legacy-support-v4", version.ref = "legacySupportV4" }
@@ -38,6 +44,9 @@ androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview"
 firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
 firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messaging-ktx", version.ref = "firebaseMessagingKtx" }
 mobile-ffmpeg-full = { module = "com.arthenica:mobile-ffmpeg-full", version.ref = "mobileFfmpegFull" }
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

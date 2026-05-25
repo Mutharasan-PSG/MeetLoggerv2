@@ -20,7 +20,7 @@
 
 
     <application
-        android:name=".NotificationListener"
+        android:name=".MeetLoggerApp"
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:allowBackup="true"
@@ -44,7 +44,7 @@
         </provider>
 
         <activity
-            android:name=".SplashActivity"
+            android:name=".ui.splash.SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -53,11 +53,11 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".MainActivity" android:exported="true"/>
+        <activity android:name=".ui.main.MainActivity" android:exported="true"/>
 
-        <activity android:name=".LoginActivity" android:exported="true"/>
+        <activity android:name=".ui.login.LoginActivity" android:exported="true"/>
 
-        <activity android:name=".HomeActivity" android:exported="true"/>
+        <activity android:name=".ui.home.HomeActivity" android:exported="true"/>
     </application>
 
 

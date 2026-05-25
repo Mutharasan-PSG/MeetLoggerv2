@@ -1,4 +1,4 @@
-package com.example.meetloggerv2
+package com.example.meetloggerv2.ui.home
 
 import android.content.Context
 import android.view.LayoutInflater
@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.example.meetloggerv2.R
 import java.util.Locale
 import com.google.firebase.Timestamp
 

@@ -59,6 +59,9 @@ implementation ("org.apache.poi:poi-ooxml:5.4.1") // Add this line
 implementation ("androidx.cardview:cardview:1.0.0")
 
 implementation("com.squareup.okhttp3:okhttp:5.1.0")
+implementation(libs.retrofit)
+implementation(libs.retrofit.gson)
+implementation(libs.okhttp.logging)
 
 implementation ("co.daily:client:0.32.0")
 
@@ -92,6 +95,9 @@ implementation(libs.androidx.appcompat)
 implementation(libs.material)
 implementation(libs.androidx.activity)
 implementation(libs.androidx.constraintlayout)
+implementation(libs.androidx.lifecycle.viewmodel.ktx)
+implementation(libs.androidx.lifecycle.livedata.ktx)
+implementation(libs.androidx.fragment.ktx)
 
 implementation(libs.firebase.firestore)
 testImplementation(libs.junit)

@@ -1,4 +1,4 @@
-package com.example.meetloggerv2
+package com.example.meetloggerv2.util
 
 import android.content.Context
 import android.net.ConnectivityManager
