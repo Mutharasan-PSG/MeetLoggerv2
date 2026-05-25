@@ -4,7 +4,7 @@
     android:id="@+id/dialog_message"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:padding="16dp"
-    android:textSize="18sp"
+    android:padding="@dimen/dialog_padding"
+    android:textSize="@dimen/text_size_large"
     android:fontFamily="@font/poppins_medium"
-    android:textColor="@android:color/black" />
+    android:textColor="@color/black" />

@@ -3,17 +3,17 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/white"
-    android:padding="16dp">
+    android:background="@color/backgroundColor"
+    android:padding="@dimen/dialog_padding">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="@font/poppins"
-        android:textColor="@color/Grey"
-        android:text="CHOOSE LANGUAGE"
-        android:textSize="18sp"
-        android:layout_marginBottom="26dp"/>
+        android:textColor="@color/onSurfaceVariant"
+        android:text="@string/dialog_title_choose_language"
+        android:textSize="@dimen/text_size_large"
+        android:layout_marginBottom="@dimen/search_margin_top"/>
 
     <Spinner
         android:id="@+id/languageSpinner"
@@ -22,29 +22,30 @@
         android:background="@drawable/spinner_border"
         android:layout_gravity="center"
         android:gravity="center"
-        android:paddingTop="7dp"
-        android:paddingBottom="7dp"
-        android:paddingStart="1dp"
-        android:paddingEnd="1dp"
-        android:layout_marginBottom="16dp"/>
+        android:paddingTop="@dimen/spacing_medium"
+        android:paddingBottom="@dimen/spacing_medium"
+        android:paddingStart="@dimen/spacing_tiny"
+        android:paddingEnd="@dimen/spacing_tiny"
+        android:layout_marginBottom="@dimen/spacing_large"/>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:layout_marginTop="16dp">
+        android:layout_marginTop="@dimen/spacing_large">
 
         <Button
             android:id="@+id/changeLanguageButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="15dp"
+            android:layout_marginEnd="@dimen/list_item_margin_bottom"
             android:clickable="true"
             android:elevation="7dp"
             android:fontFamily="@font/poppins"
-            android:text="Switch"
-            android:textColor="@color/BLUE"/>
+            android:text="@string/dialog_switch"
+            android:textColor="@color/BLUE"
+            android:backgroundTint="@color/surfaceColor"/>
 
         <Button
             android:id="@+id/cancelLanguageButton"
@@ -52,8 +53,9 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:elevation="7dp"
-            android:text="Cancel"
-            android:textColor="@color/red"/>
+            android:text="@string/dialog_cancel"
+            android:textColor="@color/red"
+            android:backgroundTint="@color/surfaceColor"/>
 
 
 

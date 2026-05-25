@@ -3,8 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/white"
-    android:padding="16dp">
+    android:background="@drawable/dialog_background_rounded"
+    android:padding="@dimen/dialog_padding">
 
     <TextView
         android:id="@+id/messageText"
@@ -12,10 +12,10 @@
         android:layout_height="wrap_content"
         android:fontFamily="@font/poppins_medium"
         android:textColor="@color/Grey"
-        android:text="Do you want to include the speaker name?"
-        android:textSize="18sp"
+        android:text="@string/msg_include_speaker_name"
+        android:textSize="@dimen/text_size_large"
         android:layout_gravity="left"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="@dimen/spacing_large" />
 
     <RadioGroup
         android:id="@+id/radioGroup"
@@ -30,11 +30,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/black"
-            android:text="YES, include speaker name"
-            android:textSize="16sp" />
+            android:text="@string/radio_yes_include_speaker"
+            android:textSize="@dimen/text_size_normal" />
 
         <Space
-            android:layout_width="16dp"
+            android:layout_width="@dimen/spacing_large"
             android:layout_height="0dp" />
 
         <RadioButton
@@ -42,8 +42,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/black"
-            android:text="NO, proceed without name"
-            android:textSize="16sp" />
+            android:text="@string/radio_no_proceed_without_name"
+            android:textSize="@dimen/text_size_normal" />
 
     </RadioGroup>
 
@@ -52,7 +52,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:layout_marginTop="16dp">
+        android:layout_marginTop="@dimen/spacing_large">
 
 
         <Button
@@ -60,12 +60,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins"
-            android:text="Cancel"
-            android:textSize="16sp"
-            android:elevation="7dp"/>
+            android:text="@string/dialog_cancel"
+            android:textColor="@color/red"
+            android:textSize="@dimen/text_size_normal"
+            android:elevation="7dp"
+            android:backgroundTint="@color/surfaceColor"/>
 
         <Space
-            android:layout_width="16dp"
+            android:layout_width="@dimen/spacing_large"
             android:layout_height="0dp" />
 
 
@@ -75,8 +77,10 @@
             android:layout_height="wrap_content"
             android:elevation="7dp"
             android:fontFamily="@font/poppins"
-            android:text="Proceed"
-            android:textSize="16sp" />
+            android:text="@string/dialog_proceed"
+            android:textColor="@color/BLUE"
+            android:textSize="@dimen/text_size_normal"
+            android:backgroundTint="@color/surfaceColor"/>
 
 
     </LinearLayout>

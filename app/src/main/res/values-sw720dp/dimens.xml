@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common Spacing -->
+    <dimen name="spacing_tiny">6dp</dimen>
+    <dimen name="spacing_small">10dp</dimen>
+    <dimen name="spacing_medium">16dp</dimen>
+    <dimen name="spacing_normal">20dp</dimen>
+    <dimen name="spacing_large">32dp</dimen>
+    <dimen name="spacing_extra_large">40dp</dimen>
+    <dimen name="spacing_huge">64dp</dimen>
+
+    <!-- Screen Margins -->
+    <dimen name="screen_margin_horizontal">56dp</dimen>
+    <dimen name="screen_margin_vertical">40dp</dimen>
+    <dimen name="search_margin_top">56dp</dimen>
+    <dimen name="search_margin_bottom">40dp</dimen>
+    <dimen name="search_margin_horizontal">56dp</dimen>
+
+    <!-- Logo and Profile Sizes -->
+    <dimen name="app_logo_width">300dp</dimen>
+    <dimen name="app_logo_height">125dp</dimen>
+    <dimen name="app_logo_margin_start">56dp</dimen>
+    <dimen name="app_logo_margin_top">12dp</dimen>
+    <dimen name="profile_pic_size">80dp</dimen>
+    <dimen name="profile_pic_margin_top">40dp</dimen>
+    <dimen name="profile_pic_margin_end">56dp</dimen>
+
+    <!-- Text Sizes -->
+    <dimen name="text_size_tiny">14sp</dimen>
+    <dimen name="text_size_small">16sp</dimen>
+    <dimen name="text_size_medium">18sp</dimen>
+    <dimen name="text_size_normal">20sp</dimen>
+    <dimen name="text_size_large">24sp</dimen>
+    <dimen name="text_size_extra_large">30sp</dimen>
+    <dimen name="text_size_headline">40sp</dimen>
+
+    <!-- Placeholder Sizes -->
+    <dimen name="placeholder_image_size">500dp</dimen>
+    <dimen name="no_internet_image_size">450dp</dimen>
+
+    <!-- Button Sizes -->
+    <dimen name="audio_button_margin_bottom">150dp</dimen>
+    <dimen name="audio_button_padding">20dp</dimen>
+    <dimen name="audio_icon_size">40dp</dimen>
+    <dimen name="audio_button_margin_end">32dp</dimen>
+
+    <!-- Bottom Nav -->
+    <dimen name="bottom_nav_height">90dp</dimen>
+
+    <!-- Overlay/Popup -->
+    <dimen name="audio_options_width">400dp</dimen>
+    <dimen name="audio_options_height">300dp</dimen>
+    <dimen name="audio_options_margin_bottom">140dp</dimen>
+    <dimen name="option_item_padding">20dp</dimen>
+    <dimen name="option_icon_size">40dp</dimen>
+    <dimen name="option_icon_size_large">45dp</dimen>
+    <dimen name="close_icon_size">45dp</dimen>
+
+    <!-- Login Screen -->
+    <dimen name="login_slogan_margin_top">400dp</dimen>
+    <dimen name="login_slogan_text_size">50sp</dimen>
+    <dimen name="login_logo_margin_top">250dp</dimen>
+    <dimen name="login_logo_width">450dp</dimen>
+    <dimen name="login_logo_height">90dp</dimen>
+    <dimen name="google_signin_width">450dp</dimen>
+    <dimen name="google_signin_height">60dp</dimen>
+    <dimen name="google_logo_margin_start">80dp</dimen>
+
+    <!-- List Item -->
+    <dimen name="list_item_padding">24dp</dimen>
+    <dimen name="list_item_margin_bottom">24dp</dimen>
+    <dimen name="list_item_icon_size">48dp</dimen>
+    <dimen name="list_item_text_size">22sp</dimen>
+
+    <!-- Audio List Screen -->
+    <dimen name="audio_topic_margin_top">56dp</dimen>
+    <dimen name="audio_topic_text_size">40sp</dimen>
+    <dimen name="audio_list_search_margin_top">120dp</dimen>
+    <dimen name="select_all_margin_top">220dp</dimen>
+    <dimen name="audio_list_view_margin_top">260dp</dimen>
+    <dimen name="mini_player_padding">24dp</dimen>
+    <dimen name="mini_player_margin_horizontal">56dp</dimen>
+    <dimen name="mini_player_margin_bottom">20dp</dimen>
+
+    <!-- Profile Screen -->
+    <dimen name="profile_title_margin_top">20dp</dimen>
+    <dimen name="profile_title_text_size">42sp</dimen>
+    <dimen name="profile_image_size">200dp</dimen>
+    <dimen name="profile_label_text_size">30sp</dimen>
+    <dimen name="profile_value_text_size">26sp</dimen>
+    <dimen name="sign_out_button_margin_top">100dp</dimen>
+    <dimen name="sign_out_icon_width">40dp</dimen>
+    <dimen name="sign_out_icon_height">44dp</dimen>
+
+    <!-- File Details Screen -->
+    <dimen name="details_content_margin_top">100dp</dimen>
+    <dimen name="details_content_margin_bottom">60dp</dimen>
+    <dimen name="details_bottom_container_width">400dp</dimen>
+    <dimen name="details_bottom_container_height">100dp</dimen>
+    <dimen name="details_action_icon_size">50dp</dimen>
+
+    <!-- Dialogs and BottomSheets -->
+    <dimen name="dialog_corner_radius">16dp</dimen>
+    <dimen name="dialog_padding">32dp</dimen>
+    <dimen name="dialog_item_margin">24dp</dimen>
+    <dimen name="instruction_text_size">26sp</dimen>
+    <dimen name="process_button_elevation">10dp</dimen>
+
+    <!-- Recording Screen -->
+    <dimen name="timer_text_size">48sp</dimen>
+    <dimen name="record_icon_width">150dp</dimen>
+    <dimen name="record_icon_height">125dp</dimen>
+    <dimen name="record_timer_margin_end">56dp</dimen>
+    <dimen name="record_button_margin_start">64dp</dimen>
+
+    <!-- Popups -->
+    <dimen name="popup_width">300dp</dimen>
+    <dimen name="popup_item_min_height">80dp</dimen>
+
+    <!-- Original values -->
+    <dimen name="list_item_spacing">32dp</dimen>
+    <dimen name="list_item_spacing_half">16dp</dimen>
+    <dimen name="mini_player_bottom_margin">50dp</dimen>
+</resources>
