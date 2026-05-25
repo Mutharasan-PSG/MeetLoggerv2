@@ -143,7 +143,7 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
         v.findViewById<Button>(R.id.proceedButton).setOnClickListener {
             val checkedId = v.findViewById<RadioGroup>(R.id.radioGroup).checkedRadioButtonId
             if (checkedId == -1) {
-                Toast.makeText(context, "Please make a selection", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.error_selection_required, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             if (checkedId == R.id.radioYes) { d.dismiss(); showSpeakerInputDialog() }
@@ -225,7 +225,7 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
         proceed.setOnClickListener {
             val checkedId = v.findViewById<RadioGroup>(R.id.radioGroup).checkedRadioButtonId
             if (checkedId == -1) {
-                Toast.makeText(context, "Please make a selection", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.error_selection_required, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             val followUp = if (checkedId == R.id.radioYes) {

@@ -3,15 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     android:padding="16dp">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="@font/poppins"
-        android:textColor="@color/Grey"
-        android:text="CHOOSE LANGUAGE"
+        android:textColor="@color/onSurfaceVariant"
+        android:text="@string/dialog_title_choose_language"
         android:textSize="18sp"
         android:layout_marginBottom="26dp"/>
 
@@ -43,8 +43,9 @@
             android:clickable="true"
             android:elevation="7dp"
             android:fontFamily="@font/poppins"
-            android:text="Switch"
-            android:textColor="@color/BLUE"/>
+            android:text="@string/dialog_switch"
+            android:textColor="@color/BLUE"
+            android:backgroundTint="@color/surfaceColor"/>
 
         <Button
             android:id="@+id/cancelLanguageButton"
@@ -52,8 +53,9 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:elevation="7dp"
-            android:text="Cancel"
-            android:textColor="@color/red"/>
+            android:text="@string/dialog_cancel"
+            android:textColor="@color/red"
+            android:backgroundTint="@color/surfaceColor"/>
 
 
 

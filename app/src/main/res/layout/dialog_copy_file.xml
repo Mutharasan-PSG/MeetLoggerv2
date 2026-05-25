@@ -3,14 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
+    android:background="@color/backgroundColor"
     android:padding="16dp">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="FILE NAME"
+        android:text="@string/dialog_title_copy_report"
         android:textSize="20sp"
-        android:textColor="@color/Grey"
+        android:textColor="@color/onSurfaceVariant"
         android:fontFamily="@font/poppins_regular"
         android:layout_marginBottom="8dp"/>
 
@@ -18,8 +19,9 @@
         android:id="@+id/editTextNewFileName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="File name"
+        android:hint="@string/hint_enter_file_name"
         android:inputType="text"
+        android:textColor="@color/onSurfaceColor"
         android:fontFamily="@font/poppins_regular"
         android:padding="8dp"
         android:background="@drawable/edit_text_background"
@@ -36,9 +38,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:elevation="7dp"
-            android:text="Cancel"
+            android:text="@string/dialog_cancel"
             android:textColor="@color/red"
-            android:background="@null"
+            android:backgroundTint="@color/surfaceColor"
             android:fontFamily="@font/poppins_medium"
             android:layout_marginEnd="8dp"/>
 
@@ -47,9 +49,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:elevation="7dp"
-            android:text="Proceed"
+            android:text="@string/dialog_proceed"
             android:textColor="@color/BLUE"
-            android:background="@null"
+            android:backgroundTint="@color/surfaceColor"
             android:fontFamily="@font/poppins_medium"/>
 
     </LinearLayout>

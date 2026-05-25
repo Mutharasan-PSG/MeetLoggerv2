@@ -22,6 +22,8 @@ okhttp = "4.12.0"
 recyclerview = "1.4.0"
 firebaseCrashlyticsBuildtools = "3.0.5"
 firebaseMessagingKtx = "24.1.2"
+firebaseCrashlytics = "19.4.4"
+firebaseCrashlyticsGradle = "3.0.7"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -43,6 +45,7 @@ androidx-legacy-support-v4 = { group = "androidx.legacy", name = "legacy-support
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
 firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messaging-ktx", version.ref = "firebaseMessagingKtx" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics-ktx", version.ref = "firebaseCrashlytics" }
 mobile-ffmpeg-full = { module = "com.arthenica:mobile-ffmpeg-full", version.ref = "mobileFfmpegFull" }
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 retrofit-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }

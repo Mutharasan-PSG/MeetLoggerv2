@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     android:padding="16dp">
 
     <ImageView
@@ -15,13 +15,13 @@
         android:src="@drawable/back"
         android:layout_marginBottom="15dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Go back" />
+        android:contentDescription="@string/content_desc_back" />
 
     <TextView
         android:id="@+id/followUpQuestion"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Do you want previous meeting follow up?"
+        android:text="@string/msg_follow_up_question"
         android:textColor="@color/Grey"
         android:textSize="16sp"
         android:fontFamily="@font/poppins_medium"
@@ -38,7 +38,7 @@
             android:id="@+id/radioYes"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="YES"
+            android:text="@string/radio_yes"
             android:textColor="@color/black"
             android:fontFamily="@font/poppins"/>
 
@@ -46,7 +46,7 @@
             android:id="@+id/radioNo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="NO"
+            android:text="@string/radio_no"
             android:textColor="@color/black"
             android:fontFamily="@font/poppins"/>
     </RadioGroup>
@@ -75,10 +75,10 @@
             android:layout_height="wrap_content"
             android:elevation="7dp"
             android:fontFamily="@font/poppins"
-            android:text="Cancel"
+            android:text="@string/dialog_cancel"
             android:padding="5dp"
             android:textColor="@color/red"
-            android:backgroundTint="@color/white"/>
+            android:backgroundTint="@color/surfaceColor"/>
 
         <Button
             android:id="@+id/proceedButton"
@@ -86,10 +86,10 @@
             android:layout_height="wrap_content"
             android:elevation="7dp"
             android:fontFamily="@font/poppins"
-            android:text="Proceed"
+            android:text="@string/dialog_proceed"
             android:layout_marginStart="15dp"
             android:padding="5dp"
             android:textColor="@color/BLUE"
-            android:backgroundTint="@color/white"/>
+            android:backgroundTint="@color/surfaceColor"/>
     </LinearLayout>
 </LinearLayout>

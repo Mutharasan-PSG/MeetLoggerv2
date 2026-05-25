@@ -130,7 +130,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         v.findViewById<Button>(R.id.proceedButton).setOnClickListener {
             val checkedId = v.findViewById<RadioGroup>(R.id.radioGroup).checkedRadioButtonId
             if (checkedId == -1) {
-                Toast.makeText(context, "Please make a selection", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.error_selection_required, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             if (checkedId == R.id.radioYes) { d.dismiss(); showSpeakerInputDialog() }
@@ -341,7 +341,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         val saveBtn = v.findViewById<Button>(R.id.saveFileButton)
         
         val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Save Recording")
+            .setTitle(R.string.dialog_title_save_recording)
             .setView(v)
             .setCancelable(false)
             .create()
@@ -359,15 +359,15 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                     dialog.dismiss()
                 }
             } else {
-                Toast.makeText(context, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.error_name_empty, Toast.LENGTH_SHORT).show()
             }
         }
 
         saveBtn?.setOnClickListener { onSaveAction() }
         
         // Also support the standard positive button if shown
-        dialog.setButton(AlertDialog.BUTTON_POSITIVE, "Save") { _, _ -> onSaveAction() }
-        dialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Discard") { _, _ ->
+        dialog.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.dialog_save)) { _, _ -> onSaveAction() }
+        dialog.setButton(AlertDialog.BUTTON_NEGATIVE, getString(R.string.dialog_discard)) { _, _ ->
             audioFile?.delete()
             resetRecordingUI()
         }
@@ -414,11 +414,11 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     }
 
     private fun deleteCurrentAudio() {
-        AlertDialog.Builder(requireContext()).setMessage("Delete this recording?").setPositiveButton("Delete") { _, _ ->
+        AlertDialog.Builder(requireContext()).setMessage(R.string.msg_delete_this_recording).setPositiveButton(R.string.dialog_delete) { _, _ ->
             val uid = FirebaseAuth.getInstance().currentUser?.uid
             if (uid != null && audioFile != null) viewModel.deleteAudio(uid, audioFile!!.name)
             resetRecordingUI()
-        }.setNegativeButton("Cancel", null).show()
+        }.setNegativeButton(R.string.dialog_cancel, null).show()
     }
 
     @SuppressLint("ClickableViewAccessibility")

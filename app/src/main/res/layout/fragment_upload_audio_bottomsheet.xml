@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <LinearLayout
@@ -10,7 +10,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp"
-        android:background="@android:color/white">
+        android:background="@color/backgroundColor">
 
         <TextView
             android:id="@+id/audioInstructionsTextView"
@@ -19,7 +19,7 @@
             android:fontFamily="@font/poppins"
             android:layout_margin="15dp"
             android:textColor="@color/Grey"
-            android:text="Upload an Audio file in MP3, WAV or AAC format"
+            android:text="@string/msg_upload_instruction"
             android:textSize="17sp"
              />
 
@@ -43,10 +43,10 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Upload Audio"
+                android:text="@string/btn_upload_audio"
                 android:fontFamily="@font/poppins"
                 android:textSize="15sp"
-                android:textColor="@android:color/black"
+                android:textColor="@color/onSurfaceColor"
                 android:gravity="center"
                 android:paddingTop="2dp" />
         </LinearLayout>
@@ -57,7 +57,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins"
             android:layout_margin="10dp"
-            android:text="No audio file selected"
+            android:text="@string/msg_no_audio_selected"
             android:textSize="15sp"
             android:textColor="@color/red"
             android:gravity="center"
@@ -87,7 +87,7 @@
                 android:id="@+id/processAudioText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="PROCESS AUDIO"
+                android:text="@string/btn_process_audio"
                 android:textColor="@color/white"
                 android:textSize="16sp"
                 android:fontFamily="@font/poppins_medium" />
@@ -98,7 +98,7 @@
         android:id="@+id/progressOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#80000000"
+        android:background="@color/modal_blur"
         android:visibility="gone">
         <ProgressBar
             android:layout_width="wrap_content"
@@ -112,7 +112,7 @@
         android:id="@+id/touchBlockOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#00000000"
+        android:background="@color/transparent"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"

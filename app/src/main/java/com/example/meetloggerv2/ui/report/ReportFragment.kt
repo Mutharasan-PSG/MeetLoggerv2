@@ -91,8 +91,8 @@ class ReportFragment : Fragment() {
 
     private fun showDeleteConfirmationDialog() {
         AlertDialog.Builder(requireContext())
-            .setMessage("Delete selected reports?")
-            .setPositiveButton("Delete") { _, _ ->
+            .setMessage(R.string.msg_delete_selected_reports)
+            .setPositiveButton(R.string.dialog_delete) { _, _ ->
                 val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@setPositiveButton
                 val filesToDelete = selectedItems.mapNotNull { 
                     val shortName = adapter.getItem(it)?.first
@@ -101,7 +101,7 @@ class ReportFragment : Fragment() {
                 viewModel.deleteFiles(userId, filesToDelete)
                 toggleDeleteMode(false)
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(R.string.dialog_cancel, null)
             .show()
     }
 
@@ -190,14 +190,14 @@ class ReportFragment : Fragment() {
         val popupAdapter = object : ArrayAdapter<String>(requireContext(), R.layout.popup_menu_item, opts) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val v = super.getView(position, convertView, parent) as TextView
-                v.setTextColor(Color.BLACK)
+                v.setTextColor(ContextCompat.getColor(requireContext(), R.color.onSurfaceColor))
                 return v
             }
         }
         list.adapter = popupAdapter
         
         val popup = PopupWindow(popupView, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
-        popup.setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), android.R.drawable.dialog_holo_light_frame))
+        popup.setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.options_background))
         popup.elevation = 30f
         
         list.setOnItemClickListener { _, _, i, _ ->
@@ -305,13 +305,14 @@ class ReportFragment : Fragment() {
         val name = item.first
         val full = viewModel.getFullFileName(name) ?: return
         
-        val v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_save_audio, null)
-        val edit = v.findViewById<EditText>(R.id.fileNameInput)
-        val saveBtn = v.findViewById<Button>(R.id.saveFileButton)
-        edit.setText("Copy of $name")
+        val v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_copy_file, null)
+        val edit = v.findViewById<EditText>(R.id.editTextNewFileName)
+        val cancelBtn = v.findViewById<Button>(R.id.buttonCancel)
+        val proceedBtn = v.findViewById<Button>(R.id.buttonProceed)
+        
+        edit.setText(name)
         
         val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Copy Report")
             .setView(v)
             .setCancelable(false)
             .create()
@@ -326,13 +327,12 @@ class ReportFragment : Fragment() {
                     dialog.dismiss()
                 }
             } else {
-                Toast.makeText(context, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.error_name_empty, Toast.LENGTH_SHORT).show()
             }
         }
 
-        saveBtn?.setOnClickListener { onCopyAction() }
-        dialog.setButton(AlertDialog.BUTTON_POSITIVE, "Copy") { _, _ -> onCopyAction() }
-        dialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel") { d, _ -> d.dismiss() }
+        cancelBtn.setOnClickListener { dialog.dismiss() }
+        proceedBtn.setOnClickListener { onCopyAction() }
 
         dialog.show()
     }

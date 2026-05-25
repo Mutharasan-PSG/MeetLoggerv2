@@ -4,7 +4,7 @@
     android:fitsSystemWindows="true"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     tools:context=".AudioListFragment">
 
     <TextView
@@ -12,7 +12,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="25dp"
-        android:text="AUDIO FILES"
+        android:text="@string/audio_files_title"
         android:textSize="22sp"
         android:fontFamily="@font/poppins_medium"
         android:textColor="@color/BLUE"
@@ -30,7 +30,7 @@
             android:scaleType="fitXY"
             android:layout_gravity="center"
             android:src="@drawable/audiofiles"
-            android:contentDescription="No files available"
+            android:contentDescription="@string/content_desc_no_files"
             android:visibility="visible" />
 
         <TextView
@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:text=""
             android:textSize="16sp"
-            android:textColor="@android:color/darker_gray"
+            android:textColor="@color/onSurfaceVariant"
             android:fontFamily="@font/poppins"
             android:gravity="center"
             android:layout_gravity="center"
@@ -54,7 +54,7 @@
             android:layout_marginEnd="25dp"
             android:layout_marginTop="30dp"
             android:src="@drawable/delete1"
-            android:contentDescription="Delete"
+            android:contentDescription="@string/content_desc_delete"
             android:visibility="gone"/>
 
         <ImageView
@@ -65,7 +65,7 @@
             android:layout_marginEnd="25dp"
             android:layout_marginTop="23dp"
             android:src="@drawable/tick"
-            android:contentDescription="tick"
+            android:contentDescription="@string/content_desc_tick"
             android:visibility="gone"/>
 
 
@@ -74,8 +74,8 @@
             android:id="@+id/searchView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Search documents..."
-            android:queryHint="Search documents..."
+            android:text="@string/search_documents_hint"
+            android:queryHint="@string/search_documents_hint"
             android:iconifiedByDefault="false"
             android:layout_marginBottom="25dp"
             android:layout_marginStart="25dp"
@@ -94,7 +94,7 @@
             android:layout_marginTop="135dp"
             android:layout_marginStart="45dp"
             android:fontFamily="@font/poppins"
-            android:text="Select All"
+            android:text="@string/select_all"
             android:textSize="16sp"
             android:visibility="gone" />
 
@@ -132,8 +132,8 @@
                 android:id="@+id/currentAudioName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Now Playing..."
-                android:textColor="@android:color/black"
+                android:text="@string/now_playing"
+                android:textColor="@color/black"
                 android:layout_marginBottom="4dp"
                 android:layout_marginTop="4dp"
                 android:textSize="17sp"
@@ -157,9 +157,9 @@
                     android:id="@+id/currentTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="00:00"
+                    android:text="@string/time_zero"
                     android:textSize="12sp"
-                    android:textColor="@android:color/black"
+                    android:textColor="@color/black"
                     android:fontFamily="@font/poppins"/>
 
                 <SeekBar
@@ -174,9 +174,9 @@
                     android:id="@+id/totalTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="00:00"
+                    android:text="@string/time_zero"
                     android:textSize="12sp"
-                    android:textColor="@android:color/black"
+                    android:textColor="@color/black"
                     android:fontFamily="@font/poppins"/>
             </LinearLayout>
 
@@ -196,7 +196,7 @@
                     android:scaleType="fitXY"
                     android:layout_marginStart="15dp"
                     android:src="@drawable/previous"
-                    android:contentDescription="Previous" />
+                    android:contentDescription="@string/content_desc_previous" />
 
                 <ImageView
                     android:id="@+id/playPauseButton"
@@ -205,7 +205,7 @@
                     android:scaleType="fitXY"
                     android:layout_marginStart="15dp"
                     android:src="@drawable/pause"
-                    android:contentDescription="Pause" />
+                    android:contentDescription="@string/content_desc_pause" />
 
                 <ImageView
                     android:id="@+id/nextButton"
@@ -214,7 +214,7 @@
                     android:scaleType="fitXY"
                     android:layout_marginStart="15dp"
                     android:src="@drawable/next"
-                    android:contentDescription="Next" />
+                    android:contentDescription="@string/content_desc_next" />
 
                 <ImageView
                     android:id="@+id/stopButton"
@@ -224,7 +224,7 @@
                     android:layout_marginStart="15dp"
                     android:layout_marginEnd="15dp"
                     android:src="@drawable/stop1"
-                    android:contentDescription="Stop" />
+                    android:contentDescription="@string/content_desc_stop" />
             </LinearLayout>
 
 
@@ -265,14 +265,14 @@
             android:layout_gravity="center"
             android:src="@drawable/no_internet"
             android:scaleType="fitXY"
-            android:contentDescription="No Internet" />
+            android:contentDescription="@string/content_desc_no_internet" />
     </LinearLayout>
 
     <FrameLayout
         android:id="@+id/touchBlockOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#00000000"
+        android:background="@color/transparent"
         android:visibility="gone" />
 
 </FrameLayout>

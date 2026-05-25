@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".LoginActivity"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     >
 
 
@@ -16,7 +16,7 @@
         android:layout_marginStart="60dp"
         android:layout_marginTop="249dp"
         android:fontFamily="@font/poppins_medium"
-        android:text="See what\nhappened...\nAudio Unfold,\nDocuments Untold."
+        android:text="@string/app_slogan"
         android:textColor="@color/black"
         android:textSize="30dp" />
 
@@ -69,8 +69,8 @@
                 android:layout_marginEnd="20dp"
                 android:layout_marginTop="2dp"
                 android:fontFamily="@font/poppins_medium"
-                android:text="Sign in with Google"
-                android:textColor="@color/white"
+                android:text="@string/sign_in_with_google"
+                android:textColor="@color/fixed_white"
                 android:textSize="16sp" />
         </LinearLayout>
 
@@ -85,8 +85,8 @@
             android:layout_marginBottom="10dp"
             android:gravity="start"
             android:fontFamily="@font/poppins"
-            android:text="By signing in, you agree to our Terms, Privacy Policy, and Cookies Use."
-            android:textColor="@color/Grey"
+            android:text="@string/privacy_policy_agreement"
+            android:textColor="@color/onSurfaceVariant"
             android:textSize="14sp" />
     </RelativeLayout>
 </RelativeLayout>

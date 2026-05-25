@@ -34,6 +34,9 @@ class FileDetailsFragment : Fragment() {
     private lateinit var editText: EditText
     private lateinit var updateButton: Button
     private lateinit var cancelButton: Button
+    private lateinit var editLayout: View
+    private lateinit var exportLayout: View
+    private lateinit var shareLayout: View
     
     private val viewModel: FileDetailsViewModel by viewModels()
     private lateinit var exportManager: DocumentExportManager
@@ -77,11 +80,28 @@ class FileDetailsFragment : Fragment() {
         scrollView = view.findViewById(R.id.scrollView); progressOverlay = view.findViewById(R.id.progressOverlay)
         languageSwitchButton = view.findViewById(R.id.languageSwitchButton)
         languageSwitchButton.setOnClickListener { showLanguageDialog() }
-        view.findViewById<View>(R.id.editlayout).setOnClickListener { switchToEditMode() }
-        view.findViewById<View>(R.id.exportlayout).setOnClickListener { showExportDialog() }
-        view.findViewById<View>(R.id.sharelayout).setOnClickListener { showShareDialog() }
-        updateButton = Button(context).apply { text = "UPDATE"; visibility = View.GONE; setBackgroundColor(ContextCompat.getColor(context, R.color.BLUE)); setTextColor(Color.WHITE) }
-        cancelButton = Button(context).apply { text = "CANCEL"; visibility = View.GONE; setBackgroundColor(ContextCompat.getColor(context, R.color.BLUE)); setTextColor(Color.WHITE) }
+        editLayout = view.findViewById(R.id.editlayout)
+        exportLayout = view.findViewById(R.id.exportlayout)
+        shareLayout = view.findViewById(R.id.sharelayout)
+        
+        editLayout.setOnClickListener { switchToEditMode() }
+        exportLayout.setOnClickListener { showExportDialog() }
+        shareLayout.setOnClickListener { showShareDialog() }
+        
+        updateButton = Button(context).apply { 
+            text = getString(R.string.dialog_update)
+            visibility = View.GONE
+            setBackgroundColor(ContextCompat.getColor(context, R.color.BLUE))
+            setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+        }
+        cancelButton = Button(context).apply { 
+            text = getString(R.string.dialog_cancel)
+            visibility = View.GONE
+            setBackgroundColor(ContextCompat.getColor(context, R.color.BLUE))
+            setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+        }
         bottomContainer.addView(updateButton); bottomContainer.addView(cancelButton)
         updateButton.setOnClickListener { checkAndSaveEditedContent() }
         cancelButton.setOnClickListener { switchToViewMode() }
@@ -106,8 +126,38 @@ class FileDetailsFragment : Fragment() {
 
     private fun fetchFileDetails() { FirebaseAuth.getInstance().currentUser?.uid?.let { uid -> fileName?.let { viewModel.fetchDetails(uid, it) } } }
 
-    private fun switchToEditMode() { isEditing = true; editText = EditText(context).apply { setText(responseTextView.text); layoutParams = responseTextView.layoutParams }; val p = responseTextView.parent as ViewGroup; val i = p.indexOfChild(responseTextView); p.removeView(responseTextView); p.addView(editText, i); updateButton.visibility = View.VISIBLE; cancelButton.visibility = View.VISIBLE }
-    private fun switchToViewMode() { isEditing = false; val p = editText.parent as ViewGroup; val i = p.indexOfChild(editText); p.removeView(editText); p.addView(responseTextView, i); updateButton.visibility = View.GONE; cancelButton.visibility = View.GONE }
+    private fun switchToEditMode() { 
+        isEditing = true
+        editText = EditText(context).apply { 
+            setText(responseTextView.text)
+            layoutParams = responseTextView.layoutParams
+            setTextColor(ContextCompat.getColor(context, R.color.onSurfaceColor))
+        }
+        val p = responseTextView.parent as ViewGroup
+        val i = p.indexOfChild(responseTextView)
+        p.removeView(responseTextView)
+        p.addView(editText, i)
+        
+        updateButton.visibility = View.VISIBLE
+        cancelButton.visibility = View.VISIBLE
+        editLayout.visibility = View.GONE
+        exportLayout.visibility = View.GONE
+        shareLayout.visibility = View.GONE
+    }
+
+    private fun switchToViewMode() { 
+        isEditing = false
+        val p = editText.parent as ViewGroup
+        val i = p.indexOfChild(editText)
+        p.removeView(editText)
+        p.addView(responseTextView, i)
+        
+        updateButton.visibility = View.GONE
+        cancelButton.visibility = View.GONE
+        editLayout.visibility = View.VISIBLE
+        exportLayout.visibility = View.VISIBLE
+        shareLayout.visibility = View.VISIBLE
+    }
 
     private fun checkAndSaveEditedContent() { if (!isContentTranslated) saveEditedContent() else showSaveOptionsDialog() }
     private fun saveEditedContent() { FirebaseAuth.getInstance().currentUser?.uid?.let { uid -> fileName?.let { viewModel.updateContent(uid, it, editText.text.toString(), selectedLanguageCode) } }; switchToViewMode() }

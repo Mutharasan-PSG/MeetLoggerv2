@@ -4,13 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/main"
-    android:background="@color/white">
+    android:background="@color/backgroundColor">
 
     <!-- Main Content Container -->
     <RelativeLayout
         android:id="@+id/mainContent"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:background="@color/backgroundColor">
 
         <!-- Top App Name Logo -->
         <ImageView
@@ -20,7 +21,7 @@
             android:layout_alignParentStart="true"
             android:layout_marginStart="23dp"
             android:layout_marginTop="5dp"
-            android:contentDescription="App Logo"
+            android:contentDescription="@string/content_desc_app_logo"
             android:scaleType="fitCenter"
             android:src="@drawable/splashlogo" />
 
@@ -38,15 +39,15 @@
             android:background="@drawable/round_border"
             android:clickable="true"
             android:focusable="true"
-            android:contentDescription="User Profile Picture" />
+            android:contentDescription="@string/content_desc_profile_pic" />
 
         <!-- Search bar with border -->
         <androidx.appcompat.widget.SearchView
             android:id="@+id/searchView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Search documents..."
-            android:queryHint="Search documents..."
+            android:text="@string/search_documents_hint"
+            android:queryHint="@string/search_documents_hint"
             android:iconifiedByDefault="false"
             android:layout_marginTop="26dp"
             android:layout_marginBottom="25dp"
@@ -79,7 +80,7 @@
             android:scaleType="fitXY"
             android:layout_centerInParent="true"
             android:src="@drawable/empty"
-            android:contentDescription="No files available"
+            android:contentDescription="@string/content_desc_no_files"
             android:visibility="gone"/>
 
         <!-- Placeholder Text -->
@@ -87,9 +88,9 @@
             android:id="@+id/placeholderText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Audio processing status appear here..."
+            android:text="@string/audio_processing_status_placeholder"
             android:textSize="16sp"
-            android:textColor="@android:color/darker_gray"
+            android:textColor="@color/onSurfaceVariant"
             android:fontFamily="@font/poppins"
             android:gravity="center"
             android:layout_centerInParent="true"
@@ -111,7 +112,7 @@
                 android:layout_gravity="center"
                 android:scaleType="fitXY"
                 android:src="@drawable/no_internet"
-                android:contentDescription="No Internet" />
+                android:contentDescription="@string/content_desc_no_internet" />
         </LinearLayout>
 
         <!-- Audio Button -->
@@ -136,8 +137,8 @@
                 android:layout_height="24dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/audio"
-                android:contentDescription="Meet Icon"
-                app:tint="@color/white" />
+                android:contentDescription="@string/content_desc_meet_icon"
+                app:tint="@color/fixed_white" />
 
             <TextView
                 android:id="@+id/AudioText"
@@ -147,8 +148,8 @@
                 android:layout_marginEnd="3dp"
                 android:gravity="center_vertical"
                 android:fontFamily="@font/poppins_medium"
-                android:text="Audio"
-                android:textColor="@color/white"
+                android:text="@string/audio_button_text"
+                android:textColor="@color/fixed_white"
                 android:textSize="16sp" />
         </LinearLayout>
 
@@ -158,10 +159,10 @@
             android:layout_width="match_parent"
             android:layout_height="70dp"
             android:layout_alignParentBottom="true"
-            android:background="@color/white"
+            android:background="@color/surfaceColor"
             android:padding="5dp"
             app:menu="@menu/bottom_navigation_menu"
-            app:itemIconTint="@null"
+            app:itemIconTint="@color/nav_icon_colors"
             app:itemTextColor="@color/nav_text_colors"
             app:labelVisibilityMode="labeled" />
 
@@ -172,7 +173,7 @@
         android:id="@+id/audioOptionsOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#80000000"
+        android:background="@color/modal_blur"
         android:visibility="gone">
 
         <!-- Audio Options Popup -->
@@ -204,8 +205,8 @@
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/poppins_bold"
                     android:textColorHighlight="@color/white"
-                    android:text="RECORD LIVE AUDIO"
-                    android:textColor="@android:color/white"
+                    android:text="@string/record_live_audio"
+                    android:textColor="@color/fixed_white"
                     android:gravity="center_vertical"
                     android:layout_marginBottom="1dp"
                     android:textSize="17sp" />
@@ -233,9 +234,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/poppins_bold"
-                    android:text="UPLOAD AUDIO"
+                    android:text="@string/upload_audio"
                     android:textColorHighlight="@color/white"
-                    android:textColor="@android:color/white"
+                    android:textColor="@color/fixed_white"
                     android:gravity="center_vertical"
                     android:layout_marginBottom="1dp"
                     android:textSize="17sp" />
@@ -256,7 +257,7 @@
                 android:layout_marginTop="2dp"
                 android:layout_marginEnd="8dp"
                 android:src="@drawable/close"
-                android:contentDescription="Close" />
+                android:contentDescription="@string/content_desc_close" />
 
         </LinearLayout>
     </FrameLayout>

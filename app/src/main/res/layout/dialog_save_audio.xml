@@ -4,15 +4,15 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp"
-    android:background="@android:color/white">
+    android:background="@color/backgroundColor">
 
     <EditText
         android:id="@+id/fileNameInput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="@font/poppins"
-        android:hint="Enter file name"
-        android:textColor="@color/black"
+        android:hint="@string/hint_enter_file_name"
+        android:textColor="@color/onSurfaceColor"
         android:padding="8dp" />
 
     <Button
@@ -20,9 +20,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:drawableStart="@drawable/save"
-        android:text="Save"
+        android:text="@string/dialog_save"
         android:layout_gravity="center"
         android:backgroundTint="@color/BLUE"
-        android:textColor="@color/white"
+        android:textColor="@color/fixed_white"
         android:padding="8dp" />
 </LinearLayout>

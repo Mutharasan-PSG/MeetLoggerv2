@@ -1,7 +1,7 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     android:padding="16dp">
 
     <!-- Back Button at the Top Left -->
@@ -15,7 +15,7 @@
         android:elevation="7dp"
         android:src="@drawable/back"
         android:scaleType="fitXY"
-        android:contentDescription="Back"/>
+        android:contentDescription="@string/content_desc_back"/>
 
     <!-- Scrollable Speaker List -->
     <ScrollView
@@ -51,10 +51,10 @@
             android:layout_gravity="center"
             android:elevation="7dp"
             android:textColor="@color/black"
-            android:text="ADD SPEAKER"
+            android:text="@string/btn_add_speaker"
             android:fontFamily="@font/poppins"
-            android:backgroundTint="@color/white"
-            android:contentDescription="Add Speaker"/>
+            android:backgroundTint="@color/surfaceColor"
+            android:contentDescription="@string/content_desc_add_speaker"/>
 
         <Button
             android:id="@+id/proceedButton"
@@ -67,8 +67,8 @@
             android:layout_height="wrap_content"
             android:elevation="7dp"
             android:textColor="@color/BLUE"
-            android:backgroundTint="@color/white"
-            android:text="PROCEED"/>
+            android:backgroundTint="@color/surfaceColor"
+            android:text="@string/dialog_proceed"/>
 
     </LinearLayout>
 </RelativeLayout>

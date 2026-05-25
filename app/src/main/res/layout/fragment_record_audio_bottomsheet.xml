@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <LinearLayout
@@ -10,7 +10,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp"
-        android:background="@android:color/white">
+        android:background="@color/backgroundColor">
 
         <TextView
             android:id="@+id/instructionText"
@@ -19,7 +19,7 @@
             android:layout_margin="15dp"
             android:textSize="17dp"
             android:textColor="@color/Grey"
-            android:text="Begin recording audio by selecting the Start button."
+            android:text="@string/msg_record_instruction"
             android:justificationMode="inter_word"
             android:fontFamily="@font/poppins" />
 
@@ -37,7 +37,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="30dp"
-                android:text="00:00"
+                android:text="@string/time_zero"
                 android:textSize="28sp"
                 android:textColor="@color/BLUE"
                 android:visibility="gone"/>
@@ -49,7 +49,7 @@
                 android:scaleType="fitXY"
                 android:src="@drawable/record"
                 android:layout_gravity="center"
-                android:contentDescription="Record Icon" />
+                android:contentDescription="@string/content_desc_record_icon" />
         </LinearLayout>
 
         <LinearLayout
@@ -64,9 +64,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/rounded_button"
-                android:textColor="@color/white"
+                android:textColor="@color/fixed_white"
                 android:fontFamily="@font/poppins"
-                android:text="Start"
+                android:text="@string/btn_start"
                 android:padding="10dp"
                 android:textSize="18sp"
                 android:gravity="center" />
@@ -79,8 +79,8 @@
                 android:fontFamily="@font/poppins"
                 android:layout_marginStart="35dp"
                 android:padding="10dp"
-                android:text="Stop"
-                android:textColor="@color/white"
+                android:text="@string/btn_stop"
+                android:textColor="@color/fixed_white"
                 android:gravity="center"
                 android:textSize="18sp"
                 android:visibility="gone" />
@@ -101,8 +101,8 @@
                 android:id="@+id/currentAudioName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Now Playing..."
-                android:textColor="@android:color/black"
+                android:text="@string/now_playing"
+                android:textColor="@color/black"
                 android:layout_marginBottom="4dp"
                 android:layout_marginTop="4dp"
                 android:textSize="17sp"
@@ -126,9 +126,9 @@
                     android:id="@+id/currentTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="00:00"
+                    android:text="@string/time_zero"
                     android:textSize="12sp"
-                    android:textColor="@android:color/black"
+                    android:textColor="@color/black"
                     android:fontFamily="@font/poppins"/>
 
                 <SeekBar
@@ -143,9 +143,9 @@
                     android:id="@+id/totalTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="00:00"
+                    android:text="@string/time_zero"
                     android:textSize="12sp"
-                    android:textColor="@android:color/black"
+                    android:textColor="@color/black"
                     android:fontFamily="@font/poppins"/>
             </LinearLayout>
 
@@ -165,7 +165,7 @@
                     android:scaleType="fitXY"
                     android:layout_marginStart="15dp"
                     android:src="@drawable/previous"
-                    android:contentDescription="Previous" />
+                    android:contentDescription="@string/content_desc_previous" />
 
                 <ImageView
                     android:id="@+id/playPauseButton"
@@ -174,7 +174,7 @@
                     android:scaleType="fitXY"
                     android:layout_marginStart="15dp"
                     android:src="@drawable/play"
-                    android:contentDescription="Play" />
+                    android:contentDescription="@string/content_desc_play" />
 
                 <ImageView
                     android:id="@+id/nextButton"
@@ -183,7 +183,7 @@
                     android:scaleType="fitXY"
                     android:layout_marginStart="15dp"
                     android:src="@drawable/next"
-                    android:contentDescription="Next" />
+                    android:contentDescription="@string/content_desc_next" />
 
                 <ImageView
                     android:id="@+id/stopButtonMini"
@@ -193,7 +193,7 @@
                     android:layout_marginStart="15dp"
                     android:layout_marginEnd="15dp"
                     android:src="@drawable/stop1"
-                    android:contentDescription="Stop" />
+                    android:contentDescription="@string/content_desc_stop" />
             </LinearLayout>
         </LinearLayout>
 
@@ -209,11 +209,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="5dp"
-                android:text="Process"
+                android:text="@string/btn_process"
                 android:textAllCaps="true"
                 android:backgroundTint="@color/BLUE"
                 android:fontFamily="@font/poppins_medium"
-                android:textColor="@color/white"
+                android:textColor="@color/fixed_white"
                 android:drawableStart="@drawable/process"
                 android:drawablePadding="8dp"
                 android:visibility="gone" />
@@ -223,11 +223,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="5dp"
-                android:text="New"
+                android:text="@string/btn_new"
                 android:textAllCaps="true"
                 android:backgroundTint="@color/BLUE"
                 android:fontFamily="@font/poppins_medium"
-                android:textColor="@color/white"
+                android:textColor="@color/fixed_white"
                 android:drawableStart="@drawable/start"
                 android:drawablePadding="8dp"
                 android:visibility="gone" />
@@ -237,11 +237,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="5dp"
-                android:text="Delete"
+                android:text="@string/dialog_delete"
                 android:textAllCaps="true"
                 android:backgroundTint="@color/red"
                 android:fontFamily="@font/poppins_medium"
-                android:textColor="@color/white"
+                android:textColor="@color/fixed_white"
                 android:visibility="gone" />
 
         </LinearLayout>
@@ -266,7 +266,7 @@
         android:id="@+id/touchBlockOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#00000000"
+        android:background="@color/transparent"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"

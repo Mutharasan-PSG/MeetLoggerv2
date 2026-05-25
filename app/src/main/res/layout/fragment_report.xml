@@ -4,7 +4,7 @@
     android:fitsSystemWindows="true"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     tools:context=".ReportFragment">
 
     <!-- Main Topic (Always Visible) -->
@@ -19,7 +19,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="25dp"
-            android:text="SUMMARIZED FILES"
+            android:text="@string/summarized_files"
             android:textSize="22sp"
             android:fontFamily="@font/poppins_medium"
             android:textColor="@color/BLUE"
@@ -36,7 +36,7 @@
             android:scaleType="fitXY"
             android:padding="8dp"
             android:src="@drawable/audioo"
-            android:contentDescription="Open Audio List"
+            android:contentDescription="@string/content_desc_open_audio_list"
             android:clickable="true"
             android:focusable="true"/>
 
@@ -50,7 +50,7 @@
         android:layout_marginEnd="25dp"
         android:layout_marginTop="30dp"
         android:src="@drawable/delete1"
-        android:contentDescription="Delete"
+        android:contentDescription="@string/content_desc_delete"
         android:visibility="gone"/>
 
     <ImageView
@@ -61,7 +61,7 @@
         android:layout_marginEnd="25dp"
         android:layout_marginTop="23dp"
         android:src="@drawable/tick"
-        android:contentDescription="tick"
+        android:contentDescription="@string/content_desc_tick"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone"/>
@@ -80,7 +80,7 @@
             android:scaleType="fitXY"
             android:layout_centerInParent="true"
             android:src="@drawable/documents"
-            android:contentDescription="No files available"
+            android:contentDescription="@string/content_desc_no_files"
             android:visibility="gone"/>
 
         <TextView
@@ -89,7 +89,7 @@
             android:layout_height="wrap_content"
             android:text=""
             android:textSize="16sp"
-            android:textColor="@android:color/darker_gray"
+            android:textColor="@color/onSurfaceVariant"
             android:fontFamily="@font/poppins"
             android:gravity="center"
             android:layout_centerInParent="true"
@@ -99,8 +99,8 @@
             android:id="@+id/searchView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Search documents..."
-            android:queryHint="Search documents..."
+            android:text="@string/search_documents_hint"
+            android:queryHint="@string/search_documents_hint"
             android:iconifiedByDefault="false"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="25dp"
@@ -117,7 +117,7 @@
             android:layout_marginTop="70dp"
             android:layout_marginStart="45dp"
             android:fontFamily="@font/poppins"
-            android:text="Select All"
+            android:text="@string/select_all"
             android:textSize="16sp"
             android:visibility="gone" />
 
@@ -153,7 +153,7 @@
             android:layout_gravity="center"
             android:scaleType="fitXY"
             android:src="@drawable/no_internet"
-            android:contentDescription="No Internet" />
+            android:contentDescription="@string/content_desc_no_internet" />
 
     </LinearLayout>
 

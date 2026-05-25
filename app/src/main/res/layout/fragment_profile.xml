@@ -9,7 +9,7 @@
         android:id="@+id/Profile"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="PROFILE"
+        android:text="@string/profile_title"
         android:layout_marginStart="10dp"
         android:fontFamily="@font/poppins_medium"
         android:textSize="26sp"
@@ -25,7 +25,7 @@
         android:layout_below="@id/Profile"
         android:layout_marginTop="16dp"
         android:src="@drawable/default_profile_pic"
-        android:contentDescription="Profile Image"
+        android:contentDescription="@string/content_desc_profile_image"
         android:layout_centerHorizontal="true"
         android:scaleType="centerCrop"
         android:background="@drawable/rounded_image_background"
@@ -37,7 +37,7 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/profile_image"
         android:layout_marginTop="16dp"
-        android:text="Name"
+        android:text="@string/profile_label_name"
         android:fontFamily="@font/poppins"
         android:layout_marginStart="15dp"
         android:textSize="19sp"
@@ -61,7 +61,7 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/profile_name"
         android:layout_marginTop="16dp"
-        android:text="Email"
+        android:text="@string/profile_label_email"
         android:fontFamily="@font/poppins"
         android:layout_marginStart="15dp"
         android:textSize="19sp"
@@ -102,13 +102,13 @@
             android:layout_height="22dp"
             android:src="@drawable/signout"
             android:scaleType="fitCenter"
-            android:contentDescription="Sign Out" />
+            android:contentDescription="@string/content_desc_sign_out" />
 
         <TextView
             android:id="@+id/sign_out_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Sign out"
+            android:text="@string/profile_sign_out"
             android:textColor="@color/white"
             android:textSize="18sp"
             android:layout_marginEnd="3dp"
@@ -124,6 +124,6 @@
         android:layout_centerHorizontal="true"
         android:layout_centerVertical="true"
         android:fontFamily="@font/poppins_medium"
-        android:text="version 2.0"
+        android:text="@string/app_version"
         android:textSize="15sp" />
 </RelativeLayout>

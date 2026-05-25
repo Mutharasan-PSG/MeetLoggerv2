@@ -37,7 +37,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/poppins"
-                android:textColor="@color/black"
+                android:textColor="@color/onSurfaceColor"
                 android:textSize="15sp"
                 android:singleLine="false"
                 android:ellipsize="end"/>
@@ -47,7 +47,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/poppins"
-                android:textColor="@color/black"
+                android:textColor="@color/onSurfaceColor"
                 android:textSize="15sp"
                 android:singleLine="false"
                 android:background="@null"

@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     android:padding="16dp">
 
     <TextView
@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:fontFamily="@font/poppins_medium"
         android:textColor="@color/Grey"
-        android:text="Do you want to include the speaker name?"
+        android:text="@string/msg_include_speaker_name"
         android:textSize="18sp"
         android:layout_gravity="left"
         android:layout_marginBottom="16dp" />
@@ -30,7 +30,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/black"
-            android:text="YES, include speaker name"
+            android:text="@string/radio_yes_include_speaker"
             android:textSize="16sp" />
 
         <Space
@@ -42,7 +42,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/black"
-            android:text="NO, proceed without name"
+            android:text="@string/radio_no_proceed_without_name"
             android:textSize="16sp" />
 
     </RadioGroup>
@@ -60,11 +60,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins"
-            android:text="Cancel"
+            android:text="@string/dialog_cancel"
             android:textColor="@color/red"
             android:textSize="16sp"
             android:elevation="7dp"
-            android:backgroundTint="@color/white"/>
+            android:backgroundTint="@color/surfaceColor"/>
 
         <Space
             android:layout_width="16dp"
@@ -77,10 +77,10 @@
             android:layout_height="wrap_content"
             android:elevation="7dp"
             android:fontFamily="@font/poppins"
-            android:text="Proceed"
+            android:text="@string/dialog_proceed"
             android:textColor="@color/BLUE"
             android:textSize="16sp"
-            android:backgroundTint="@color/white"/>
+            android:backgroundTint="@color/surfaceColor"/>
 
 
     </LinearLayout>

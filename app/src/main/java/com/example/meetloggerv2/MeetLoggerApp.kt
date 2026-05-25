@@ -11,6 +11,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.appcompat.app.AppCompatDelegate
 import com.google.firebase.FirebaseApp
 import java.util.Calendar
 
@@ -23,6 +24,7 @@ class MeetLoggerApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         FirebaseApp.initializeApp(this)
         fileRepository = FileRepository()
         authRepository = AuthRepository()
@@ -60,14 +62,14 @@ class MeetLoggerApp : Application() {
         val channelId = "file_notification_channel"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "File Notifications", NotificationManager.IMPORTANCE_DEFAULT)
+            val channel = NotificationChannel(channelId, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
             notificationManager.createNotificationChannel(channel)
         }
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.launchlogo)
-            .setContentTitle("File Processed")
-            .setContentText("$fileName documented successfully, check it out!")
+            .setContentTitle(getString(R.string.notif_title_processed))
+            .setContentText(getString(R.string.notif_content_processed, fileName))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()

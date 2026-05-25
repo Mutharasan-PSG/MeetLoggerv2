@@ -238,9 +238,9 @@ class AudioListFragment : Fragment() {
     private fun setupDeleteIcon() { deleteIcon.setOnClickListener { if (isDeleteMode && selectedItems.isNotEmpty() && !isProcessing) showDeleteConfirmationDialog() } }
 
     private fun showDeleteConfirmationDialog() {
-        AlertDialog.Builder(requireContext()).setMessage("Delete selected?").setPositiveButton("Delete") { _, _ ->
+        AlertDialog.Builder(requireContext()).setMessage(R.string.msg_delete_selected_audio).setPositiveButton(R.string.dialog_delete) { _, _ ->
             val userId = auth.currentUser?.uid; if (userId != null) viewModel.deleteAudioFiles(userId, selectedItems.map { adapter.getItem(it)!! }); toggleDeleteMode(false)
-        }.setNegativeButton("Cancel", null).show()
+        }.setNegativeButton(R.string.dialog_cancel, null).show()
     }
 
     private fun showOptionsPopup(anchor: View, pos: Int) {
@@ -251,14 +251,14 @@ class AudioListFragment : Fragment() {
         val popupAdapter = object : ArrayAdapter<String>(requireContext(), R.layout.popup_menu_item, opts) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val v = super.getView(position, convertView, parent) as TextView
-                v.setTextColor(Color.BLACK)
+                v.setTextColor(ContextCompat.getColor(requireContext(), R.color.onSurfaceColor))
                 return v
             }
         }
         list.adapter = popupAdapter
         
         val popup = PopupWindow(popupView, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
-        popup.setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), android.R.drawable.dialog_holo_light_frame))
+        popup.setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.options_background))
         popup.elevation = 30f
         
         list.setOnItemClickListener { _, _, i, _ ->
@@ -310,7 +310,7 @@ class AudioListFragment : Fragment() {
         v.findViewById<Button>(R.id.proceedButton).setOnClickListener {
             val checkedId = v.findViewById<RadioGroup>(R.id.radioGroup).checkedRadioButtonId
             if (checkedId == -1) {
-                Toast.makeText(context, "Please make a selection", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.error_selection_required, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             if (checkedId == R.id.radioYes) {
@@ -397,7 +397,7 @@ class AudioListFragment : Fragment() {
         proceed.setOnClickListener {
             val checkedId = v.findViewById<RadioGroup>(R.id.radioGroup).checkedRadioButtonId
             if (checkedId == -1) {
-                Toast.makeText(context, "Please make a selection", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.error_selection_required, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             val followUp = if (checkedId == R.id.radioYes) {
