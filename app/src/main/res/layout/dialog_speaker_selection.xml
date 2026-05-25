@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@color/backgroundColor"
-    android:padding="16dp">
+    android:padding="@dimen/dialog_padding">
 
     <TextView
         android:id="@+id/messageText"
@@ -13,9 +13,9 @@
         android:fontFamily="@font/poppins_medium"
         android:textColor="@color/Grey"
         android:text="@string/msg_include_speaker_name"
-        android:textSize="18sp"
+        android:textSize="@dimen/text_size_large"
         android:layout_gravity="left"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="@dimen/spacing_large" />
 
     <RadioGroup
         android:id="@+id/radioGroup"
@@ -31,10 +31,10 @@
             android:layout_height="wrap_content"
             android:textColor="@color/black"
             android:text="@string/radio_yes_include_speaker"
-            android:textSize="16sp" />
+            android:textSize="@dimen/text_size_normal" />
 
         <Space
-            android:layout_width="16dp"
+            android:layout_width="@dimen/spacing_large"
             android:layout_height="0dp" />
 
         <RadioButton
@@ -43,7 +43,7 @@
             android:layout_height="wrap_content"
             android:textColor="@color/black"
             android:text="@string/radio_no_proceed_without_name"
-            android:textSize="16sp" />
+            android:textSize="@dimen/text_size_normal" />
 
     </RadioGroup>
 
@@ -52,7 +52,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:layout_marginTop="16dp">
+        android:layout_marginTop="@dimen/spacing_large">
 
 
         <Button
@@ -62,12 +62,12 @@
             android:fontFamily="@font/poppins"
             android:text="@string/dialog_cancel"
             android:textColor="@color/red"
-            android:textSize="16sp"
+            android:textSize="@dimen/text_size_normal"
             android:elevation="7dp"
             android:backgroundTint="@color/surfaceColor"/>
 
         <Space
-            android:layout_width="16dp"
+            android:layout_width="@dimen/spacing_large"
             android:layout_height="0dp" />
 
 
@@ -79,7 +79,7 @@
             android:fontFamily="@font/poppins"
             android:text="@string/dialog_proceed"
             android:textColor="@color/BLUE"
-            android:textSize="16sp"
+            android:textSize="@dimen/text_size_normal"
             android:backgroundTint="@color/surfaceColor"/>
 
 

@@ -9,15 +9,15 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
+        android:padding="@dimen/dialog_padding"
         android:background="@color/backgroundColor">
 
         <TextView
             android:id="@+id/instructionText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="15dp"
-            android:textSize="17dp"
+            android:layout_margin="@dimen/list_item_margin_bottom"
+            android:textSize="@dimen/instruction_text_size"
             android:textColor="@color/Grey"
             android:text="@string/msg_record_instruction"
             android:justificationMode="inter_word"
@@ -30,22 +30,22 @@
             android:orientation="horizontal"
             android:gravity="center"
             android:layout_gravity="center"
-            android:padding="12dp">
+            android:padding="@dimen/dialog_item_margin">
 
             <TextView
                 android:id="@+id/recording_timer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="30dp"
+                android:layout_marginEnd="@dimen/record_timer_margin_end"
                 android:text="@string/time_zero"
-                android:textSize="28sp"
+                android:textSize="@dimen/timer_text_size"
                 android:textColor="@color/BLUE"
                 android:visibility="gone"/>
 
             <ImageView
                 android:id="@+id/recordImageView"
-                android:layout_width="85dp"
-                android:layout_height="70dp"
+                android:layout_width="@dimen/record_icon_width"
+                android:layout_height="@dimen/record_icon_height"
                 android:scaleType="fitXY"
                 android:src="@drawable/record"
                 android:layout_gravity="center"
@@ -57,7 +57,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_gravity="center"
-            android:padding="15dp">
+            android:padding="@dimen/list_item_margin_bottom">
 
             <TextView
                 android:id="@+id/startButton"
@@ -67,8 +67,8 @@
                 android:textColor="@color/fixed_white"
                 android:fontFamily="@font/poppins"
                 android:text="@string/btn_start"
-                android:padding="10dp"
-                android:textSize="18sp"
+                android:padding="@dimen/option_item_padding"
+                android:textSize="@dimen/profile_value_text_size"
                 android:gravity="center" />
 
             <TextView
@@ -77,12 +77,12 @@
                 android:layout_height="wrap_content"
                 android:background="@drawable/rounded_button"
                 android:fontFamily="@font/poppins"
-                android:layout_marginStart="35dp"
-                android:padding="10dp"
+                android:layout_marginStart="@dimen/record_button_margin_start"
+                android:padding="@dimen/option_item_padding"
                 android:text="@string/btn_stop"
                 android:textColor="@color/fixed_white"
                 android:gravity="center"
-                android:textSize="18sp"
+                android:textSize="@dimen/profile_value_text_size"
                 android:visibility="gone" />
         </LinearLayout>
 
@@ -93,7 +93,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="@drawable/rounded_image"
-            android:padding="15dp"
+            android:padding="@dimen/mini_player_padding"
             android:visibility="gone">
 
             <!-- File Name -->
@@ -103,9 +103,9 @@
                 android:layout_height="wrap_content"
                 android:text="@string/now_playing"
                 android:textColor="@color/black"
-                android:layout_marginBottom="4dp"
-                android:layout_marginTop="4dp"
-                android:textSize="17sp"
+                android:layout_marginBottom="@dimen/spacing_small"
+                android:layout_marginTop="@dimen/spacing_small"
+                android:textSize="@dimen/instruction_text_size"
                 android:maxLines="1"
                 android:ellipsize="marquee"
                 android:marqueeRepeatLimit="marquee_forever"
@@ -113,7 +113,7 @@
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:fontFamily="@font/poppins_medium"
-                android:paddingBottom="8dp"/>
+                android:paddingBottom="@dimen/spacing_medium"/>
 
             <!-- SeekBar and Time Display -->
             <LinearLayout
@@ -127,7 +127,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/time_zero"
-                    android:textSize="12sp"
+                    android:textSize="@dimen/text_size_small"
                     android:textColor="@color/black"
                     android:fontFamily="@font/poppins"/>
 
@@ -136,15 +136,15 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:layout_marginEnd="8dp"/>
+                    android:layout_marginStart="@dimen/spacing_medium"
+                    android:layout_marginEnd="@dimen/spacing_medium"/>
 
                 <TextView
                     android:id="@+id/totalTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/time_zero"
-                    android:textSize="12sp"
+                    android:textSize="@dimen/text_size_small"
                     android:textColor="@color/black"
                     android:fontFamily="@font/poppins"/>
             </LinearLayout>
@@ -156,42 +156,42 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:orientation="horizontal"
-                android:layout_marginTop="8dp">
+                android:layout_marginTop="@dimen/spacing_medium">
 
                 <ImageView
                     android:id="@+id/prevButton"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="@dimen/details_action_icon_size"
+                    android:layout_height="@dimen/details_action_icon_size"
                     android:scaleType="fitXY"
-                    android:layout_marginStart="15dp"
+                    android:layout_marginStart="@dimen/mini_player_padding"
                     android:src="@drawable/previous"
                     android:contentDescription="@string/content_desc_previous" />
 
                 <ImageView
                     android:id="@+id/playPauseButton"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="@dimen/details_action_icon_size"
+                    android:layout_height="@dimen/details_action_icon_size"
                     android:scaleType="fitXY"
-                    android:layout_marginStart="15dp"
+                    android:layout_marginStart="@dimen/mini_player_padding"
                     android:src="@drawable/play"
                     android:contentDescription="@string/content_desc_play" />
 
                 <ImageView
                     android:id="@+id/nextButton"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="@dimen/details_action_icon_size"
+                    android:layout_height="@dimen/details_action_icon_size"
                     android:scaleType="fitXY"
-                    android:layout_marginStart="15dp"
+                    android:layout_marginStart="@dimen/mini_player_padding"
                     android:src="@drawable/next"
                     android:contentDescription="@string/content_desc_next" />
 
                 <ImageView
                     android:id="@+id/stopButtonMini"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="@dimen/details_action_icon_size"
+                    android:layout_height="@dimen/details_action_icon_size"
                     android:scaleType="fitXY"
-                    android:layout_marginStart="15dp"
-                    android:layout_marginEnd="15dp"
+                    android:layout_marginStart="@dimen/mini_player_padding"
+                    android:layout_marginEnd="@dimen/mini_player_padding"
                     android:src="@drawable/stop1"
                     android:contentDescription="@string/content_desc_stop" />
             </LinearLayout>
@@ -202,41 +202,41 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center"
-            android:layout_marginTop="25dp">
+            android:layout_marginTop="@dimen/search_margin_horizontal">
 
             <Button
                 android:id="@+id/processAudioButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="5dp"
+                android:layout_margin="@dimen/app_logo_margin_top"
                 android:text="@string/btn_process"
                 android:textAllCaps="true"
                 android:backgroundTint="@color/BLUE"
                 android:fontFamily="@font/poppins_medium"
                 android:textColor="@color/fixed_white"
                 android:drawableStart="@drawable/process"
-                android:drawablePadding="8dp"
+                android:drawablePadding="@dimen/spacing_medium"
                 android:visibility="gone" />
 
             <Button
                 android:id="@+id/newRecordingButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="5dp"
+                android:layout_margin="@dimen/app_logo_margin_top"
                 android:text="@string/btn_new"
                 android:textAllCaps="true"
                 android:backgroundTint="@color/BLUE"
                 android:fontFamily="@font/poppins_medium"
                 android:textColor="@color/fixed_white"
                 android:drawableStart="@drawable/start"
-                android:drawablePadding="8dp"
+                android:drawablePadding="@dimen/spacing_medium"
                 android:visibility="gone" />
 
             <Button
                 android:id="@+id/deleteButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="5dp"
+                android:layout_margin="@dimen/app_logo_margin_top"
                 android:text="@string/dialog_delete"
                 android:textAllCaps="true"
                 android:backgroundTint="@color/red"

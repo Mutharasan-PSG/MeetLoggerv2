@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="25dp"
+    android:padding="@dimen/search_margin_horizontal"
     android:background="@color/backgroundColor">
 
 
@@ -14,9 +14,9 @@
         android:layout_height="wrap_content"
         android:text="@string/dialog_title_choose_format"
         android:fontFamily="@font/poppins"
-        android:textSize="20sp"
+        android:textSize="@dimen/text_size_extra_large"
         android:gravity="center"
-        android:padding="10dp"
+        android:padding="@dimen/option_item_padding"
         android:textColor="@color/onSurfaceVariant" />
 
     <LinearLayout
@@ -30,20 +30,20 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:padding="8dp"
+            android:padding="@dimen/spacing_medium"
             android:gravity="center"
             android:elevation="12dp"
-            android:layout_marginEnd="30dp"
+            android:layout_marginEnd="@dimen/record_timer_margin_end"
             android:background="@drawable/button_bg_export">
 
             <!-- Image for PDF -->
             <ImageView
                 android:id="@+id/pdfImage"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="@dimen/audio_icon_size"
+                android:layout_height="@dimen/audio_icon_size"
                 android:src="@drawable/pdf"
             android:contentDescription="@string/content_desc_pdf_icon"
-            android:layout_marginEnd="8dp" />
+            android:layout_marginEnd="@dimen/spacing_medium" />
 
             <!-- Text for PDF -->
             <TextView
@@ -51,7 +51,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="PDF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_normal"
                 android:textColor="@color/white" />
 
         </LinearLayout>
@@ -62,18 +62,18 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:elevation="12dp"
-            android:padding="8dp"
+            android:padding="@dimen/spacing_medium"
             android:gravity="center"
             android:background="@drawable/button_bg_export">
 
             <!-- Image for DOCX -->
             <ImageView
                 android:id="@+id/docxImage"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="@dimen/audio_icon_size"
+                android:layout_height="@dimen/audio_icon_size"
                 android:src="@drawable/doc_1"
             android:contentDescription="@string/content_desc_docx_icon"
-            android:layout_marginEnd="8dp" />
+            android:layout_marginEnd="@dimen/spacing_medium" />
 
             <!-- Text for DOCX -->
             <TextView
@@ -81,7 +81,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="DOCX"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_normal"
                 android:textColor="@color/white" />
 
         </LinearLayout>

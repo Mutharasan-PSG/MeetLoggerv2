@@ -6,9 +6,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="14dp"
+        android:padding="@dimen/list_item_padding"
         android:elevation="7dp"
-        android:layout_marginBottom="15dp"
+        android:layout_marginBottom="@dimen/list_item_margin_bottom"
         android:background="@drawable/list_item_background"
         android:gravity="center_vertical">
 
@@ -17,15 +17,15 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:visibility="gone"
-            android:layout_marginEnd="8dp"/>
+            android:layout_marginEnd="@dimen/spacing_medium"/>
 
         <ImageView
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="@dimen/list_item_icon_size"
+            android:layout_height="@dimen/list_item_icon_size"
             android:scaleType="fitXY"
             android:src="@drawable/docx"
             android:contentDescription="docImage"
-            android:layout_marginEnd="8dp"/>
+            android:layout_marginEnd="@dimen/spacing_medium"/>
 
         <FrameLayout
             android:layout_width="0dp"
@@ -38,7 +38,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/poppins"
                 android:textColor="@color/onSurfaceColor"
-                android:textSize="15sp"
+                android:textSize="@dimen/list_item_text_size"
                 android:singleLine="false"
                 android:ellipsize="end"/>
 
@@ -48,7 +48,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/poppins"
                 android:textColor="@color/onSurfaceColor"
-                android:textSize="15sp"
+                android:textSize="@dimen/list_item_text_size"
                 android:singleLine="false"
                 android:background="@null"
                 android:visibility="gone"
@@ -57,8 +57,8 @@
             <!-- Added ProgressBar for loading GIF -->
             <ImageView
                 android:id="@+id/loadingGif"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="@dimen/audio_icon_size"
+                android:layout_height="@dimen/audio_icon_size"
                 android:scaleType="fitXY"
                 android:layout_gravity="end|center_vertical"
                 android:visibility="visible"
@@ -68,10 +68,10 @@
 
         <ImageView
             android:id="@+id/menuIcon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="@dimen/audio_icon_size"
+            android:layout_height="@dimen/audio_icon_size"
             android:src="@drawable/dots"
             android:contentDescription="More options"
-            android:layout_marginStart="8dp"/>
+            android:layout_marginStart="@dimen/spacing_medium"/>
     </LinearLayout>
 </FrameLayout>

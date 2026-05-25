@@ -9,7 +9,7 @@
 
     <ListView
         android:id="@+id/popup_list"
-        android:layout_width="160dp"
+        android:layout_width="@dimen/popup_width"
         android:layout_height="wrap_content"
         android:divider="@color/dividerColor"
         android:dividerHeight="0.5dp"

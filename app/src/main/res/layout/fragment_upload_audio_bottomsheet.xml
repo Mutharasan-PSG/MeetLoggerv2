@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
+        android:padding="@dimen/dialog_padding"
         android:background="@color/backgroundColor">
 
         <TextView
@@ -17,10 +17,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins"
-            android:layout_margin="15dp"
+            android:layout_margin="@dimen/list_item_margin_bottom"
             android:textColor="@color/Grey"
             android:text="@string/msg_upload_instruction"
-            android:textSize="17sp"
+            android:textSize="@dimen/instruction_text_size"
              />
 
         <LinearLayout
@@ -28,15 +28,15 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_margin="12dp"
+            android:layout_margin="@dimen/dialog_item_margin"
             android:gravity="center"
             android:background="@drawable/rounded_image"
             android:layout_gravity="center"
-            android:padding="9dp">
+            android:padding="@dimen/profile_title_margin_top">
 
             <ImageView
-                android:layout_width="30dp"
-                android:layout_height="28dp"
+                android:layout_width="@dimen/details_action_icon_size"
+                android:layout_height="@dimen/close_icon_size"
                 android:scaleType="fitXY"
                 android:src="@drawable/uploadd" />
 
@@ -45,10 +45,10 @@
                 android:layout_height="wrap_content"
                 android:text="@string/btn_upload_audio"
                 android:fontFamily="@font/poppins"
-                android:textSize="15sp"
+                android:textSize="@dimen/list_item_text_size"
                 android:textColor="@color/onSurfaceColor"
                 android:gravity="center"
-                android:paddingTop="2dp" />
+                android:paddingTop="@dimen/spacing_tiny" />
         </LinearLayout>
 
         <TextView
@@ -56,32 +56,32 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins"
-            android:layout_margin="10dp"
+            android:layout_margin="@dimen/spacing_small"
             android:text="@string/msg_no_audio_selected"
-            android:textSize="15sp"
+            android:textSize="@dimen/list_item_text_size"
             android:textColor="@color/red"
             android:gravity="center"
-            android:padding="8dp" />
+            android:padding="@dimen/spacing_medium" />
 
         <LinearLayout
             android:id="@+id/processAudioButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_margin="10dp"
+            android:layout_margin="@dimen/spacing_small"
             android:layout_gravity="center"
-            android:elevation="5dp"
-            android:padding="9dp"
+            android:elevation="@dimen/process_button_elevation"
+            android:padding="@dimen/profile_title_margin_top"
             android:clickable="true"
             android:focusable="true"
             android:background="@drawable/button_bg_export">
 
             <ImageView
                 android:id="@+id/processAudioIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="@dimen/audio_icon_size"
+                android:layout_height="@dimen/audio_icon_size"
                 android:src="@drawable/process"
-                android:layout_marginEnd="8dp" />
+                android:layout_marginEnd="@dimen/spacing_medium" />
 
             <TextView
                 android:id="@+id/processAudioText"
@@ -89,7 +89,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/btn_process_audio"
                 android:textColor="@color/white"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_normal"
                 android:fontFamily="@font/poppins_medium" />
         </LinearLayout>
     </LinearLayout>

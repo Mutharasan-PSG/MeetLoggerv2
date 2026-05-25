@@ -16,11 +16,11 @@
         <!-- Top App Name Logo -->
         <ImageView
             android:id="@+id/appLogo"
-            android:layout_width="177dp"
-            android:layout_height="75dp"
+            android:layout_width="@dimen/app_logo_width"
+            android:layout_height="@dimen/app_logo_height"
             android:layout_alignParentStart="true"
-            android:layout_marginStart="23dp"
-            android:layout_marginTop="5dp"
+            android:layout_marginStart="@dimen/app_logo_margin_start"
+            android:layout_marginTop="@dimen/app_logo_margin_top"
             android:contentDescription="@string/content_desc_app_logo"
             android:scaleType="fitCenter"
             android:src="@drawable/splashlogo" />
@@ -28,11 +28,11 @@
         <!-- Top Profile Picture -->
         <ImageView
             android:id="@+id/profilePic"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="@dimen/profile_pic_size"
+            android:layout_height="@dimen/profile_pic_size"
             android:layout_alignParentEnd="true"
-            android:layout_marginTop="20dp"
-            android:layout_marginEnd="26dp"
+            android:layout_marginTop="@dimen/profile_pic_margin_top"
+            android:layout_marginEnd="@dimen/profile_pic_margin_end"
             android:src="@drawable/default_profile_pic"
             android:scaleType="centerCrop"
             android:elevation="10dp"
@@ -49,10 +49,10 @@
             android:text="@string/search_documents_hint"
             android:queryHint="@string/search_documents_hint"
             android:iconifiedByDefault="false"
-            android:layout_marginTop="26dp"
-            android:layout_marginBottom="25dp"
-            android:layout_marginStart="25dp"
-            android:layout_marginEnd="25dp"
+            android:layout_marginTop="@dimen/search_margin_top"
+            android:layout_marginBottom="@dimen/search_margin_bottom"
+            android:layout_marginStart="@dimen/search_margin_horizontal"
+            android:layout_marginEnd="@dimen/search_margin_horizontal"
             android:layout_below="@id/profilePic"
             android:visibility="gone"
             android:background="@drawable/searchview_border"/>
@@ -63,8 +63,8 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_below="@id/searchView"
-            android:layout_marginStart="22dp"
-            android:layout_marginEnd="22dp"
+            android:layout_marginStart="@dimen/screen_margin_horizontal"
+            android:layout_marginEnd="@dimen/screen_margin_horizontal"
             android:layout_above="@id/bottomNavBar"
             android:divider="@android:color/transparent"
             android:dividerHeight="0dp"
@@ -75,8 +75,8 @@
         <!-- Placeholder Image -->
         <ImageView
             android:id="@+id/placeholderImage"
-            android:layout_width="280dp"
-            android:layout_height="280dp"
+            android:layout_width="@dimen/placeholder_image_size"
+            android:layout_height="@dimen/placeholder_image_size"
             android:scaleType="fitXY"
             android:layout_centerInParent="true"
             android:src="@drawable/empty"
@@ -89,7 +89,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/audio_processing_status_placeholder"
-            android:textSize="16sp"
+            android:textSize="@dimen/text_size_normal"
             android:textColor="@color/onSurfaceVariant"
             android:fontFamily="@font/poppins"
             android:gravity="center"
@@ -107,8 +107,8 @@
 
             <ImageView
                 android:id="@+id/noInternetImage"
-                android:layout_width="230dp"
-                android:layout_height="230dp"
+                android:layout_width="@dimen/no_internet_image_size"
+                android:layout_height="@dimen/no_internet_image_size"
                 android:layout_gravity="center"
                 android:scaleType="fitXY"
                 android:src="@drawable/no_internet"
@@ -121,20 +121,20 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
-            android:layout_marginBottom="92dp"
-            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="@dimen/audio_button_margin_bottom"
+            android:layout_marginEnd="@dimen/audio_button_margin_end"
             android:layout_alignParentEnd="true"
             android:orientation="horizontal"
             android:elevation="9dp"
-            android:padding="11dp"
+            android:padding="@dimen/audio_button_padding"
             android:background="@drawable/button_background"
             android:clickable="true"
             android:focusable="true">
 
             <ImageView
                 android:id="@+id/AudioIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="@dimen/audio_icon_size"
+                android:layout_height="@dimen/audio_icon_size"
                 android:scaleType="fitCenter"
                 android:src="@drawable/audio"
                 android:contentDescription="@string/content_desc_meet_icon"
@@ -144,23 +144,23 @@
                 android:id="@+id/AudioText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
-                android:layout_marginEnd="3dp"
+                android:layout_marginStart="@dimen/spacing_small"
+                android:layout_marginEnd="@dimen/spacing_tiny"
                 android:gravity="center_vertical"
                 android:fontFamily="@font/poppins_medium"
                 android:text="@string/audio_button_text"
                 android:textColor="@color/fixed_white"
-                android:textSize="16sp" />
+                android:textSize="@dimen/text_size_normal" />
         </LinearLayout>
 
         <!-- Bottom Navigation Bar -->
         <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottomNavBar"
             android:layout_width="match_parent"
-            android:layout_height="70dp"
+            android:layout_height="@dimen/bottom_nav_height"
             android:layout_alignParentBottom="true"
             android:background="@color/surfaceColor"
-            android:padding="5dp"
+            android:padding="@dimen/spacing_small"
             app:menu="@menu/bottom_navigation_menu"
             app:itemIconTint="@color/nav_icon_colors"
             app:itemTextColor="@color/nav_text_colors"
@@ -179,11 +179,11 @@
         <!-- Audio Options Popup -->
         <LinearLayout
             android:id="@+id/AudioOptionsLayout"
-            android:layout_width="240dp"
-            android:layout_height="180dp"
+            android:layout_width="@dimen/audio_options_width"
+            android:layout_height="@dimen/audio_options_height"
             android:layout_gravity="end|bottom"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="86dp"
+            android:layout_marginEnd="@dimen/audio_button_margin_end"
+            android:layout_marginBottom="@dimen/audio_options_margin_bottom"
             android:orientation="vertical"
             android:background="@android:color/transparent"
             android:visibility="gone">
@@ -194,7 +194,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="10dp"
+                android:padding="@dimen/option_item_padding"
                 android:focusable="true"
                 android:gravity="end"
                 android:background="?android:attr/selectableItemBackground">
@@ -209,12 +209,12 @@
                     android:textColor="@color/fixed_white"
                     android:gravity="center_vertical"
                     android:layout_marginBottom="1dp"
-                    android:textSize="17sp" />
+                    android:textSize="@dimen/text_size_large" />
 
                 <ImageView
-                    android:layout_width="27dp"
-                    android:layout_height="27dp"
-                    android:layout_marginStart="10dp"
+                    android:layout_width="@dimen/option_icon_size_large"
+                    android:layout_height="@dimen/option_icon_size_large"
+                    android:layout_marginStart="@dimen/option_item_padding"
                     android:src="@drawable/live_record" />
             </LinearLayout>
 
@@ -224,7 +224,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="10dp"
+                android:padding="@dimen/option_item_padding"
                 android:focusable="true"
                 android:gravity="end"
                 android:background="?android:attr/selectableItemBackground">
@@ -239,23 +239,23 @@
                     android:textColor="@color/fixed_white"
                     android:gravity="center_vertical"
                     android:layout_marginBottom="1dp"
-                    android:textSize="17sp" />
+                    android:textSize="@dimen/text_size_large" />
 
                 <ImageView
-                    android:layout_width="25dp"
-                    android:layout_height="25dp"
-                    android:layout_marginStart="10dp"
+                    android:layout_width="@dimen/option_icon_size"
+                    android:layout_height="@dimen/option_icon_size"
+                    android:layout_marginStart="@dimen/option_item_padding"
                     android:src="@drawable/upload" />
             </LinearLayout>
 
             <!-- Close Button -->
             <ImageView
                 android:id="@+id/closeButton"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="@dimen/close_icon_size"
+                android:layout_height="@dimen/close_icon_size"
                 android:layout_gravity="end"
-                android:layout_marginTop="2dp"
-                android:layout_marginEnd="8dp"
+                android:layout_marginTop="@dimen/spacing_tiny"
+                android:layout_marginEnd="@dimen/spacing_medium"
                 android:src="@drawable/close"
                 android:contentDescription="@string/content_desc_close" />
 

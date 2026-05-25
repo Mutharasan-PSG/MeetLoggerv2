@@ -10,20 +10,20 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/profile_title"
-        android:layout_marginStart="10dp"
+        android:layout_marginStart="@dimen/spacing_medium"
         android:fontFamily="@font/poppins_medium"
-        android:textSize="26sp"
+        android:textSize="@dimen/profile_title_text_size"
         android:textColor="@color/BLUE"
         android:elevation="30dp"
         android:layout_alignParentTop="true"
-        android:layout_marginTop="9dp"/>
+        android:layout_marginTop="@dimen/profile_title_margin_top"/>
 
     <ImageView
         android:id="@+id/profile_image"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
+        android:layout_width="@dimen/profile_image_size"
+        android:layout_height="@dimen/profile_image_size"
         android:layout_below="@id/Profile"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="@dimen/spacing_large"
         android:src="@drawable/default_profile_pic"
         android:contentDescription="@string/content_desc_profile_image"
         android:layout_centerHorizontal="true"
@@ -36,11 +36,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/profile_image"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="@dimen/spacing_large"
         android:text="@string/profile_label_name"
         android:fontFamily="@font/poppins"
-        android:layout_marginStart="15dp"
-        android:textSize="19sp"
+        android:layout_marginStart="@dimen/screen_margin_horizontal"
+        android:textSize="@dimen/profile_label_text_size"
         android:textColor="@color/BLUE"/>
 
     <TextView
@@ -48,23 +48,23 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/profile_name_placeholder"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="@dimen/spacing_small"
         android:text="Actual Name"
         android:fontFamily="@font/poppins"
-        android:layout_marginStart="15dp"
+        android:layout_marginStart="@dimen/screen_margin_horizontal"
         android:textColor="@color/black"
-        android:textSize="18sp" />
+        android:textSize="@dimen/profile_value_text_size" />
 
     <TextView
         android:id="@+id/profile_email_placeholder"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/profile_name"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="@dimen/spacing_large"
         android:text="@string/profile_label_email"
         android:fontFamily="@font/poppins"
-        android:layout_marginStart="15dp"
-        android:textSize="19sp"
+        android:layout_marginStart="@dimen/screen_margin_horizontal"
+        android:textSize="@dimen/profile_label_text_size"
         android:textColor="@color/BLUE"/>
 
     <TextView
@@ -72,12 +72,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/profile_email_placeholder"
-        android:layout_marginTop="4dp"
-        android:layout_marginStart="15dp"
+        android:layout_marginTop="@dimen/spacing_small"
+        android:layout_marginStart="@dimen/screen_margin_horizontal"
         android:textColor="@color/black"
         android:fontFamily="@font/poppins"
         android:text="user@example.com"
-        android:textSize="18sp" />
+        android:textSize="@dimen/profile_value_text_size" />
 
     <LinearLayout
         android:id="@+id/btn_sign_out"
@@ -86,20 +86,20 @@
         android:layout_below="@id/profile_email"
        android:layout_centerVertical="true"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="52dp"
+        android:layout_marginTop="@dimen/sign_out_button_margin_top"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:fontFamily="@font/poppins_medium"
         android:background="@drawable/rounded_button"
-        android:padding="12dp"
+        android:padding="@dimen/spacing_normal"
         android:elevation="15dp"
         android:clickable="true"
         android:focusable="true">
 
         <ImageView
             android:id="@+id/sign_out_image"
-            android:layout_width="20dp"
-            android:layout_height="22dp"
+            android:layout_width="@dimen/sign_out_icon_width"
+            android:layout_height="@dimen/sign_out_icon_height"
             android:src="@drawable/signout"
             android:scaleType="fitCenter"
             android:contentDescription="@string/content_desc_sign_out" />
@@ -110,20 +110,19 @@
             android:layout_height="wrap_content"
             android:text="@string/profile_sign_out"
             android:textColor="@color/white"
-            android:textSize="18sp"
-            android:layout_marginEnd="3dp"
-            android:layout_marginStart="8dp" />
+            android:textSize="@dimen/profile_value_text_size"
+            android:layout_marginEnd="@dimen/spacing_tiny"
+            android:layout_marginStart="@dimen/spacing_medium" />
     </LinearLayout>
 
     <TextView
         android:id="@+id/version"
         android:layout_width="wrap_content"
-        android:layout_height="20dp"
-        android:layout_marginBottom="15dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/spacing_large"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:layout_centerVertical="true"
         android:fontFamily="@font/poppins_medium"
         android:text="@string/app_version"
-        android:textSize="15sp" />
+        android:textSize="@dimen/list_item_text_size" />
 </RelativeLayout>

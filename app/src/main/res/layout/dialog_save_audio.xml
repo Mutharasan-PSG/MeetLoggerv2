@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="@dimen/dialog_padding"
     android:background="@color/backgroundColor">
 
     <EditText
@@ -13,7 +13,8 @@
         android:fontFamily="@font/poppins"
         android:hint="@string/hint_enter_file_name"
         android:textColor="@color/onSurfaceColor"
-        android:padding="8dp" />
+        android:padding="@dimen/spacing_medium"
+        android:textSize="@dimen/text_size_normal" />
 
     <Button
         android:id="@+id/saveFileButton"
@@ -24,5 +25,6 @@
         android:layout_gravity="center"
         android:backgroundTint="@color/BLUE"
         android:textColor="@color/fixed_white"
-        android:padding="8dp" />
+        android:padding="@dimen/spacing_medium"
+        android:textSize="@dimen/text_size_normal" />
 </LinearLayout>
