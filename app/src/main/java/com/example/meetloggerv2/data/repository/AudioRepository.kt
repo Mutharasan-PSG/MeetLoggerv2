@@ -1,26 +1,28 @@
 package com.example.meetloggerv2.data.repository
 
 import android.net.Uri
-import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageMetadata
-import com.google.firebase.storage.storageMetadata
 import com.example.meetloggerv2.data.remote.ApiService
 import com.example.meetloggerv2.data.remote.RetrofitClient
 import com.example.meetloggerv2.util.NetworkResult
 import com.example.meetloggerv2.util.SafeApiCall
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.ResponseBody
 import java.io.File
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 class AudioRepository(
     private val apiService: ApiService = RetrofitClient.apiService
 ) : SafeApiCall {
 
     private val storage: com.google.firebase.storage.FirebaseStorage by lazy { com.google.firebase.storage.FirebaseStorage.getInstance() }
+    private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
 
     fun uploadAudioToStorage(userId: String, fileName: String, uri: Uri, onComplete: (String?, Exception?) -> Unit) {
         val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
@@ -58,7 +60,9 @@ class AudioRepository(
         val followUpFileNameBody = followUpFileName.toRequestBody("text/plain".toMediaTypeOrNull())
 
         return safeApiCall {
+            val firebaseToken = getFirebaseIdToken()
             apiService.uploadAudio(
+                "Bearer $firebaseToken",
                 filePart,
                 userIdBody,
                 fileNameBody,
@@ -90,5 +94,26 @@ class AudioRepository(
         storageRef.putBytes(bytes)
             .addOnSuccessListener { onComplete(true, null) }
             .addOnFailureListener { onComplete(false, it) }
+    }
+
+    private suspend fun getFirebaseIdToken(): String = suspendCancellableCoroutine { continuation ->
+        val user = auth.currentUser
+        if (user == null) {
+            continuation.resumeWithException(IllegalStateException("User is not authenticated"))
+            return@suspendCancellableCoroutine
+        }
+
+        user.getIdToken(false)
+            .addOnSuccessListener { result ->
+                val token = result.token
+                if (token.isNullOrBlank()) {
+                    continuation.resumeWithException(IllegalStateException("Firebase token is empty"))
+                } else {
+                    continuation.resume(token)
+                }
+            }
+            .addOnFailureListener { exception ->
+                continuation.resumeWithException(exception)
+            }
     }
 }
