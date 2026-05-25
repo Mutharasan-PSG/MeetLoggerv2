@@ -3,8 +3,8 @@ package com.example.meetloggerv2.data.repository
 import android.net.Uri
 import com.example.meetloggerv2.data.remote.ApiService
 import com.example.meetloggerv2.data.remote.RetrofitClient
-import com.example.meetloggerv2.util.NetworkResult
-import com.example.meetloggerv2.util.SafeApiCall
+import com.example.meetloggerv2.core.network.NetworkResult
+import com.example.meetloggerv2.core.network.SafeApiCall
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -86,6 +86,20 @@ class AudioRepository(
         val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
         storageRef.getBytes(Long.MAX_VALUE)
             .addOnSuccessListener { onComplete(it, null) }
+            .addOnFailureListener { onComplete(null, it) }
+    }
+
+    fun downloadAudioToFile(userId: String, fileName: String, destination: File, onComplete: (Boolean, Exception?) -> Unit) {
+        val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
+        storageRef.getFile(destination)
+            .addOnSuccessListener { onComplete(true, null) }
+            .addOnFailureListener { onComplete(false, it) }
+    }
+
+    fun getAudioDownloadUrl(userId: String, fileName: String, onComplete: (String?, Exception?) -> Unit) {
+        val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
+        storageRef.downloadUrl
+            .addOnSuccessListener { onComplete(it.toString(), null) }
             .addOnFailureListener { onComplete(null, it) }
     }
 
