@@ -4,19 +4,19 @@
     android:fitsSystemWindows="true"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
+    android:background="@color/backgroundColor"
     tools:context=".AudioListFragment">
 
     <TextView
         android:id="@+id/AudioTopic"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="25dp"
-        android:text="AUDIO FILES"
-        android:textSize="22sp"
+        android:layout_marginStart="@dimen/search_margin_horizontal"
+        android:text="@string/audio_files_title"
+        android:textSize="@dimen/audio_topic_text_size"
         android:fontFamily="@font/poppins_medium"
         android:textColor="@color/BLUE"
-        android:layout_marginTop="30dp" />
+        android:layout_marginTop="@dimen/audio_topic_margin_top" />
 
     <FrameLayout
         android:id="@+id/mainContent"
@@ -25,12 +25,12 @@
 
         <ImageView
             android:id="@+id/placeholderImage"
-            android:layout_width="280dp"
-            android:layout_height="280dp"
+            android:layout_width="@dimen/placeholder_image_size"
+            android:layout_height="@dimen/placeholder_image_size"
             android:scaleType="fitXY"
             android:layout_gravity="center"
             android:src="@drawable/audiofiles"
-            android:contentDescription="No files available"
+            android:contentDescription="@string/content_desc_no_files"
             android:visibility="visible" />
 
         <TextView
@@ -38,8 +38,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text=""
-            android:textSize="16sp"
-            android:textColor="@android:color/darker_gray"
+            android:textSize="@dimen/text_size_normal"
+            android:textColor="@color/onSurfaceVariant"
             android:fontFamily="@font/poppins"
             android:gravity="center"
             android:layout_gravity="center"
@@ -48,24 +48,24 @@
 
         <ImageView
             android:id="@+id/deleteIcon"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="@dimen/list_item_icon_size"
+            android:layout_height="@dimen/list_item_icon_size"
             android:layout_gravity="top|end"
-            android:layout_marginEnd="25dp"
-            android:layout_marginTop="30dp"
+            android:layout_marginEnd="@dimen/search_margin_horizontal"
+            android:layout_marginTop="@dimen/audio_topic_margin_top"
             android:src="@drawable/delete1"
-            android:contentDescription="Delete"
+            android:contentDescription="@string/content_desc_delete"
             android:visibility="gone"/>
 
         <ImageView
             android:id="@+id/tickIcon"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="@dimen/profile_pic_size"
+            android:layout_height="@dimen/profile_pic_size"
             android:layout_gravity="top|end"
-            android:layout_marginEnd="25dp"
-            android:layout_marginTop="23dp"
+            android:layout_marginEnd="@dimen/search_margin_horizontal"
+            android:layout_marginTop="@dimen/app_logo_margin_start"
             android:src="@drawable/tick"
-            android:contentDescription="tick"
+            android:contentDescription="@string/content_desc_tick"
             android:visibility="gone"/>
 
 
@@ -74,14 +74,14 @@
             android:id="@+id/searchView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Search documents..."
-            android:queryHint="Search documents..."
+            android:text="@string/search_documents_hint"
+            android:queryHint="@string/search_documents_hint"
             android:iconifiedByDefault="false"
-            android:layout_marginBottom="25dp"
-            android:layout_marginStart="25dp"
-            android:layout_marginEnd="25dp"
+            android:layout_marginBottom="@dimen/search_margin_bottom"
+            android:layout_marginStart="@dimen/search_margin_horizontal"
+            android:layout_marginEnd="@dimen/search_margin_horizontal"
             android:layout_gravity="top"
-            android:layout_marginTop="80dp"
+            android:layout_marginTop="@dimen/audio_list_search_margin_top"
             android:visibility="gone"
             android:background="@drawable/searchview_border" />
 
@@ -91,11 +91,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="start|top"
-            android:layout_marginTop="135dp"
+            android:layout_marginTop="@dimen/select_all_margin_top"
             android:layout_marginStart="45dp"
             android:fontFamily="@font/poppins"
-            android:text="Select All"
-            android:textSize="16sp"
+            android:text="@string/select_all"
+            android:textSize="@dimen/text_size_normal"
             android:visibility="gone" />
 
         <!-- ListView -->
@@ -103,9 +103,9 @@
             android:id="@+id/listView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginStart="25dp"
-            android:layout_marginEnd="25dp"
-            android:layout_marginTop="150dp"
+            android:layout_marginStart="@dimen/search_margin_horizontal"
+            android:layout_marginEnd="@dimen/search_margin_horizontal"
+            android:layout_marginTop="@dimen/audio_list_view_margin_top"
             android:divider="@android:color/transparent"
             android:dividerHeight="0dp"
             android:clickable="true"
@@ -118,13 +118,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="15dp"
+            android:padding="@dimen/mini_player_padding"
             android:background="@drawable/rounded_image"
             android:visibility="gone"
             android:elevation="7dp"
-            android:layout_marginStart="20dp"
-            android:layout_marginEnd="20dp"
-            android:layout_marginBottom="10dp"
+            android:layout_marginStart="@dimen/mini_player_margin_horizontal"
+            android:layout_marginEnd="@dimen/mini_player_margin_horizontal"
+            android:layout_marginBottom="@dimen/mini_player_margin_bottom"
             android:layout_gravity="bottom">
 
             <!-- File Name -->
@@ -132,10 +132,10 @@
                 android:id="@+id/currentAudioName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Now Playing..."
-                android:textColor="@android:color/black"
-                android:layout_marginBottom="4dp"
-                android:layout_marginTop="4dp"
+                android:text="@string/now_playing"
+                android:textColor="@color/black"
+                android:layout_marginBottom="@dimen/spacing_small"
+                android:layout_marginTop="@dimen/spacing_small"
                 android:textSize="17sp"
                 android:maxLines="1"
                 android:ellipsize="marquee"
@@ -144,7 +144,7 @@
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:fontFamily="@font/poppins_medium"
-                android:paddingBottom="8dp"/>
+                android:paddingBottom="@dimen/spacing_medium"/>
 
             <!-- SeekBar and Time Display -->
             <LinearLayout
@@ -157,9 +157,9 @@
                     android:id="@+id/currentTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="00:00"
-                    android:textSize="12sp"
-                    android:textColor="@android:color/black"
+                    android:text="@string/time_zero"
+                    android:textSize="@dimen/text_size_small"
+                    android:textColor="@color/black"
                     android:fontFamily="@font/poppins"/>
 
                 <SeekBar
@@ -167,16 +167,16 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:layout_marginEnd="8dp"/>
+                    android:layout_marginStart="@dimen/spacing_medium"
+                    android:layout_marginEnd="@dimen/spacing_medium"/>
 
                 <TextView
                     android:id="@+id/totalTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="00:00"
-                    android:textSize="12sp"
-                    android:textColor="@android:color/black"
+                    android:text="@string/time_zero"
+                    android:textSize="@dimen/text_size_small"
+                    android:textColor="@color/black"
                     android:fontFamily="@font/poppins"/>
             </LinearLayout>
 
@@ -187,44 +187,44 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:orientation="horizontal"
-                android:layout_marginTop="8dp">
+                android:layout_marginTop="@dimen/spacing_medium">
 
                 <ImageView
                     android:id="@+id/prevButton"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="@dimen/list_item_icon_size"
+                    android:layout_height="@dimen/list_item_icon_size"
                     android:scaleType="fitXY"
-                    android:layout_marginStart="15dp"
+                    android:layout_marginStart="@dimen/mini_player_padding"
                     android:src="@drawable/previous"
-                    android:contentDescription="Previous" />
+                    android:contentDescription="@string/content_desc_previous" />
 
                 <ImageView
                     android:id="@+id/playPauseButton"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="@dimen/list_item_icon_size"
+                    android:layout_height="@dimen/list_item_icon_size"
                     android:scaleType="fitXY"
-                    android:layout_marginStart="15dp"
+                    android:layout_marginStart="@dimen/mini_player_padding"
                     android:src="@drawable/pause"
-                    android:contentDescription="Pause" />
+                    android:contentDescription="@string/content_desc_pause" />
 
                 <ImageView
                     android:id="@+id/nextButton"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="@dimen/list_item_icon_size"
+                    android:layout_height="@dimen/list_item_icon_size"
                     android:scaleType="fitXY"
-                    android:layout_marginStart="15dp"
+                    android:layout_marginStart="@dimen/mini_player_padding"
                     android:src="@drawable/next"
-                    android:contentDescription="Next" />
+                    android:contentDescription="@string/content_desc_next" />
 
                 <ImageView
                     android:id="@+id/stopButton"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="@dimen/list_item_icon_size"
+                    android:layout_height="@dimen/list_item_icon_size"
                     android:scaleType="fitXY"
-                    android:layout_marginStart="15dp"
-                    android:layout_marginEnd="15dp"
+                    android:layout_marginStart="@dimen/mini_player_padding"
+                    android:layout_marginEnd="@dimen/mini_player_padding"
                     android:src="@drawable/stop1"
-                    android:contentDescription="Stop" />
+                    android:contentDescription="@string/content_desc_stop" />
             </LinearLayout>
 
 
@@ -260,19 +260,19 @@
 
         <ImageView
             android:id="@+id/noInternetImage"
-            android:layout_width="230dp"
-            android:layout_height="230dp"
+            android:layout_width="@dimen/no_internet_image_size"
+            android:layout_height="@dimen/no_internet_image_size"
             android:layout_gravity="center"
             android:src="@drawable/no_internet"
             android:scaleType="fitXY"
-            android:contentDescription="No Internet" />
+            android:contentDescription="@string/content_desc_no_internet" />
     </LinearLayout>
 
     <FrameLayout
         android:id="@+id/touchBlockOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#00000000"
+        android:background="@color/transparent"
         android:visibility="gone" />
 
 </FrameLayout>

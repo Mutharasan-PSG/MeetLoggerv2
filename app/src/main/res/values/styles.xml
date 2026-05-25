@@ -1,15 +1,55 @@
-
 <resources>
-<style name="Theme.MeetLoggerv2" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-    <!-- Customize your theme here -->
-    <item name="colorPrimary">#FFFFFF</item> <!-- Action bar background color -->
-    <item name="colorPrimaryVariant">#FFFFFF</item>
-    <item name="colorOnPrimary">#000000</item> <!-- Action bar text/icons color -->
-    <item name="android:statusBarColor">#FFFFFF</item> <!-- Status bar background color -->
-    <item name="android:windowLightStatusBar">true</item> <!-- Ensures status bar icons are dark -->
-</style>
+    <!-- Base Application Theme -->
+    <style name="Theme.MeetLoggerv2" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/BLUE</item>
+        <item name="colorPrimaryVariant">@color/BLUE</item>
+        <item name="colorOnPrimary">@color/fixed_white</item>
 
-    <!-- res/values/styles.xml -->
+        <item name="colorSecondary">@color/BLUE</item>
+        <item name="colorSecondaryVariant">@color/BLUE</item>
+        <item name="colorOnSecondary">@color/fixed_white</item>
+
+        <item name="android:statusBarColor">@color/backgroundColor</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/backgroundColor</item>
+
+        <item name="android:alertDialogTheme">@style/CustomAlertDialog</item>
+        <item name="materialAlertDialogTheme">@style/CustomAlertDialog</item>
+        <item name="bottomSheetDialogTheme">@style/CustomBottomSheetDialog</item>
+    </style>
+
+    <!-- Alert Dialog Theme -->
+    <style name="CustomAlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="shapeAppearance">@style/DialogCorners</item>
+        <item name="shapeAppearanceOverlay">@style/DialogCorners</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
+    <style name="DialogCorners">
+        <item name="cornerSize">@dimen/dialog_corner_radius</item>
+        <item name="cornerFamily">rounded</item>
+    </style>
+
+    <style name="BottomSheetCorners">
+        <item name="cornerSizeTopLeft">@dimen/dialog_corner_radius</item>
+        <item name="cornerSizeTopRight">@dimen/dialog_corner_radius</item>
+        <item name="cornerFamily">rounded</item>
+    </style>
+
+    <!-- Bottom Sheet Dialog Theme -->
+    <style name="CustomBottomSheetDialog" parent="Theme.Design.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/CustomBottomSheetStyle</item>
+        <item name="android:windowIsFloating">false</item>
+    </style>
+
+    <style name="CustomBottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
+        <item name="backgroundTint">@color/backgroundColor</item>
+        <item name="shapeAppearanceOverlay">@style/BottomSheetCorners</item>
+        <item name="android:windowEnterAnimation">@anim/slide_up</item>
+        <item name="android:windowExitAnimation">@anim/slide_down</item>
+    </style>
+
+    <!-- Animations & Others -->
     <style name="DialogAnimation">
         <item name="android:windowEnterAnimation">@anim/card_slide_in</item>
         <item name="android:windowExitAnimation">@anim/card_slide_out</item>
@@ -18,15 +58,4 @@
     <style name="CustomDialogTheme" parent="Theme.AppCompat.Light.Dialog.Alert">
         <item name="android:windowAnimationStyle">@style/DialogAnimation</item>
     </style>
-
-    <style name="CustomBottomSheetDialog" parent="Theme.Design.BottomSheetDialog">
-        <item name="bottomSheetStyle">@style/CustomBottomSheetStyle</item>
-    </style>
-
-    <style name="CustomBottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
-        <!-- Customize the animation duration or use a custom animation -->
-        <item name="android:windowEnterAnimation">@anim/slide_up</item>
-        <item name="android:windowExitAnimation">@anim/slide_down</item>
-    </style>
-
 </resources>

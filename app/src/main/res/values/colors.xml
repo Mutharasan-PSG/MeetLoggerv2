@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Basic Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="green">#4CAF50</color>
-
+    <color name="red">#FF0000</color>
     <color name="BLUE">#2B8CFF</color>
     <color name="LIGHT_BLUE">#E8F9FF</color>
     <color name="Pale_white">#FBFBFB</color>
@@ -11,11 +12,21 @@
     <color name="LightGrey">#F5F5F5</color>
     <color name="DarkGrey">#71797E</color>
     <color name="Pink">#FFC0CB</color>
-    <color name="red">#FF0000</color>
+    <color name="transparent">#00000000</color>
+
+    <color name="fixed_white">#FFFFFF</color>
+    <color name="fixed_black">#000000</color>
+
+    <!-- Semantic Colors (Light Theme) -->
+    <color name="backgroundColor">#FFFFFF</color>
+    <color name="surfaceColor">#FFFFFF</color>
+    <color name="onBackgroundColor">#000000</color>
+    <color name="onSurfaceColor">#000000</color>
+    <color name="onSurfaceVariant">#808080</color> <!-- Grey -->
+    <color name="cardBackgroundColor">#FFFFFF</color>
+    <color name="dividerColor">#DDDDDD</color>
+
     <color name="modal_blur">#80000000</color>
-
-
-    <color name="sign_in_button_text_color">#FFFFFF</color> <!-- Example white color -->
-    <color name="sign_in_button_background_color">#2B8CFF</color> <!-- Example blue color -->
-
+    <color name="sign_in_button_text_color">#FFFFFF</color>
+    <color name="sign_in_button_background_color">#2B8CFF</color>
 </resources>

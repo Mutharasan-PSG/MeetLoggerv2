@@ -4,10 +4,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="8dp"
-    android:paddingBottom="8dp"
-    android:textColor="@android:color/black"
-    android:textSize="16sp"
-    android:minHeight="48dp"/>
+    android:paddingStart="@dimen/spacing_large"
+    android:paddingEnd="@dimen/spacing_large"
+    android:paddingTop="@dimen/spacing_medium"
+    android:paddingBottom="@dimen/spacing_medium"
+    android:textColor="@color/onSurfaceColor"
+    android:textSize="@dimen/text_size_normal"
+    android:minHeight="@dimen/popup_item_min_height"/>
