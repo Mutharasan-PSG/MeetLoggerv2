@@ -7,11 +7,11 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 
-class FileRepository() {
+class FileRepository() : IFileRepository {
 
     private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 
-    fun getUserFiles(userId: String, onUpdate: (List<Map<String, Any>>) -> Unit, onError: (Exception) -> Unit): ListenerRegistration {
+    override fun getUserFiles(userId: String, onUpdate: (List<Map<String, Any>>) -> Unit, onError: (Exception) -> Unit): ListenerRegistration {
         return firestore.collection("ProcessedDocs")
             .document(userId)
             .collection("UserFiles")
@@ -28,7 +28,7 @@ class FileRepository() {
             }
     }
 
-    fun getFileDetails(userId: String, fileName: String, onSuccess: (Map<String, Any>?) -> Unit, onError: (Exception) -> Unit) {
+    override fun getFileDetails(userId: String, fileName: String, onSuccess: (Map<String, Any>?) -> Unit, onError: (Exception) -> Unit) {
         firestore.collection("ProcessedDocs")
             .document(userId)
             .collection("UserFiles")
@@ -38,7 +38,7 @@ class FileRepository() {
             .addOnFailureListener { onError(it) }
     }
 
-    fun updateFileContent(userId: String, fileName: String, updates: Map<String, Any>, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
+    override fun updateFileContent(userId: String, fileName: String, updates: Map<String, Any>, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         firestore.collection("ProcessedDocs")
             .document(userId)
             .collection("UserFiles")
@@ -48,7 +48,7 @@ class FileRepository() {
             .addOnFailureListener { onError(it) }
     }
 
-    fun deleteFile(userId: String, fileName: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
+    override fun deleteFile(userId: String, fileName: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         firestore.collection("ProcessedDocs")
             .document(userId)
             .collection("UserFiles")
@@ -58,7 +58,7 @@ class FileRepository() {
             .addOnFailureListener { onError(it) }
     }
 
-    fun renameFile(userId: String, oldFullName: String, newFullName: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
+    override fun renameFile(userId: String, oldFullName: String, newFullName: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         val oldFileRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles").document(oldFullName)
         val newFileRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles").document(newFullName)
 
@@ -77,7 +77,7 @@ class FileRepository() {
         }.addOnFailureListener { onError(it) }
     }
 
-    fun copyFile(userId: String, oldFullName: String, newFullName: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
+    override fun copyFile(userId: String, oldFullName: String, newFullName: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         val oldDocRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles").document(oldFullName)
         val newDocRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles").document(newFullName)
 
@@ -94,7 +94,7 @@ class FileRepository() {
         }.addOnFailureListener { onError(it) }
     }
 
-    fun saveFileMetadata(userId: String, fileName: String, data: Map<String, Any>, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
+    override fun saveFileMetadata(userId: String, fileName: String, data: Map<String, Any>, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         firestore.collection("ProcessedDocs")
             .document(userId)
             .collection("UserFiles")
@@ -104,21 +104,21 @@ class FileRepository() {
             .addOnFailureListener { onError(it) }
     }
     
-    fun saveUser(user: User, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
+    override fun saveUser(user: User, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         firestore.collection("Users").document(user.id)
             .set(user)
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onError(it) }
     }
 
-    fun getUser(userId: String, onSuccess: (Map<String, Any>?) -> Unit, onError: (Exception) -> Unit) {
+    override fun getUser(userId: String, onSuccess: (Map<String, Any>?) -> Unit, onError: (Exception) -> Unit) {
         firestore.collection("Users").document(userId)
             .get()
             .addOnSuccessListener { onSuccess(it.data) }
             .addOnFailureListener { onError(it) }
     }
 
-    fun checkUserExists(userId: String, onResult: (Boolean) -> Unit, onError: (Exception) -> Unit) {
+    override fun checkUserExists(userId: String, onResult: (Boolean) -> Unit, onError: (Exception) -> Unit) {
         firestore.collection("Users").document(userId)
             .get()
             .addOnSuccessListener { onResult(it.exists()) }

@@ -1,15 +1,19 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:descendantFocusability="afterDescendants">
 
     <LinearLayout
+        android:id="@+id/listItemLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="@dimen/list_item_padding"
-        android:elevation="7dp"
         android:layout_marginBottom="@dimen/list_item_margin_bottom"
         android:background="@drawable/list_item_background"
+        android:stateListAnimator="@animator/press_scale"
+        android:clickable="true"
+        android:focusable="true"
         android:gravity="center_vertical">
 
         <!-- Checkbox overlaid on the left side -->
@@ -23,7 +27,7 @@
         <ImageView
             android:layout_width="@dimen/list_item_icon_size"
             android:layout_height="@dimen/list_item_icon_size"
-            android:scaleType="fitXY"
+            android:scaleType="fitCenter"
             android:src="@drawable/audioo"
             android:contentDescription="docImage"
             android:layout_marginEnd="@dimen/spacing_medium"/>
@@ -60,11 +64,14 @@
 
         <ImageView
             android:id="@+id/menuIcon"
-            android:layout_width="@dimen/audio_icon_size"
-            android:layout_height="@dimen/audio_icon_size"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:src="@drawable/dots"
             android:contentDescription="More options"
-            android:layout_marginStart="@dimen/spacing_medium"/>
+            android:layout_marginStart="@dimen/spacing_medium"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            android:scaleType="fitCenter"/>
 
     </LinearLayout>
 </FrameLayout>

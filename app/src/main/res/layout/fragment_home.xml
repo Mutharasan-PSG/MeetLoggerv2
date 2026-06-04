@@ -35,10 +35,10 @@
             android:layout_marginEnd="@dimen/profile_pic_margin_end"
             android:src="@drawable/default_profile_pic"
             android:scaleType="centerCrop"
-            android:elevation="10dp"
             android:background="@drawable/round_border"
             android:clickable="true"
             android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground"
             android:contentDescription="@string/content_desc_profile_pic" />
 
         <!-- Search bar with border -->
@@ -55,7 +55,9 @@
             android:layout_marginEnd="@dimen/search_margin_horizontal"
             android:layout_below="@id/profilePic"
             android:visibility="gone"
-            android:background="@drawable/searchview_border"/>
+            android:background="@drawable/searchview_border"
+            app:queryBackground="@android:color/transparent"
+            app:submitBackground="@android:color/transparent"/>
 
         <!-- ListView -->
         <ListView
@@ -65,11 +67,13 @@
             android:layout_below="@id/searchView"
             android:layout_marginStart="@dimen/screen_margin_horizontal"
             android:layout_marginEnd="@dimen/screen_margin_horizontal"
-            android:layout_above="@id/bottomNavBar"
+            android:layout_above="@id/bottomNavBarContainer"
             android:divider="@android:color/transparent"
             android:dividerHeight="0dp"
             android:clickable="true"
             android:focusable="true"
+            android:listSelector="@android:color/transparent"
+            android:scrollbars="none"
             android:visibility="gone"/>
 
         <!-- Placeholder Image -->
@@ -77,9 +81,9 @@
             android:id="@+id/placeholderImage"
             android:layout_width="@dimen/placeholder_image_size"
             android:layout_height="@dimen/placeholder_image_size"
-            android:scaleType="fitXY"
+            android:scaleType="fitCenter"
             android:layout_centerInParent="true"
-            android:src="@drawable/empty"
+            android:src="@android:color/transparent"
             android:contentDescription="@string/content_desc_no_files"
             android:visibility="gone"/>
 
@@ -88,12 +92,14 @@
             android:id="@+id/placeholderText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/audio_processing_status_placeholder"
+            android:text="@string/empty_home_message"
             android:textSize="@dimen/text_size_normal"
             android:textColor="@color/onSurfaceVariant"
             android:fontFamily="@font/poppins"
             android:gravity="center"
             android:layout_centerInParent="true"
+            android:layout_marginStart="32dp"
+            android:layout_marginEnd="32dp"
             android:visibility="gone"/>
 
         <!-- No Internet Container -->
@@ -110,12 +116,25 @@
                 android:layout_width="@dimen/no_internet_image_size"
                 android:layout_height="@dimen/no_internet_image_size"
                 android:layout_gravity="center"
-                android:scaleType="fitXY"
-                android:src="@drawable/no_internet"
-                android:contentDescription="@string/content_desc_no_internet" />
+                android:scaleType="fitCenter"
+                android:src="@android:color/transparent"
+                android:contentDescription="@string/content_desc_no_internet"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/noInternetText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="@string/no_internet_message"
+                android:textSize="@dimen/text_size_normal"
+                android:textColor="@color/onSurfaceVariant"
+                android:fontFamily="@font/poppins"
+                android:gravity="center"
+                android:padding="16dp"/>
         </LinearLayout>
 
-        <!-- Audio Button -->
+        <!-- Audio Button — matches nav bar elevation/focus style -->
         <LinearLayout
             android:id="@+id/AudioButton"
             android:layout_width="wrap_content"
@@ -125,9 +144,10 @@
             android:layout_marginEnd="@dimen/audio_button_margin_end"
             android:layout_alignParentEnd="true"
             android:orientation="horizontal"
-            android:elevation="9dp"
             android:padding="@dimen/audio_button_padding"
             android:background="@drawable/button_background"
+            android:elevation="12dp"
+            android:stateListAnimator="@animator/press_scale"
             android:clickable="true"
             android:focusable="true">
 
@@ -153,18 +173,33 @@
                 android:textSize="@dimen/text_size_normal" />
         </LinearLayout>
 
-        <!-- Bottom Navigation Bar -->
-        <com.google.android.material.bottomnavigation.BottomNavigationView
-            android:id="@+id/bottomNavBar"
+        <!-- Floating Bottom Navigation Bar -->
+        <FrameLayout
+            android:id="@+id/bottomNavBarContainer"
             android:layout_width="match_parent"
-            android:layout_height="@dimen/bottom_nav_height"
+            android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
-            android:background="@color/surfaceColor"
-            android:padding="@dimen/spacing_small"
-            app:menu="@menu/bottom_navigation_menu"
-            app:itemIconTint="@color/nav_icon_colors"
-            app:itemTextColor="@color/nav_text_colors"
-            app:labelVisibilityMode="labeled" />
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="20dp"
+            android:elevation="12dp"
+            android:background="@drawable/bottom_nav_background">
+
+            <com.google.android.material.bottomnavigation.BottomNavigationView
+                android:id="@+id/bottomNavBar"
+                android:layout_width="match_parent"
+                android:layout_height="68dp"
+                android:background="@android:color/transparent"
+                app:elevation="0dp"
+                app:menu="@menu/bottom_navigation_menu"
+                app:itemIconTint="@color/nav_icon_colors"
+                app:itemTextColor="@color/nav_text_colors"
+                app:itemIconSize="24dp"
+                app:itemTextAppearanceActive="@style/NavTextActive"
+                app:itemTextAppearanceInactive="@style/NavTextInactive"
+                app:labelVisibilityMode="labeled"
+                app:itemRippleColor="@color/LIGHT_BLUE" />
+        </FrameLayout>
 
     </RelativeLayout>
 
@@ -209,7 +244,7 @@
                     android:textColor="@color/fixed_white"
                     android:gravity="center_vertical"
                     android:layout_marginBottom="1dp"
-                    android:textSize="@dimen/text_size_large" />
+                    android:textSize="@dimen/text_size_normal" />
 
                 <ImageView
                     android:layout_width="@dimen/option_icon_size_large"
@@ -239,7 +274,7 @@
                     android:textColor="@color/fixed_white"
                     android:gravity="center_vertical"
                     android:layout_marginBottom="1dp"
-                    android:textSize="@dimen/text_size_large" />
+                    android:textSize="@dimen/text_size_normal" />
 
                 <ImageView
                     android:layout_width="@dimen/option_icon_size"

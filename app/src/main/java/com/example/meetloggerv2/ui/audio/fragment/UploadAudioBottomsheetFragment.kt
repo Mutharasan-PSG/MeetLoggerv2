@@ -32,6 +32,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.example.meetloggerv2.core.session.AuthSession
+import com.example.meetloggerv2.ui.audio.util.AudioProcessingDialogHelper
 import java.io.File
 
 class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
@@ -43,16 +44,29 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private lateinit var networkMonitor: NetworkMonitor
     
     private var selectedAudioUri: Uri? = null
-    private var temporarySpeakerList: List<String>? = null
     private var isProcessing = false
     private val handler = Handler(Looper.getMainLooper())
+    private val progressTimeoutRunnable = Runnable {
+        if (_binding != null && binding.progressOverlay.visibility == View.VISIBLE) {
+            Toast.makeText(context, R.string.msg_please_wait, Toast.LENGTH_SHORT).show()
+        }
+    }
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
 
     private val audioPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
                 selectedAudioUri = uri
-                binding.selectedAudioTextView.text = FileUtils.getFileNameFromUri(requireContext(), uri)
+                val name = FileUtils.getFileNameFromUri(requireContext(), uri)
+                binding.selectedAudioTextView.text = name
+                
+                val blueColor = ContextCompat.getColor(requireContext(), R.color.BLUE)
+                val softBlueColor = android.graphics.Color.parseColor("#154361EE")
+                
+                binding.selectedFileContainer.backgroundTintList = android.content.res.ColorStateList.valueOf(softBlueColor)
+                binding.selectedFileIcon.imageTintList = android.content.res.ColorStateList.valueOf(blueColor)
+                binding.selectedAudioTextView.setTextColor(blueColor)
+                
                 binding.processAudioButton.isEnabled = true
             }
         }
@@ -72,6 +86,11 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
         binding.uploadAudioButton.setOnClickListener { openAudioPicker() }
         binding.processAudioButton.setOnClickListener { checkAndRequestPermissions() }
         setupBackPressHandler()
+        
+        val variantColor = ContextCompat.getColor(requireContext(), R.color.onSurfaceVariant)
+        binding.selectedFileContainer.backgroundTintList = null
+        binding.selectedFileIcon.imageTintList = android.content.res.ColorStateList.valueOf(variantColor)
+        binding.selectedAudioTextView.setTextColor(variantColor)
     }
 
     private fun setupObservers() {
@@ -79,16 +98,27 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
             isProcessing = state is UploadAudioViewModel.UploadUiState.Processing
             binding.progressOverlay.visibility = if (isProcessing) View.VISIBLE else View.GONE
             binding.touchBlockOverlay.visibility = if (isProcessing) View.VISIBLE else View.GONE
+            
+            if (isProcessing) {
+                handler.removeCallbacks(progressTimeoutRunnable)
+                handler.postDelayed(progressTimeoutRunnable, 7000)
+            } else {
+                handler.removeCallbacks(progressTimeoutRunnable)
+            }
+            
             updateDismissalState()
             
             when (state) {
-                is UploadAudioViewModel.UploadUiState.Processing -> binding.processAudioText.text = state.stage
+                is UploadAudioViewModel.UploadUiState.Processing -> {
+                    binding.progressText.text = state.stage
+                    binding.processAudioButton.text = state.stage
+                }
                 is UploadAudioViewModel.UploadUiState.Processed -> {
-                    binding.processAudioText.text = "Process Audio"
+                    binding.processAudioButton.text = getString(R.string.btn_process_audio)
                     Toast.makeText(context, "Processing started", Toast.LENGTH_LONG).show()
                 }
                 is UploadAudioViewModel.UploadUiState.Error -> {
-                    binding.processAudioText.text = "Process Audio"
+                    binding.processAudioButton.text = getString(R.string.btn_process_audio)
                     Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
                 }
                 else -> {}
@@ -101,7 +131,8 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
         isProcessing = false
         binding.progressOverlay.visibility = View.GONE
         binding.touchBlockOverlay.visibility = View.GONE
-        binding.processAudioText.text = "Process Audio"
+        binding.processAudioButton.text = getString(R.string.btn_process_audio)
+        handler.removeCallbacks(progressTimeoutRunnable)
         updateDismissalState()
         Toast.makeText(requireContext(), "Aborted: No internet", Toast.LENGTH_SHORT).show()
     }
@@ -136,111 +167,20 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private fun checkAndRequestPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1003)
-        } else showSpeakerSelectionDialog()
-    }
-
-    private fun showSpeakerSelectionDialog() {
-        val v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_speaker_selection, null)
-        val d = MaterialAlertDialogBuilder(requireContext()).setView(v).setCancelable(false).create()
-        v.findViewById<Button>(R.id.proceedButton).setOnClickListener {
-            val checkedId = v.findViewById<RadioGroup>(R.id.radioGroup).checkedRadioButtonId
-            if (checkedId == -1) {
-                Toast.makeText(context, R.string.error_selection_required, Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            if (checkedId == R.id.radioYes) { d.dismiss(); showSpeakerInputDialog() }
-            else { d.dismiss(); showFollowUpSelectionDialog() }
-        }
-        v.findViewById<Button>(R.id.cancelButton).setOnClickListener { d.dismiss() }
-        d.show()
-    }
-
-    private fun showSpeakerInputDialog() {
-        val v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_speaker_input, null)
-        val container = v.findViewById<LinearLayout>(R.id.speakerContainer)
-        val addSpeakerBtn = v.findViewById<Button>(R.id.addSpeakerButton)
-        val proceedBtn = v.findViewById<Button>(R.id.proceedButton)
-        val speakerList = mutableListOf<String>()
-
-        val updateButtons = {
-            val allFilled = speakerList.all { it.isNotBlank() } && speakerList.isNotEmpty()
-            proceedBtn.isEnabled = allFilled
-            addSpeakerBtn.isEnabled = allFilled && speakerList.size < 10
-        }
-
-        val addInput = {
-            val item = LayoutInflater.from(requireContext()).inflate(R.layout.item_speaker_input, container, false)
-            val idx = speakerList.size
-            speakerList.add("")
-            val input = item.findViewById<EditText>(R.id.speakerNameInput)
-            item.findViewById<TextView>(R.id.speakerLabel).text = "Speaker ${('A' + idx)}"
-            input.addTextChangedListener(object : android.text.TextWatcher {
-                override fun afterTextChanged(s: android.text.Editable?) {
-                    speakerList[idx] = s.toString().trim()
-                    updateButtons()
+        } else {
+            AudioProcessingDialogHelper(
+                context = requireContext(),
+                lifecycleOwner = viewLifecycleOwner,
+                userFilesLiveData = viewModel.userFiles,
+                fetchUserFiles = {
+                    val uid = authSession.currentUserId()
+                    if (uid != null) viewModel.fetchUserFiles(uid)
+                },
+                onProcessingConfirmed = { speakers, followUp ->
+                    processAudio(speakers, followUp)
                 }
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            })
-            container.addView(item)
-            input.post {
-                input.requestFocus()
-                val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
-            }
-            updateButtons()
+            ).show()
         }
-
-        addInput()
-        val d = MaterialAlertDialogBuilder(requireContext()).setView(v).setCancelable(false).create()
-        addSpeakerBtn.setOnClickListener { addInput() }
-        proceedBtn.setOnClickListener {
-            temporarySpeakerList = speakerList.filter { it.isNotBlank() }
-            d.dismiss()
-            showFollowUpSelectionDialog()
-        }
-        v.findViewById<ImageView>(R.id.backButton).setOnClickListener { 
-            d.dismiss()
-            showSpeakerSelectionDialog()
-        }
-        d.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-        d.show()
-    }
-
-    private fun showFollowUpSelectionDialog() {
-        val v = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_follow_up_selection, null)
-        val spinner = v.findViewById<Spinner>(R.id.spinnerFiles)
-        val proceed = v.findViewById<Button>(R.id.proceedButton)
-        v.findViewById<RadioGroup>(R.id.radioGroup).setOnCheckedChangeListener { _, id ->
-            spinner.visibility = if (id == R.id.radioYes) View.VISIBLE else View.GONE
-            if (id == R.id.radioYes) {
-                proceed.isEnabled = false
-                authSession.currentUserId()?.let { viewModel.fetchUserFiles(it) }
-            } else proceed.isEnabled = true
-        }
-        viewModel.userFiles.observe(viewLifecycleOwner) { files ->
-            spinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, files.map { it.substringBeforeLast(".") })
-            spinner.setTag(files)
-            proceed.isEnabled = true
-        }
-        val d = MaterialAlertDialogBuilder(requireContext()).setView(v).setCancelable(false).create()
-        proceed.setOnClickListener {
-            val checkedId = v.findViewById<RadioGroup>(R.id.radioGroup).checkedRadioButtonId
-            if (checkedId == -1) {
-                Toast.makeText(context, R.string.error_selection_required, Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            val followUp = if (checkedId == R.id.radioYes) {
-                (spinner.tag as? List<String>)?.getOrNull(spinner.selectedItemPosition) ?: ""
-            } else ""
-            d.dismiss(); processAudio(temporarySpeakerList ?: emptyList(), followUp)
-        }
-        v.findViewById<Button>(R.id.cancelButton).setOnClickListener { d.dismiss() }
-        v.findViewById<ImageView>(R.id.backButton).setOnClickListener { 
-            d.dismiss()
-            showSpeakerSelectionDialog()
-        }
-        d.show()
     }
 
     private fun processAudio(speakers: List<String>, followUp: String) {

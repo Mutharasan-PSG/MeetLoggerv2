@@ -19,12 +19,12 @@ import kotlin.coroutines.suspendCoroutine
 
 class AudioRepository(
     private val apiService: ApiService = RetrofitClient.apiService
-) : SafeApiCall {
+) : IAudioRepository, SafeApiCall {
 
     private val storage: com.google.firebase.storage.FirebaseStorage by lazy { com.google.firebase.storage.FirebaseStorage.getInstance() }
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
 
-    fun uploadAudioToStorage(userId: String, fileName: String, uri: Uri, onComplete: (String?, Exception?) -> Unit) {
+    override fun uploadAudioToStorage(userId: String, fileName: String, uri: Uri, onComplete: (String?, Exception?) -> Unit) {
         val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
         val metadata = com.google.firebase.storage.storageMetadata { contentType = "audio/mpeg" }
 
@@ -37,14 +37,14 @@ class AudioRepository(
             .addOnFailureListener { onComplete(null, it) }
     }
 
-    fun deleteAudioFromStorage(userId: String, fileName: String, onComplete: (Boolean, Exception?) -> Unit) {
+    override fun deleteAudioFromStorage(userId: String, fileName: String, onComplete: (Boolean, Exception?) -> Unit) {
         val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
         storageRef.delete()
             .addOnSuccessListener { onComplete(true, null) }
             .addOnFailureListener { onComplete(false, it) }
     }
 
-    suspend fun uploadAudioToBackend(
+    override suspend fun uploadAudioToBackend(
         file: File,
         userId: String,
         fileName: String,
@@ -72,7 +72,7 @@ class AudioRepository(
         }
     }
 
-    fun listAudioFiles(userId: String, onComplete: (List<String>?, Exception?) -> Unit) {
+    override fun listAudioFiles(userId: String, onComplete: (List<String>?, Exception?) -> Unit) {
         val storageRef = storage.reference.child("AudioFiles/$userId/")
         storageRef.listAll()
             .addOnSuccessListener { listResult ->
@@ -82,28 +82,28 @@ class AudioRepository(
             .addOnFailureListener { onComplete(null, it) }
     }
 
-    fun downloadAudioBytes(userId: String, fileName: String, onComplete: (ByteArray?, Exception?) -> Unit) {
+    override fun downloadAudioBytes(userId: String, fileName: String, onComplete: (ByteArray?, Exception?) -> Unit) {
         val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
         storageRef.getBytes(Long.MAX_VALUE)
             .addOnSuccessListener { onComplete(it, null) }
             .addOnFailureListener { onComplete(null, it) }
     }
 
-    fun downloadAudioToFile(userId: String, fileName: String, destination: File, onComplete: (Boolean, Exception?) -> Unit) {
+    override fun downloadAudioToFile(userId: String, fileName: String, destination: File, onComplete: (Boolean, Exception?) -> Unit) {
         val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
         storageRef.getFile(destination)
             .addOnSuccessListener { onComplete(true, null) }
             .addOnFailureListener { onComplete(false, it) }
     }
 
-    fun getAudioDownloadUrl(userId: String, fileName: String, onComplete: (String?, Exception?) -> Unit) {
+    override fun getAudioDownloadUrl(userId: String, fileName: String, onComplete: (String?, Exception?) -> Unit) {
         val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
         storageRef.downloadUrl
             .addOnSuccessListener { onComplete(it.toString(), null) }
             .addOnFailureListener { onComplete(null, it) }
     }
 
-    fun uploadAudioBytes(userId: String, fileName: String, bytes: ByteArray, onComplete: (Boolean, Exception?) -> Unit) {
+    override fun uploadAudioBytes(userId: String, fileName: String, bytes: ByteArray, onComplete: (Boolean, Exception?) -> Unit) {
         val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
         storageRef.putBytes(bytes)
             .addOnSuccessListener { onComplete(true, null) }

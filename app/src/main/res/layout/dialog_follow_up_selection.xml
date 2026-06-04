@@ -5,15 +5,15 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/dialog_background_rounded"
-    android:padding="16dp">
+    android:padding="@dimen/dialog_padding">
 
     <ImageView
         android:id="@+id/backButton"
-        android:layout_width="35dp"
-        android:layout_height="35dp"
-        android:scaleType="fitXY"
+        android:layout_width="@dimen/close_icon_size"
+        android:layout_height="@dimen/close_icon_size"
+        android:scaleType="fitCenter"
         android:src="@drawable/back"
-        android:layout_marginBottom="15dp"
+        android:layout_marginBottom="@dimen/list_item_margin_bottom"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/content_desc_back" />
 
@@ -23,16 +23,16 @@
         android:layout_height="wrap_content"
         android:text="@string/msg_follow_up_question"
         android:textColor="@color/Grey"
-        android:textSize="16sp"
+        android:textSize="@dimen/text_size_medium"
         android:fontFamily="@font/poppins_medium"
-        android:layout_margin="8dp"/>
+        android:layout_margin="@dimen/spacing_medium"/>
 
     <RadioGroup
         android:id="@+id/radioGroup"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_margin="8dp">
+        android:layout_margin="@dimen/spacing_medium">
 
         <RadioButton
             android:id="@+id/radioYes"
@@ -53,43 +53,41 @@
 
     <Spinner
         android:id="@+id/spinnerFiles"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/auth_button_height"
         android:visibility="gone"
-        android:layout_margin="15dp"
-        android:background="@drawable/spinner_border"
-        android:maxWidth="300dp"
-        android:minWidth="300dp"
-        android:padding="12dp"/>
+        android:layout_marginTop="@dimen/spacing_medium"
+        android:layout_marginBottom="@dimen/spacing_medium"
+        android:background="@drawable/spinner_background"
+        android:paddingStart="@dimen/spacing_large"
+        android:paddingEnd="@dimen/spacing_large"
+        android:spinnerMode="dropdown"/>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="@dimen/spacing_large"
         android:gravity="end">
 
         <Button
             android:id="@+id/cancelButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:elevation="7dp"
             android:fontFamily="@font/poppins"
             android:text="@string/dialog_cancel"
-            android:padding="5dp"
-            android:textColor="@color/red"
-            android:backgroundTint="@color/surfaceColor"/>
+            android:padding="@dimen/app_logo_margin_top"
+            android:textColor="@color/red"/>
 
         <Button
             android:id="@+id/proceedButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:elevation="7dp"
             android:fontFamily="@font/poppins"
             android:text="@string/dialog_proceed"
-            android:layout_marginStart="15dp"
-            android:padding="5dp"
-            android:textColor="@color/BLUE"
-            android:backgroundTint="@color/surfaceColor"/>
+            android:layout_marginStart="@dimen/list_item_margin_bottom"
+            android:padding="@dimen/app_logo_margin_top"
+            android:textColor="@color/fixed_white"/>
     </LinearLayout>
 </LinearLayout>

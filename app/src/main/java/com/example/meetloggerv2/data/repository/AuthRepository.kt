@@ -6,13 +6,13 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.AuthCredential
 
-class AuthRepository() {
+class AuthRepository() : IAuthRepository {
 
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
 
-    fun getCurrentUser(): FirebaseUser? = auth.currentUser
+    override fun getCurrentUser(): FirebaseUser? = auth.currentUser
 
-    fun signInWithCredential(credential: AuthCredential, onComplete: (FirebaseUser?, Exception?) -> Unit) {
+    override fun signInWithCredential(credential: AuthCredential, onComplete: (FirebaseUser?, Exception?) -> Unit) {
         auth.signInWithCredential(credential)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
@@ -23,7 +23,50 @@ class AuthRepository() {
             }
     }
 
-    fun signOut() {
+    override fun signUpWithEmailAndPassword(email: String, password: String, onComplete: (FirebaseUser?, Exception?) -> Unit) {
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    onComplete(task.result?.user, null)
+                } else {
+                    onComplete(null, task.exception)
+                }
+            }
+    }
+
+    override fun signInWithEmailAndPassword(email: String, password: String, onComplete: (FirebaseUser?, Exception?) -> Unit) {
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    onComplete(task.result?.user, null)
+                } else {
+                    onComplete(null, task.exception)
+                }
+            }
+    }
+
+    override fun sendPasswordResetEmail(email: String, onComplete: (Boolean, Exception?) -> Unit) {
+        auth.sendPasswordResetEmail(email)
+            .addOnCompleteListener { task ->
+                onComplete(task.isSuccessful, task.exception)
+            }
+    }
+
+    override fun sendEmailVerification(user: FirebaseUser, onComplete: (Boolean, Exception?) -> Unit) {
+        user.sendEmailVerification()
+            .addOnCompleteListener { task ->
+                onComplete(task.isSuccessful, task.exception)
+            }
+    }
+
+    override fun reloadUser(user: FirebaseUser, onComplete: (Boolean, Exception?) -> Unit) {
+        user.reload()
+            .addOnCompleteListener { task ->
+                onComplete(task.isSuccessful, task.exception)
+            }
+    }
+
+    override fun signOut() {
         auth.signOut()
     }
 }

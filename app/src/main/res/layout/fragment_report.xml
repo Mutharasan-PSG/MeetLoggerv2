@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:fitsSystemWindows="true"
@@ -7,44 +7,6 @@
     android:layout_height="match_parent"
     android:background="@color/backgroundColor"
     tools:context=".ReportFragment">
-
-    <!-- Main Topic -->
-    <LinearLayout
-        android:id="@+id/top"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/proccessedDocumentsTextView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/search_margin_horizontal"
-            android:text="@string/summarized_files"
-            android:textSize="@dimen/audio_topic_text_size"
-            android:fontFamily="@font/poppins_medium"
-            android:textColor="@color/BLUE"
-            android:layout_marginTop="@dimen/audio_topic_margin_top"/>
-
-        <View
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_weight="1"/>
-
-        <ImageView
-            android:id="@+id/audioListIcon"
-            android:layout_width="@dimen/login_logo_height"
-            android:layout_height="@dimen/login_logo_height"
-            android:layout_marginTop="@dimen/profile_pic_margin_top"
-            android:layout_marginEnd="@dimen/search_margin_horizontal"
-            android:scaleType="fitXY"
-            android:padding="@dimen/spacing_medium"
-            android:src="@drawable/audioo"
-            android:contentDescription="@string/content_desc_open_audio_list"
-            android:clickable="true"
-            android:focusable="true"/>
-
-    </LinearLayout>
 
     <FrameLayout
         android:id="@+id/mainContent"
@@ -55,9 +17,9 @@
             android:id="@+id/placeholderImage"
             android:layout_width="@dimen/audio_options_width"
             android:layout_height="@dimen/audio_options_height"
-            android:scaleType="fitXY"
+            android:scaleType="fitCenter"
             android:layout_gravity="center"
-            android:src="@drawable/documents"
+            android:src="@android:color/transparent"
             android:contentDescription="@string/content_desc_no_files"
             android:visibility="gone"/>
 
@@ -71,30 +33,8 @@
             android:fontFamily="@font/poppins"
             android:gravity="center"
             android:layout_gravity="center"
-            android:visibility="gone"/>
-
-        <ImageView
-            android:id="@+id/deleteIcon"
-            android:layout_width="@dimen/list_item_icon_size"
-            android:layout_height="@dimen/list_item_icon_size"
-            android:layout_gravity="top|end"
-            android:layout_marginEnd="@dimen/search_margin_horizontal"
-            android:layout_marginTop="@dimen/audio_topic_margin_top"
-            android:src="@drawable/delete1"
-            android:contentDescription="@string/content_desc_delete"
-            android:visibility="gone"/>
-
-        <ImageView
-            android:id="@+id/tickIcon"
-            android:layout_width="@dimen/profile_pic_size"
-            android:layout_height="@dimen/profile_pic_size"
-            android:layout_gravity="top|end"
-            android:layout_marginEnd="@dimen/search_margin_horizontal"
-            android:layout_marginTop="@dimen/app_logo_margin_start"
-            android:src="@drawable/tick"
-            android:contentDescription="@string/content_desc_tick"
-            android:clickable="true"
-            android:focusable="true"
+            android:layout_marginStart="32dp"
+            android:layout_marginEnd="32dp"
             android:visibility="gone"/>
 
         <androidx.appcompat.widget.SearchView
@@ -108,7 +48,9 @@
             android:layout_marginStart="@dimen/search_margin_horizontal"
             android:layout_marginEnd="@dimen/search_margin_horizontal"
             android:visibility="gone"
-            android:background="@drawable/searchview_border"/>
+            android:background="@drawable/searchview_border"
+            app:queryBackground="@android:color/transparent"
+            app:submitBackground="@android:color/transparent"/>
 
         <CheckBox
             android:id="@+id/selectAllCheckbox"
@@ -133,6 +75,8 @@
             android:dividerHeight="0dp"
             android:clickable="true"
             android:focusable="true"
+            android:listSelector="@android:color/transparent"
+            android:scrollbars="none"
             android:visibility="gone"/>
 
         <!-- Progress Overlay -->
@@ -145,16 +89,126 @@
             android:clickable="true"
             android:focusable="true">
 
-            <ProgressBar
-                android:id="@+id/operationProgressBar"
-                style="?android:attr/progressBarStyle"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:indeterminateTint="@color/BLUE"
-                android:indeterminateTintMode="src_in" />
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="@dimen/spacing_extra_large"
+                android:background="@drawable/dialog_background_rounded"
+                android:minWidth="@dimen/progress_overlay_min_width">
+
+                <ProgressBar
+                    android:id="@+id/operationProgressBar"
+                    style="?android:attr/progressBarStyle"
+                    android:layout_width="@dimen/progress_bar_size"
+                    android:layout_height="@dimen/progress_bar_size"
+                    android:indeterminateTint="@color/BLUE"
+                    android:indeterminateTintMode="src_in" />
+
+                <TextView
+                    android:id="@+id/progressText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_normal"
+                    android:text="@string/placeholder_loading"
+                    android:fontFamily="@font/poppins_medium"
+                    android:textSize="@dimen/text_size_instruction"
+                    android:textColor="@color/onSurfaceColor" />
+
+            </LinearLayout>
         </FrameLayout>
     </FrameLayout>
+
+    <!-- Header Toolbar -->
+    <RelativeLayout
+        android:id="@+id/headerLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="@dimen/toolbar_padding_horizontal"
+        android:paddingVertical="@dimen/toolbar_padding_vertical"
+        android:background="@color/backgroundColor"
+        android:elevation="@dimen/profile_card_elevation"
+        android:layout_alignParentTop="true">
+
+        <ImageView
+            android:id="@+id/backButton"
+            android:layout_width="@dimen/toolbar_button_size"
+            android:layout_height="@dimen/toolbar_button_size"
+            android:src="@drawable/back_arrow"
+            android:padding="@dimen/toolbar_button_padding"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            app:tint="@color/BLUE"
+            android:contentDescription="@string/content_desc_back"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true" />
+
+        <TextView
+            android:id="@+id/proccessedDocumentsTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/summarized_files"
+            android:layout_marginStart="@dimen/toolbar_title_margin_start"
+            android:fontFamily="@font/poppins_bold"
+            android:textSize="@dimen/toolbar_title_text_size"
+            android:textColor="@color/BLUE"
+            android:layout_toEndOf="@id/backButton"
+            android:layout_centerVertical="true" />
+
+        <!-- Container for right actions: audioListIcon, deleteIcon, tickIcon -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true">
+
+            <ImageView
+                android:id="@+id/audioListIcon"
+                android:layout_width="@dimen/toolbar_button_size"
+                android:layout_height="@dimen/toolbar_button_size"
+                android:scaleType="fitCenter"
+                android:padding="@dimen/spacing_medium"
+                android:src="@drawable/audioo"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/content_desc_open_audio_list"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginEnd="@dimen/spacing_medium"/>
+
+            <ImageView
+                android:id="@+id/deleteIcon"
+                android:layout_width="@dimen/toolbar_button_size"
+                android:layout_height="@dimen/toolbar_button_size"
+                android:src="@drawable/delete1"
+                android:padding="@dimen/spacing_medium"
+                android:background="@drawable/delete_button_bg"
+                android:backgroundTint="@color/delete_icon_bg_tint"
+                android:contentDescription="@string/content_desc_delete"
+                android:clickable="true"
+                android:focusable="true"
+                app:tint="@color/red"
+                android:visibility="gone"
+                android:layout_marginEnd="@dimen/spacing_medium"/>
+
+            <ImageView
+                android:id="@+id/tickIcon"
+                android:layout_width="@dimen/toolbar_button_size"
+                android:layout_height="@dimen/toolbar_button_size"
+                android:src="@drawable/tick"
+                android:padding="@dimen/spacing_medium"
+                android:background="@drawable/tick_button_bg"
+                android:contentDescription="@string/content_desc_tick"
+                android:clickable="true"
+                android:focusable="true"
+                app:tint="@color/tick_icon_tint"
+                android:visibility="gone"/>
+        </LinearLayout>
+    </RelativeLayout>
 
     <!-- No Internet Container -->
     <LinearLayout
@@ -170,9 +224,22 @@
             android:layout_width="@dimen/no_internet_image_size"
             android:layout_height="@dimen/no_internet_image_size"
             android:layout_gravity="center"
-            android:scaleType="fitXY"
-            android:src="@drawable/no_internet"
-            android:contentDescription="@string/content_desc_no_internet" />
+            android:scaleType="fitCenter"
+            android:src="@android:color/transparent"
+            android:contentDescription="@string/content_desc_no_internet"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/noInternetText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/no_internet_message"
+            android:textSize="@dimen/text_size_normal"
+            android:textColor="@color/onSurfaceVariant"
+            android:fontFamily="@font/poppins"
+            android:gravity="center"
+            android:padding="16dp"/>
     </LinearLayout>
 
     <FrameLayout
@@ -181,4 +248,5 @@
         android:layout_height="match_parent"
         android:background="@android:color/transparent"
         android:visibility="gone" />
-</FrameLayout>
+
+</RelativeLayout>

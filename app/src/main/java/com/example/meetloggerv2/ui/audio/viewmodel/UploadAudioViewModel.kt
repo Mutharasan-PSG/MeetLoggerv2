@@ -5,16 +5,18 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.example.meetloggerv2.data.repository.AudioRepository
+import com.example.meetloggerv2.data.repository.IAudioRepository
 import com.example.meetloggerv2.data.repository.FileRepository
+import com.example.meetloggerv2.data.repository.IFileRepository
 import com.google.firebase.firestore.FieldValue
 import androidx.lifecycle.viewModelScope
 import com.example.meetloggerv2.core.network.NetworkResult
 import kotlinx.coroutines.launch
 import java.io.File
 
-class UploadAudioViewModel(
-    private val audioRepository: AudioRepository = AudioRepository(),
-    private val fileRepository: FileRepository = FileRepository()
+class UploadAudioViewModel @JvmOverloads constructor(
+    private val audioRepository: IAudioRepository = AudioRepository(),
+    private val fileRepository: IFileRepository = FileRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableLiveData<UploadUiState>(UploadUiState.Idle)

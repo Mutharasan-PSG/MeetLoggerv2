@@ -10,4 +10,6 @@
     android:paddingBottom="@dimen/spacing_medium"
     android:textColor="@color/onSurfaceColor"
     android:textSize="@dimen/text_size_normal"
+    android:fontFamily="@font/poppins"
+    android:background="?android:attr/selectableItemBackground"
     android:minHeight="@dimen/popup_item_min_height"/>

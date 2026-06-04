@@ -4,7 +4,7 @@
 
     <string name="default_web_client_id">687079496758-sikpp68be4qbgba37pfuf2slrdjn1j7c.apps.googleusercontent.com</string>
     <string name="sign_in_with_google">Sign in with Google</string>
-    <string name="privacy_policy_agreement">By signing in, you agree to our Terms, Privacy Policy, and Cookies Use.</string>
+    <string name="privacy_policy_agreement">By signing in, you agree to our Terms &amp; Privacy Policy.</string>
 
     <!-- Navigation -->
     <string name="menu_home">Home</string>
@@ -115,6 +115,13 @@
 
     <!-- Toasts & Error Messages -->
     <string name="error_no_internet">Aborted: No internet</string>
+    <string name="no_internet_message">No internet connection. Please check your settings.</string>
+    <string name="empty_home_message">No documents found. Your summarized meetings will appear here.</string>
+    <string name="empty_home_search_message">No documents match your search.</string>
+    <string name="empty_audio_message">No audio files found. Record or upload audio to get started.</string>
+    <string name="empty_audio_search_message">No audio files found matching your search.</string>
+    <string name="empty_report_message">No reports found. Process audio files to generate reports.</string>
+    <string name="empty_report_search_message">No reports found matching your search.</string>
     <string name="error_rename_failed">Rename failed</string>
     <string name="error_copy_failed">Copy failed</string>
     <string name="error_delete_failed">Failed to delete</string>
@@ -126,9 +133,80 @@
     <string name="msg_download_failed">Download failed</string>
     <string name="msg_wait">Wait...</string>
 
+    <!-- Additional Profile Strings -->
+    <string name="placeholder_profile_name">NAME</string>
+    <string name="placeholder_profile_email">EMAIL</string>
+    <string name="placeholder_profile_actual_name">Actual Name</string>
+    <string name="placeholder_profile_default_email">user@example.com</string>
+    <string name="content_desc_name_icon">Name Icon</string>
+    <string name="content_desc_email_icon">Email Icon</string>
+    <string name="placeholder_loading">Loading…</string>
+    <string name="content_desc_audio_file">Audio File</string>
+
+    <!-- Standardized layout strings -->
+    <string name="title_upload_audio">Upload Audio</string>
+    <string name="supported_formats_desc">MP3, WAV, M4A, AAC supported</string>
+    <string name="processing_label">Processing…</string>
+    <string name="content_desc_upload">Upload</string>
+    <string name="title_record_audio">Record Audio</string>
+    <string name="content_desc_lock_toggle">Lock Bottom Sheet</string>
+    <string name="content_desc_process">Process</string>
+    <string name="content_desc_new">New</string>
+    <string name="btn_delete">Delete</string>
+
+    <!-- Export and Share dialog strings -->
+    <string name="dialog_subtitle_export_format">Select the format to save or share your document</string>
+    <string name="option_pdf_document">PDF Document</string>
+    <string name="option_pdf_desc">Best for viewing, printing, and sharing</string>
+    <string name="option_docx_document">Word Document</string>
+    <string name="option_docx_desc">Best for editing in Microsoft Word</string>
+    <string name="btn_share_pdf">Share as PDF</string>
+    <string name="btn_share_docx">Share as DOCX</string>
+
     <!-- Notifications -->
     <string name="notif_channel_name">File Notifications</string>
     <string name="notif_title_processed">File Processed</string>
     <string name="notif_content_processed">%1$s documented successfully, check it out!</string>
+    <string name="msg_please_wait">Please wait, this may take a moment…</string>
 
+    <!-- Sign Up Screen -->
+    <string name="title_sign_up">Sign Up</string>
+    <string name="title_create_account">Create Account</string>
+    <string name="hint_full_name">Full Name</string>
+    <string name="hint_email_address">Email Address</string>
+    <string name="hint_password">Password</string>
+    <string name="hint_confirm_password">Confirm Password</string>
+    <string name="label_already_have_account">Already have an account? </string>
+    <string name="label_sign_in">Sign In</string>
+    <string name="dialog_title_signup_success">Verify Your Email</string>
+    <string name="dialog_msg_signup_success">A verification link has been sent to:\n\n<b>%1$s</b>\n\nPlease check your inbox (and spam folder) and follow the instructions to activate your account before logging in.</string>
+
+    <!-- Forgot Password Screen -->
+    <string name="title_forgot_password">Forgot Password</string>
+    <string name="desc_forgot_password">Enter your email address below, and we will send you a password reset link.</string>
+    <string name="btn_send_reset_link">Send Reset Link</string>
+    <string name="label_back_to_login">Back to Login</string>
+    <string name="toast_password_reset_sent">Password reset email sent.</string>
+
+    <!-- Validation & Other Auth Messages -->
+    <string name="error_passwords_do_not_match">Passwords do not match</string>
+    <string name="error_name_required">Please enter your full name</string>
+    <string name="error_password_rules">Password must be at least 8 characters long and contain uppercase, lowercase, digit, and special character</string>
+
+    <!-- Onboarding / Intro Screen -->
+    <string name="btn_get_started">Get Started</string>
+
+    <!-- Additional Authentication Strings -->
+    <string name="label_forgot_password_question">Forgot Password?</string>
+    <string name="btn_login">Login</string>
+    <string name="label_or_continue_with">or continue with</string>
+    <string name="label_dont_have_account">Don\'t have an account? </string>
+
+    <!-- Hardcoded layout strings consolidation -->
+    <string name="title_terms_conditions">Terms &amp; Conditions</string>
+    <string name="btn_go_back">Go Back</string>
+    <string name="dialog_overwrite_warning_msg">Overwriting will replace the original content with your edits.</string>
+    <string name="dialog_yes">Yes</string>
+    <string name="dialog_no">No</string>
+    <string name="dialog_language_switch_msg">Select the translation target language for this document</string>
 </resources>

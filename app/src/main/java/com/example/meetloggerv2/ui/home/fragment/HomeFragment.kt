@@ -40,9 +40,9 @@ class HomeFragment : Fragment() {
     private lateinit var searchView: SearchView
     private lateinit var adapter: FileListAdapter
     private lateinit var networkMonitor: NetworkMonitor
+    private lateinit var onBackPressedCallback: androidx.activity.OnBackPressedCallback
     
     private val viewModel: HomeViewModel by viewModels()
-    private val authSession = AuthSession()
     private val fileList = ArrayList<Triple<String, String, com.google.firebase.Timestamp>>()
     private val filteredList = ArrayList<Triple<String, String, com.google.firebase.Timestamp>>()
 
@@ -66,6 +66,7 @@ class HomeFragment : Fragment() {
         closeButton = view.findViewById(R.id.closeButton)
         listView = view.findViewById(R.id.listView)
         searchView = view.findViewById(R.id.searchView)
+        UIUtils.setupSearchViewClickToFocus(searchView)
 
         bottomNavBar.itemIconTintList = null
         bottomNavBar.selectedItemId = R.id.menu_home
@@ -73,6 +74,14 @@ class HomeFragment : Fragment() {
 
         adapter = FileListAdapter(requireContext(), filteredList)
         listView.adapter = adapter
+
+        // Register onBackPressedCallback, initially disabled
+        onBackPressedCallback = object : androidx.activity.OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                toggleAudioOptions(false)
+            }
+        }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, onBackPressedCallback)
     }
 
     private fun setupObservers() {
@@ -85,7 +94,15 @@ class HomeFragment : Fragment() {
 
         viewModel.userProfile.observe(viewLifecycleOwner) { data ->
             data?.let {
-                Glide.with(this).load(it["photoUrl"]).circleCrop().placeholder(R.drawable.default_profile_pic).into(profilePic)
+                val name = it["name"] as? String ?: "User"
+                val avatarDrawable = com.example.meetloggerv2.core.util.AvatarGenerator.getAvatar(requireContext(), name)
+                Glide.with(this)
+                    .load(it["photoUrl"] as? String)
+                    .placeholder(avatarDrawable)
+                    .error(avatarDrawable)
+                    .fallback(avatarDrawable)
+                    .circleCrop()
+                    .into(profilePic)
             }
         }
 
@@ -95,7 +112,7 @@ class HomeFragment : Fragment() {
             if (isOnline) {
                 noNet?.visibility = View.GONE
                 mainContent?.visibility = View.VISIBLE
-                authSession.currentUserId()?.let { viewModel.fetchFiles(it) }
+                viewModel.fetchFiles()
             } else {
                 noNet?.visibility = View.VISIBLE
                 listView.visibility = View.GONE
@@ -113,6 +130,7 @@ class HomeFragment : Fragment() {
 
         audioButton.setOnClickListener { toggleAudioOptions(true) }
         closeButton.setOnClickListener { toggleAudioOptions(false) }
+        audioOptionsOverlay.setOnClickListener { toggleAudioOptions(false) }
 
         view.findViewById<LinearLayout>(R.id.RecordAudio).setOnClickListener {
             toggleAudioOptions(false)
@@ -134,13 +152,116 @@ class HomeFragment : Fragment() {
         }
 
         profilePic.setOnClickListener { navigateTo(ProfileFragment()) }
-        authSession.currentUserId()?.let { viewModel.loadUserProfile(it) }
+        viewModel.loadUserProfile()
     }
 
     private fun toggleAudioOptions(show: Boolean) {
-        audioOptionsOverlay.visibility = if (show) View.VISIBLE else View.GONE
-        audioOptionsLayout.visibility = if (show) View.VISIBLE else View.GONE
-        audioButton.visibility = if (show) View.GONE else View.VISIBLE
+        onBackPressedCallback.isEnabled = show
+        if (show) {
+            // Cancel any running animations
+            audioOptionsOverlay.animate().cancel()
+            audioOptionsLayout.animate().cancel()
+            audioButton.animate().cancel()
+            closeButton.animate().cancel()
+
+            // 1. Prepare and animate overlay in
+            audioOptionsOverlay.alpha = 0f
+            audioOptionsOverlay.visibility = View.VISIBLE
+            audioOptionsOverlay.animate()
+                .alpha(1f)
+                .setDuration(300)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+
+            // 2. Prepare and animate AudioButton out
+            audioButton.animate()
+                .alpha(0f)
+                .scaleX(0.3f)
+                .scaleY(0.3f)
+                .setDuration(200)
+                .setInterpolator(android.view.animation.AccelerateInterpolator())
+                .withEndAction {
+                    audioButton.visibility = View.GONE
+                }
+                .start()
+
+            // 3. Prepare and animate options panel in
+            audioOptionsLayout.visibility = View.VISIBLE
+            audioOptionsLayout.alpha = 0f
+            audioOptionsLayout.scaleX = 0.3f
+            audioOptionsLayout.scaleY = 0.3f
+
+            // Post so pivot calculations are correct after view layout
+            audioOptionsLayout.post {
+                audioOptionsLayout.pivotX = audioOptionsLayout.width.toFloat()
+                audioOptionsLayout.pivotY = audioOptionsLayout.height.toFloat()
+                audioOptionsLayout.animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(300)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(1.1f))
+                    .start()
+            }
+
+            // 4. Smoothly rotate close button into lock position (180deg)
+            closeButton.rotation = 0f
+            closeButton.animate()
+                .rotation(180f)
+                .setDuration(450)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.4f))
+                .start()
+        } else {
+            // Cancel any running animations
+            audioOptionsOverlay.animate().cancel()
+            audioOptionsLayout.animate().cancel()
+            audioButton.animate().cancel()
+            closeButton.animate().cancel()
+
+            // 1. Animate overlay out
+            audioOptionsOverlay.animate()
+                .alpha(0f)
+                .setDuration(250)
+                .setInterpolator(android.view.animation.AccelerateInterpolator())
+                .withEndAction {
+                    audioOptionsOverlay.visibility = View.GONE
+                }
+                .start()
+
+            // 2. Animate options panel out
+            audioOptionsLayout.pivotX = audioOptionsLayout.width.toFloat()
+            audioOptionsLayout.pivotY = audioOptionsLayout.height.toFloat()
+            audioOptionsLayout.animate()
+                .alpha(0f)
+                .scaleX(0.3f)
+                .scaleY(0.3f)
+                .setDuration(250)
+                .setInterpolator(android.view.animation.AccelerateInterpolator())
+                .withEndAction {
+                    audioOptionsLayout.visibility = View.GONE
+                }
+                .start()
+
+            // 3. Prepare and animate AudioButton back in
+            audioButton.visibility = View.VISIBLE
+            audioButton.alpha = 0f
+            audioButton.scaleX = 0.3f
+            audioButton.scaleY = 0.3f
+            audioButton.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(250)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+
+            // 4. Smoothly rotate close button back to 0deg
+            closeButton.animate()
+                .rotation(0f)
+                .setDuration(250)
+                .setInterpolator(android.view.animation.AccelerateInterpolator())
+                .start()
+        }
     }
 
     private fun filterFiles(query: String?) {
@@ -158,8 +279,20 @@ class HomeFragment : Fragment() {
         val noFilesAtAll = viewModel.files.value.isNullOrEmpty()
         val noFilteredFiles = filteredList.isEmpty()
         
-        view?.findViewById<ImageView>(R.id.placeholderImage)?.visibility = if (noFilesAtAll) View.VISIBLE else View.GONE
-        view?.findViewById<TextView>(R.id.placeholderText)?.visibility = if (!noFilesAtAll && noFilteredFiles) View.VISIBLE else View.GONE
+        view?.findViewById<ImageView>(R.id.placeholderImage)?.visibility = View.GONE
+        
+        val placeholderTv = view?.findViewById<TextView>(R.id.placeholderText)
+        if (placeholderTv != null) {
+            if (noFilesAtAll) {
+                placeholderTv.setText(R.string.empty_home_message)
+                placeholderTv.visibility = View.VISIBLE
+            } else if (noFilteredFiles) {
+                placeholderTv.setText(R.string.empty_home_search_message)
+                placeholderTv.visibility = View.VISIBLE
+            } else {
+                placeholderTv.visibility = View.GONE
+            }
+        }
         
         listView.visibility = if (noFilteredFiles) View.GONE else View.VISIBLE
         searchView.visibility = if (noFilesAtAll) View.GONE else View.VISIBLE

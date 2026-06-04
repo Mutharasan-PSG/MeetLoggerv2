@@ -1,27 +1,49 @@
 package com.example.meetloggerv2.ui.audio.viewmodel
 
+import android.app.Application
 import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import com.example.meetloggerv2.data.repository.AudioRepository
-import com.example.meetloggerv2.data.repository.FileRepository
-import com.google.firebase.firestore.FieldValue
 import androidx.lifecycle.viewModelScope
+import com.example.meetloggerv2.core.media.AudioRecorderManager
 import com.example.meetloggerv2.core.network.NetworkResult
+import com.example.meetloggerv2.data.repository.AudioRepository
+import com.example.meetloggerv2.data.repository.IAudioRepository
+import com.example.meetloggerv2.data.repository.FileRepository
+import com.example.meetloggerv2.data.repository.IFileRepository
+import com.google.firebase.firestore.FieldValue
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
-class RecordAudioViewModel(
-    private val audioRepository: AudioRepository = AudioRepository(),
-    private val fileRepository: FileRepository = FileRepository()
-) : ViewModel() {
+class RecordAudioViewModel @JvmOverloads constructor(
+    application: Application,
+    private val audioRepository: IAudioRepository = AudioRepository(),
+    private val fileRepository: IFileRepository = FileRepository()
+) : AndroidViewModel(application) {
+
+    enum class RecordState {
+        IDLE, RECORDING, PAUSED, STOPPED
+    }
 
     private val _uiState = MutableLiveData<UiState>(UiState.Idle)
     val uiState: LiveData<UiState> = _uiState
 
+    private val _recordState = MutableLiveData<RecordState>(RecordState.IDLE)
+    val recordState: LiveData<RecordState> = _recordState
+
+    private val _elapsedTime = MutableLiveData<Int>(0)
+    val elapsedTime: LiveData<Int> = _elapsedTime
+
     private val _userFiles = MutableLiveData<List<String>>()
     val userFiles: LiveData<List<String>> = _userFiles
+
+    private val audioRecorder = AudioRecorderManager()
+    private var recordTimerJob: Job? = null
+    private var recordingStartTime = 0L
+    private var elapsedTimeBeforePause = 0L
 
     fun fetchUserFiles(userId: String) {
         fileRepository.getUserFiles(userId, { dataList ->
@@ -30,6 +52,69 @@ class RecordAudioViewModel(
         }, {
             _uiState.postValue(UiState.Error(it.message ?: "Failed to fetch files"))
         })
+    }
+
+    fun startRecording(outputFile: File) {
+        try {
+            audioRecorder.start(outputFile)
+            _recordState.value = RecordState.RECORDING
+            recordingStartTime = System.currentTimeMillis()
+            elapsedTimeBeforePause = 0L
+            _elapsedTime.value = 0
+            startTimer()
+        } catch (e: Exception) {
+            _uiState.value = UiState.Error(e.message ?: "Failed to start recording")
+        }
+    }
+
+    fun pauseRecording() {
+        if (_recordState.value == RecordState.RECORDING) {
+            audioRecorder.pause()
+            _recordState.value = RecordState.PAUSED
+            elapsedTimeBeforePause += System.currentTimeMillis() - recordingStartTime
+            stopTimer()
+        }
+    }
+
+    fun resumeRecording() {
+        if (_recordState.value == RecordState.PAUSED) {
+            audioRecorder.resume()
+            _recordState.value = RecordState.RECORDING
+            recordingStartTime = System.currentTimeMillis()
+            startTimer()
+        }
+    }
+
+    fun stopRecording() {
+        if (_recordState.value == RecordState.RECORDING || _recordState.value == RecordState.PAUSED) {
+            audioRecorder.stop()
+            _recordState.value = RecordState.STOPPED
+            stopTimer()
+        }
+    }
+
+    fun releaseRecorder() {
+        audioRecorder.release()
+        _recordState.value = RecordState.IDLE
+        stopTimer()
+    }
+
+    fun getMaxAmplitude(): Int = audioRecorder.getMaxAmplitude()
+
+    private fun startTimer() {
+        recordTimerJob?.cancel()
+        recordTimerJob = viewModelScope.launch {
+            while (true) {
+                val elapsed = System.currentTimeMillis() - recordingStartTime + elapsedTimeBeforePause
+                _elapsedTime.postValue(elapsed.toInt())
+                delay(1000)
+            }
+        }
+    }
+
+    private fun stopTimer() {
+        recordTimerJob?.cancel()
+        recordTimerJob = null
     }
 
     fun saveAudio(userId: String, audioFile: File, uri: Uri) {
@@ -88,8 +173,13 @@ class RecordAudioViewModel(
     }
 
     fun deleteAudio(userId: String, fileName: String) {
-        audioRepository.deleteAudioFromStorage(userId, fileName) { success, exception ->
-        }
+        audioRepository.deleteAudioFromStorage(userId, fileName) { _, _ -> }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        audioRecorder.release()
+        stopTimer()
     }
 
     sealed class UiState {

@@ -1,5 +1,7 @@
 package com.example.meetloggerv2.ui.details.fragment
 
+import android.os.Handler
+import android.os.Looper
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
@@ -19,6 +21,7 @@ import androidx.fragment.app.viewModels
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.example.meetloggerv2.R
 import com.example.meetloggerv2.core.export.DocumentExportManager
+import com.example.meetloggerv2.core.util.ShareHelper
 import com.example.meetloggerv2.ui.details.viewmodel.FileDetailsViewModel
 import com.example.meetloggerv2.core.session.AuthSession
 import com.google.firebase.Timestamp
@@ -31,16 +34,37 @@ class FileDetailsFragment : Fragment() {
     private lateinit var bottomContainer: LinearLayout
     private lateinit var scrollView: ScrollView
     private lateinit var progressOverlay: FrameLayout
+    private lateinit var progressText: TextView
     private lateinit var languageSwitchButton: LinearLayout
     private lateinit var editText: EditText
-    private lateinit var updateButton: Button
-    private lateinit var cancelButton: Button
+    private lateinit var updateButton: View
+    private lateinit var cancelButton: View
     private lateinit var editLayout: View
     private lateinit var exportLayout: View
     private lateinit var shareLayout: View
     
+    private val progressTimeoutHandler = Handler(Looper.getMainLooper())
+    private val progressTimeoutRunnable = Runnable {
+        if (isAdded && progressOverlay.visibility == View.VISIBLE) {
+            Toast.makeText(context, R.string.msg_please_wait, Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private var isBottomContainerVisible = true
+    private val showBottomBarRunnable = Runnable {
+        if (isAdded && !isBottomContainerVisible) {
+            isBottomContainerVisible = true
+            bottomContainer.visibility = View.VISIBLE
+            bottomContainer.animate().cancel()
+            bottomContainer.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(200)
+                .start()
+        }
+    }
+    
     private val viewModel: FileDetailsViewModel by viewModels()
-    private val authSession = AuthSession()
     private lateinit var exportManager: DocumentExportManager
     
     private var fileName: String? = null
@@ -80,6 +104,7 @@ class FileDetailsFragment : Fragment() {
     private fun initializeViews(view: View) {
         responseTextView = view.findViewById(R.id.responseTextView); bottomContainer = view.findViewById(R.id.bottomContainer)
         scrollView = view.findViewById(R.id.scrollView); progressOverlay = view.findViewById(R.id.progressOverlay)
+        progressText = view.findViewById(R.id.progressText)
         languageSwitchButton = view.findViewById(R.id.languageSwitchButton)
         languageSwitchButton.setOnClickListener { showLanguageDialog() }
         editLayout = view.findViewById(R.id.editlayout)
@@ -90,21 +115,8 @@ class FileDetailsFragment : Fragment() {
         exportLayout.setOnClickListener { showExportDialog() }
         shareLayout.setOnClickListener { showShareDialog() }
         
-        updateButton = Button(context).apply { 
-            text = getString(R.string.dialog_update)
-            visibility = View.GONE
-            setBackgroundColor(ContextCompat.getColor(context, R.color.BLUE))
-            setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
-        }
-        cancelButton = Button(context).apply { 
-            text = getString(R.string.dialog_cancel)
-            visibility = View.GONE
-            setBackgroundColor(ContextCompat.getColor(context, R.color.BLUE))
-            setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
-        }
-        bottomContainer.addView(updateButton); bottomContainer.addView(cancelButton)
+        updateButton = view.findViewById(R.id.updatelayout)
+        cancelButton = view.findViewById(R.id.cancellayout)
         updateButton.setOnClickListener { checkAndSaveEditedContent() }
         cancelButton.setOnClickListener { switchToViewMode() }
         setupBackPressHandler()
@@ -121,15 +133,27 @@ class FileDetailsFragment : Fragment() {
         }
         viewModel.translatedText.observe(viewLifecycleOwner) { result -> responseTextView.text = result; isContentTranslated = true; isTranslating = false }
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
-            progressOverlay.visibility = if (state is FileDetailsViewModel.DetailsUiState.Loading) View.VISIBLE else View.GONE
+            val isLoading = state is FileDetailsViewModel.DetailsUiState.Loading
+            progressOverlay.visibility = if (isLoading) View.VISIBLE else View.GONE
+            if (isLoading) {
+                progressText.text = (state as FileDetailsViewModel.DetailsUiState.Loading).message
+                progressTimeoutHandler.removeCallbacks(progressTimeoutRunnable)
+                progressTimeoutHandler.postDelayed(progressTimeoutRunnable, 7000)
+            } else {
+                progressTimeoutHandler.removeCallbacks(progressTimeoutRunnable)
+            }
             if (state is FileDetailsViewModel.DetailsUiState.NewFileCreated) openNewFileDetailsFragment(state.fileName)
         }
     }
 
-    private fun fetchFileDetails() { authSession.currentUserId()?.let { uid -> fileName?.let { viewModel.fetchDetails(uid, it) } } }
+    private fun fetchFileDetails() { fileName?.let { viewModel.fetchDetails(it) } }
 
     private fun switchToEditMode() { 
         isEditing = true
+        if (!isBottomContainerVisible) {
+            progressTimeoutHandler.removeCallbacks(showBottomBarRunnable)
+            showBottomBarRunnable.run()
+        }
         editText = EditText(context).apply { 
             setText(responseTextView.text)
             layoutParams = responseTextView.layoutParams
@@ -149,6 +173,10 @@ class FileDetailsFragment : Fragment() {
 
     private fun switchToViewMode() { 
         isEditing = false
+        if (!isBottomContainerVisible) {
+            progressTimeoutHandler.removeCallbacks(showBottomBarRunnable)
+            showBottomBarRunnable.run()
+        }
         val p = editText.parent as ViewGroup
         val i = p.indexOfChild(editText)
         p.removeView(editText)
@@ -162,16 +190,41 @@ class FileDetailsFragment : Fragment() {
     }
 
     private fun checkAndSaveEditedContent() { if (!isContentTranslated) saveEditedContent() else showSaveOptionsDialog() }
-    private fun saveEditedContent() { authSession.currentUserId()?.let { uid -> fileName?.let { viewModel.updateContent(uid, it, editText.text.toString(), selectedLanguageCode) } }; switchToViewMode() }
-    private fun saveAsNewCopy() { authSession.currentUserId()?.let { uid -> fileName?.let { val name = "${it.substringBeforeLast(".")} (Copy).mp3"; viewModel.saveAsNewCopy(uid, name, viewModel.fileDetails.value?.toMutableMap()?.apply { put("fileName", name); put("Response", editText.text.toString()) } ?: mapOf()) } }; switchToViewMode() }
+    private fun saveEditedContent() { fileName?.let { viewModel.updateContent(it, editText.text.toString(), selectedLanguageCode) }; switchToViewMode() }
+    private fun saveAsNewCopy() { fileName?.let { val name = "${it.substringBeforeLast(".")} (Copy).mp3"; viewModel.saveAsNewCopy(name, viewModel.fileDetails.value?.toMutableMap()?.apply { put("fileName", name); put("Response", editText.text.toString()) } ?: mapOf()) }; switchToViewMode() }
 
     private fun showSaveOptionsDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_save_options, null)
         val dialog = MaterialAlertDialogBuilder(requireContext()).setView(dialogView).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setDimAmount(0.8f)
         
         dialogView.findViewById<Button>(R.id.overwrite_button).setOnClickListener {
             dialog.dismiss()
-            saveEditedContent()
+            val warningView = layoutInflater.inflate(R.layout.dialog_overwrite_warning, null)
+            val warningDialog = MaterialAlertDialogBuilder(requireContext()).setView(warningView).create()
+            warningDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+            warningDialog.window?.setDimAmount(0.8f)
+            
+            val originalLangName = languages.find { it.second == originalLanguageCode }?.first ?: "unknown"
+            val currentLangName = languages.find { it.second == selectedLanguageCode }?.first ?: "unknown"
+            warningView.findViewById<TextView>(R.id.warning_message).text =
+                "Overwriting will replace the original content ($originalLangName language) with edits made in $currentLangName."
+                
+            warningView.findViewById<Button>(R.id.yes_button).setOnClickListener {
+                warningDialog.dismiss()
+                saveEditedContent()
+            }
+            
+            warningView.findViewById<Button>(R.id.no_button).setOnClickListener {
+                warningDialog.dismiss()
+            }
+            
+            warningView.findViewById<ImageView>(R.id.cancel_button).setOnClickListener {
+                warningDialog.dismiss()
+            }
+            
+            warningDialog.show()
         }
         
         dialogView.findViewById<Button>(R.id.new_copy_button).setOnClickListener {
@@ -189,13 +242,15 @@ class FileDetailsFragment : Fragment() {
     private fun showLanguageDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_language_switch, null)
         val dialog = MaterialAlertDialogBuilder(requireContext()).setView(dialogView).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setDimAmount(0.8f)
         
         val spinner = dialogView.findViewById<Spinner>(R.id.languageSpinner)
         val changeBtn = dialogView.findViewById<Button>(R.id.changeLanguageButton)
         val cancelBtn = dialogView.findViewById<Button>(R.id.cancelLanguageButton)
         
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, languages.map { it.first })
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val adapter = ArrayAdapter(requireContext(), R.layout.spinner_selected_item, languages.map { it.first })
+        adapter.setDropDownViewResource(R.layout.spinner_dropdown_item)
         spinner.adapter = adapter
         
         val currentIdx = languages.indexOfFirst { it.second == selectedLanguageCode }
@@ -214,17 +269,9 @@ class FileDetailsFragment : Fragment() {
     }
 
     private fun showExportDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_export_options, null)
-        val dialog = MaterialAlertDialogBuilder(requireContext()).setView(dialogView).create()
-        dialogView.findViewById<LinearLayout>(R.id.pdfButtonLayout).setOnClickListener {
-            dialog.dismiss()
-            performExport("PDF")
+        com.example.meetloggerv2.core.util.UIUtils.showFormatSelectionDialog(requireContext()) { format ->
+            performExport(format)
         }
-        dialogView.findViewById<LinearLayout>(R.id.docxButtonLayout).setOnClickListener {
-            dialog.dismiss()
-            performExport("DOCX")
-        }
-        dialog.show()
     }
 
     private fun performExport(format: String) {
@@ -239,41 +286,57 @@ class FileDetailsFragment : Fragment() {
     }
 
     private fun showShareDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_export_options, null)
-        val dialog = MaterialAlertDialogBuilder(requireContext()).setView(dialogView).create()
-        dialogView.findViewById<LinearLayout>(R.id.pdfButtonLayout).setOnClickListener {
-            dialog.dismiss()
-            performShare("PDF")
+        com.example.meetloggerv2.core.util.UIUtils.showFormatSelectionDialog(requireContext()) { format ->
+            performShare(format)
         }
-        dialogView.findViewById<LinearLayout>(R.id.docxButtonLayout).setOnClickListener {
-            dialog.dismiss()
-            performShare("DOCX")
-        }
-        dialog.show()
     }
 
     private fun performShare(format: String) {
         val cleanName = fileName?.substringBeforeLast(".") ?: "share"
-        val ext = if (format == "PDF") "pdf" else "docx"
+        val exporter = exportManager.getExporter(format) ?: return
+        val ext = exporter.fileExtension.removePrefix(".")
         val temp = File(requireContext().cacheDir, "$cleanName.$ext")
         val os = FileOutputStream(temp)
         val content = responseTextView.text.toString()
-        if (format == "PDF") exportManager.exportToPdf(content, os) else exportManager.exportToDocx(content, os)
+        exportManager.export(content, format, os)
         os.close()
-        startActivity(Intent.createChooser(exportManager.getShareIntent(temp, format), "Share"))
+        startActivity(Intent.createChooser(ShareHelper.getShareIntent(requireContext(), temp, exporter.mimeType), "Share"))
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 100 && resultCode == android.app.Activity.RESULT_OK) data?.data?.let { uri -> 
             requireContext().contentResolver.openOutputStream(uri)?.use { 
-                if (pendingExportFormat == "PDF") exportManager.exportToPdf(responseTextView.text.toString(), it) 
-                else exportManager.exportToDocx(responseTextView.text.toString(), it) 
+                pendingExportFormat?.let { format ->
+                    exportManager.export(responseTextView.text.toString(), format, it)
+                }
             }
         }
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        progressTimeoutHandler.removeCallbacks(progressTimeoutRunnable)
+        progressTimeoutHandler.removeCallbacks(showBottomBarRunnable)
+    }
+
     private fun openNewFileDetailsFragment(name: String) { parentFragmentManager.beginTransaction().replace(R.id.fragment_container, FileDetailsFragment().apply { arguments = Bundle().apply { putString("fileName", name) } }).addToBackStack(null).commit() }
     private fun setupBackPressHandler() { requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) { override fun handleOnBackPressed() { if (isEditing) switchToViewMode() else { isEnabled = false; requireActivity().onBackPressedDispatcher.onBackPressed() } } }) }
-    private fun setupScrollListener() { scrollView.setOnScrollChangeListener { _, _, y, _, oldY -> bottomContainer.visibility = if (y > oldY) View.GONE else View.VISIBLE } }
+    private fun setupScrollListener() {
+        scrollView.setOnScrollChangeListener { _, _, _, _, _ ->
+            progressTimeoutHandler.removeCallbacks(showBottomBarRunnable)
+            if (isBottomContainerVisible) {
+                isBottomContainerVisible = false
+                val hideTranslation = if (bottomContainer.height > 0) bottomContainer.height.toFloat() + 100f else 250f
+                bottomContainer.animate().cancel()
+                bottomContainer.animate()
+                    .alpha(0f)
+                    .translationY(hideTranslation)
+                    .setDuration(200)
+                    .withEndAction { bottomContainer.visibility = View.GONE }
+                    .start()
+            }
+            progressTimeoutHandler.postDelayed(showBottomBarRunnable, 300)
+        }
+    }
 }
