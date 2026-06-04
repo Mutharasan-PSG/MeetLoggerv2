@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#E0FFFFFF" /> <!-- 88% White for frosted glass effect -->
+    <corners android:radius="24dp" />
+    <stroke
+        android:width="1.5dp"
+        android:color="#40FFFFFF" /> <!-- Subtle white border -->
+</shape>

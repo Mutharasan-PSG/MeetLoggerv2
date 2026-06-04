@@ -8,29 +8,17 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.bumptech.glide.Glide
 import com.example.meetloggerv2.R
-import com.example.meetloggerv2.core.session.SessionManager
-import com.example.meetloggerv2.ui.home.viewmodel.HomeViewModel
 import com.example.meetloggerv2.ui.login.activity.LoginActivity
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.example.meetloggerv2.core.session.AuthSession
+import com.example.meetloggerv2.ui.profile.viewmodel.ProfileViewModel
 
 class ProfileFragment : Fragment() {
 
-    private lateinit var sessionManager: SessionManager
-    private lateinit var googleSignInClient: GoogleSignInClient
-    private val viewModel: HomeViewModel by viewModels()
-    private val authSession = AuthSession()
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        configureGoogleSignIn()
-    }
+    private val viewModel: ProfileViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -46,7 +34,8 @@ class ProfileFragment : Fragment() {
         initializeUI(view)
         setupObservers(view)
 
-        val userId = sessionManager.getUserId()
+        // ViewModel handles SessionManager / AuthSession internally or via injected components
+        val userId = com.example.meetloggerv2.core.session.SessionManager(requireContext()).getUserId()
         if (userId != null) {
             viewModel.loadUserProfile(userId)
         }
@@ -58,12 +47,36 @@ class ProfileFragment : Fragment() {
                 populateUserDetails(view, data)
             }
         }
+
+        viewModel.signOutState.observe(viewLifecycleOwner) { state ->
+            when (state) {
+                is ProfileViewModel.SignOutState.Loading -> {
+                    // Show progress / loading toast if desired
+                }
+                is ProfileViewModel.SignOutState.Success -> {
+                    startActivity(Intent(requireContext(), LoginActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    })
+                    requireActivity().finish()
+                }
+                is ProfileViewModel.SignOutState.Error -> {
+                    Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+                }
+                is ProfileViewModel.SignOutState.Idle -> {
+                    // Do nothing
+                }
+            }
+        }
     }
 
     private fun initializeUI(view: View) {
+        view.findViewById<ImageView>(R.id.backButton).setOnClickListener {
+            parentFragmentManager.popBackStack()
+        }
+
         val signOutButton: LinearLayout = view.findViewById(R.id.btn_sign_out)
         signOutButton.setOnClickListener {
-            signOut()
+            viewModel.signOut()
         }
 
         val versionTextView: TextView = view.findViewById(R.id.version)
@@ -75,36 +88,23 @@ class ProfileFragment : Fragment() {
         }
     }
 
-    private fun configureGoogleSignIn() {
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
-            .requestEmail()
-            .build()
-        googleSignInClient = GoogleSignIn.getClient(requireContext(), gso)
-        sessionManager = SessionManager(requireContext())
-    }
-
     private fun populateUserDetails(view: View, data: Map<String, Any>) {
         val nameTextView: TextView = view.findViewById(R.id.profile_name)
         val emailTextView: TextView = view.findViewById(R.id.profile_email)
         val profileImageView: ImageView = view.findViewById(R.id.profile_image)
 
-        nameTextView.text = data["name"] as? String ?: ""
+        val name = data["name"] as? String ?: "User"
+        nameTextView.text = name
         emailTextView.text = data["email"] as? String ?: ""
+
+        val avatarDrawable = com.example.meetloggerv2.core.util.AvatarGenerator.getAvatar(requireContext(), name)
 
         Glide.with(this)
             .load(data["photoUrl"] as? String)
-            .placeholder(R.drawable.default_profile_pic)
-            .error(R.drawable.default_profile_pic)
+            .placeholder(avatarDrawable)
+            .error(avatarDrawable)
+            .fallback(avatarDrawable)
+            .circleCrop()
             .into(profileImageView)
-    }
-
-    private fun signOut() {
-        authSession.signOut()
-        googleSignInClient.signOut().addOnCompleteListener {
-            sessionManager.clearSession()
-            startActivity(Intent(requireContext(), LoginActivity::class.java))
-            requireActivity().finish()
-        }
     }
 }

@@ -1,4 +1,4 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:fitsSystemWindows="true"
@@ -6,17 +6,6 @@
     android:layout_height="match_parent"
     android:background="@color/backgroundColor"
     tools:context=".AudioListFragment">
-
-    <TextView
-        android:id="@+id/AudioTopic"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/search_margin_horizontal"
-        android:text="@string/audio_files_title"
-        android:textSize="@dimen/audio_topic_text_size"
-        android:fontFamily="@font/poppins_medium"
-        android:textColor="@color/BLUE"
-        android:layout_marginTop="@dimen/audio_topic_margin_top" />
 
     <FrameLayout
         android:id="@+id/mainContent"
@@ -27,11 +16,11 @@
             android:id="@+id/placeholderImage"
             android:layout_width="@dimen/placeholder_image_size"
             android:layout_height="@dimen/placeholder_image_size"
-            android:scaleType="fitXY"
+            android:scaleType="fitCenter"
             android:layout_gravity="center"
-            android:src="@drawable/audiofiles"
+            android:src="@android:color/transparent"
             android:contentDescription="@string/content_desc_no_files"
-            android:visibility="visible" />
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/placeholderText"
@@ -43,30 +32,9 @@
             android:fontFamily="@font/poppins"
             android:gravity="center"
             android:layout_gravity="center"
-            android:visibility="visible" />
-
-
-        <ImageView
-            android:id="@+id/deleteIcon"
-            android:layout_width="@dimen/list_item_icon_size"
-            android:layout_height="@dimen/list_item_icon_size"
-            android:layout_gravity="top|end"
-            android:layout_marginEnd="@dimen/search_margin_horizontal"
-            android:layout_marginTop="@dimen/audio_topic_margin_top"
-            android:src="@drawable/delete1"
-            android:contentDescription="@string/content_desc_delete"
-            android:visibility="gone"/>
-
-        <ImageView
-            android:id="@+id/tickIcon"
-            android:layout_width="@dimen/profile_pic_size"
-            android:layout_height="@dimen/profile_pic_size"
-            android:layout_gravity="top|end"
-            android:layout_marginEnd="@dimen/search_margin_horizontal"
-            android:layout_marginTop="@dimen/app_logo_margin_start"
-            android:src="@drawable/tick"
-            android:contentDescription="@string/content_desc_tick"
-            android:visibility="gone"/>
+            android:layout_marginStart="@dimen/spacing_huge"
+            android:layout_marginEnd="@dimen/spacing_huge"
+            android:visibility="gone" />
 
 
         <!-- Search bar with border -->
@@ -83,7 +51,9 @@
             android:layout_gravity="top"
             android:layout_marginTop="@dimen/audio_list_search_margin_top"
             android:visibility="gone"
-            android:background="@drawable/searchview_border" />
+            android:background="@drawable/searchview_border"
+            app:queryBackground="@android:color/transparent"
+            app:submitBackground="@android:color/transparent" />
 
         <!-- Add Select All Checkbox here -->
         <CheckBox
@@ -92,7 +62,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="start|top"
             android:layout_marginTop="@dimen/select_all_margin_top"
-            android:layout_marginStart="45dp"
+            android:layout_marginStart="@dimen/select_all_margin_start"
             android:fontFamily="@font/poppins"
             android:text="@string/select_all"
             android:textSize="@dimen/text_size_normal"
@@ -110,57 +80,58 @@
             android:dividerHeight="0dp"
             android:clickable="true"
             android:focusable="true"
+            android:listSelector="@android:color/transparent"
+            android:scrollbars="none"
             android:visibility="gone" />
 
-        <!-- Mini Player -->
+        <!-- ── Modern Mini Player (draggable, shown while audio plays) ── -->
         <LinearLayout
             android:id="@+id/miniPlayer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="@dimen/mini_player_padding"
-            android:background="@drawable/rounded_image"
+            android:background="@drawable/bottom_sheet_card_background"
+            android:padding="@dimen/spacing_large"
+            android:layout_marginStart="@dimen/spacing_large"
+            android:layout_marginEnd="@dimen/spacing_large"
+            android:layout_marginBottom="@dimen/spacing_large"
+            android:layout_gravity="bottom"
             android:visibility="gone"
-            android:elevation="7dp"
-            android:layout_marginStart="@dimen/mini_player_margin_horizontal"
-            android:layout_marginEnd="@dimen/mini_player_margin_horizontal"
-            android:layout_marginBottom="@dimen/mini_player_margin_bottom"
-            android:layout_gravity="bottom">
+            android:elevation="8dp">
 
-            <!-- File Name -->
+            <!-- Track name with marquee -->
             <TextView
                 android:id="@+id/currentAudioName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/now_playing"
-                android:textColor="@color/black"
-                android:layout_marginBottom="@dimen/spacing_small"
-                android:layout_marginTop="@dimen/spacing_small"
-                android:textSize="17sp"
+                android:fontFamily="@font/poppins_medium"
+                android:textSize="@dimen/text_size_medium"
+                android:textColor="@color/onSurfaceColor"
                 android:maxLines="1"
                 android:ellipsize="marquee"
                 android:marqueeRepeatLimit="marquee_forever"
                 android:singleLine="true"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
-                android:fontFamily="@font/poppins_medium"
-                android:paddingBottom="@dimen/spacing_medium"/>
+                android:layout_marginBottom="@dimen/option_item_padding" />
 
-            <!-- SeekBar and Time Display -->
+            <!-- SeekBar row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:layout_marginBottom="@dimen/spacing_medium">
 
                 <TextView
                     android:id="@+id/currentTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/time_zero"
-                    android:textSize="@dimen/text_size_small"
-                    android:textColor="@color/black"
-                    android:fontFamily="@font/poppins"/>
+                    android:fontFamily="@font/poppins"
+                    android:textSize="@dimen/text_size_formats_desc"
+                    android:textColor="@color/onSurfaceVariant" />
 
                 <SeekBar
                     android:id="@+id/seekBar"
@@ -168,70 +139,97 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginStart="@dimen/spacing_medium"
-                    android:layout_marginEnd="@dimen/spacing_medium"/>
+                    android:layout_marginEnd="@dimen/spacing_medium"
+                    android:progressDrawable="@drawable/seekbar_track"
+                    android:thumbTint="@color/BLUE"
+                    android:maxHeight="@dimen/drag_handle_height"
+                    android:minHeight="@dimen/drag_handle_height" />
 
                 <TextView
                     android:id="@+id/totalTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/time_zero"
-                    android:textSize="@dimen/text_size_small"
-                    android:textColor="@color/black"
-                    android:fontFamily="@font/poppins"/>
+                    android:fontFamily="@font/poppins"
+                    android:textSize="@dimen/text_size_formats_desc"
+                    android:textColor="@color/onSurfaceVariant" />
+
             </LinearLayout>
 
-            <!-- Playback Controls -->
+            <!-- Playback controls -->
             <LinearLayout
                 android:id="@+id/playerControls"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
                 android:orientation="horizontal"
-                android:layout_marginTop="@dimen/spacing_medium">
+                android:gravity="center"
+                android:layout_marginTop="@dimen/spacing_small">
 
                 <ImageView
                     android:id="@+id/prevButton"
-                    android:layout_width="@dimen/list_item_icon_size"
-                    android:layout_height="@dimen/list_item_icon_size"
-                    android:scaleType="fitXY"
-                    android:layout_marginStart="@dimen/mini_player_padding"
+                    android:layout_width="@dimen/mini_control_button_size"
+                    android:layout_height="@dimen/mini_control_button_size"
+                    android:scaleType="fitCenter"
                     android:src="@drawable/previous"
+                    android:padding="@dimen/spacing_small"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    app:tint="@color/BLUE"
                     android:contentDescription="@string/content_desc_previous" />
 
-                <ImageView
-                    android:id="@+id/playPauseButton"
-                    android:layout_width="@dimen/list_item_icon_size"
-                    android:layout_height="@dimen/list_item_icon_size"
-                    android:scaleType="fitXY"
-                    android:layout_marginStart="@dimen/mini_player_padding"
-                    android:src="@drawable/pause"
-                    android:contentDescription="@string/content_desc_pause" />
+                <!-- Play/Pause in indigo circle -->
+                <FrameLayout
+                    android:layout_width="@dimen/upload_icon_container_size"
+                    android:layout_height="@dimen/upload_icon_container_size"
+                    android:layout_marginStart="@dimen/spacing_large"
+                    android:layout_marginEnd="@dimen/spacing_large">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/record_button_bg"
+                        android:alpha="0.12" />
+
+                    <ImageView
+                        android:id="@+id/playPauseButton"
+                        android:layout_width="@dimen/close_icon_size"
+                        android:layout_height="@dimen/close_icon_size"
+                        android:layout_gravity="center"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/pause"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        app:tint="@color/BLUE"
+                        android:contentDescription="@string/content_desc_pause" />
+
+                </FrameLayout>
 
                 <ImageView
                     android:id="@+id/nextButton"
-                    android:layout_width="@dimen/list_item_icon_size"
-                    android:layout_height="@dimen/list_item_icon_size"
-                    android:scaleType="fitXY"
-                    android:layout_marginStart="@dimen/mini_player_padding"
+                    android:layout_width="@dimen/mini_control_button_size"
+                    android:layout_height="@dimen/mini_control_button_size"
+                    android:scaleType="fitCenter"
                     android:src="@drawable/next"
+                    android:padding="@dimen/spacing_small"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    app:tint="@color/BLUE"
                     android:contentDescription="@string/content_desc_next" />
 
                 <ImageView
                     android:id="@+id/stopButton"
-                    android:layout_width="@dimen/list_item_icon_size"
-                    android:layout_height="@dimen/list_item_icon_size"
-                    android:scaleType="fitXY"
-                    android:layout_marginStart="@dimen/mini_player_padding"
-                    android:layout_marginEnd="@dimen/mini_player_padding"
+                    android:layout_width="@dimen/mini_control_button_size"
+                    android:layout_height="@dimen/mini_control_button_size"
+                    android:layout_marginStart="@dimen/spacing_normal"
+                    android:scaleType="fitCenter"
                     android:src="@drawable/stop1"
+                    android:padding="@dimen/spacing_small"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    app:tint="@color/red"
                     android:contentDescription="@string/content_desc_stop" />
+
             </LinearLayout>
-
-
 
         </LinearLayout>
 
-        <!-- Progress Overlay -->
+        <!-- Progress Overlay — card with spinner + label -->
         <FrameLayout
             android:id="@+id/progressOverlay"
             android:layout_width="match_parent"
@@ -239,16 +237,113 @@
             android:background="@color/modal_blur"
             android:visibility="gone">
 
-            <ProgressBar
-                android:id="@+id/operationProgressBar"
-                style="?android:attr/progressBarStyle"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:indeterminateTint="@color/BLUE"
-                android:indeterminateTintMode="src_in" />
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="@dimen/spacing_extra_large"
+                android:background="@drawable/dialog_background_rounded"
+                android:minWidth="@dimen/progress_overlay_min_width">
+
+                <ProgressBar
+                    android:id="@+id/operationProgressBar"
+                    style="?android:attr/progressBarStyle"
+                    android:layout_width="@dimen/progress_bar_size"
+                    android:layout_height="@dimen/progress_bar_size"
+                    android:indeterminateTint="@color/BLUE"
+                    android:indeterminateTintMode="src_in" />
+
+                <TextView
+                    android:id="@+id/progressText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_normal"
+                    android:text="@string/placeholder_loading"
+                    android:fontFamily="@font/poppins_medium"
+                    android:textSize="@dimen/text_size_instruction"
+                    android:textColor="@color/onSurfaceColor" />
+
+            </LinearLayout>
+
         </FrameLayout>
     </FrameLayout>
+
+    <!-- Header Toolbar -->
+    <RelativeLayout
+        android:id="@+id/headerLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="@dimen/toolbar_padding_horizontal"
+        android:paddingVertical="@dimen/toolbar_padding_vertical"
+        android:background="@color/backgroundColor"
+        android:elevation="@dimen/profile_card_elevation"
+        android:layout_alignParentTop="true">
+
+        <ImageView
+            android:id="@+id/backButton"
+            android:layout_width="@dimen/toolbar_button_size"
+            android:layout_height="@dimen/toolbar_button_size"
+            android:src="@drawable/back_arrow"
+            android:padding="@dimen/toolbar_button_padding"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            app:tint="@color/BLUE"
+            android:contentDescription="@string/content_desc_back"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true" />
+
+        <TextView
+            android:id="@+id/AudioTopic"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/audio_files_title"
+            android:layout_marginStart="@dimen/toolbar_title_margin_start"
+            android:fontFamily="@font/poppins_bold"
+            android:textSize="@dimen/toolbar_title_text_size"
+            android:textColor="@color/BLUE"
+            android:layout_toEndOf="@id/backButton"
+            android:layout_centerVertical="true" />
+
+        <!-- Container for right actions: deleteIcon and tickIcon -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true">
+
+            <ImageView
+                android:id="@+id/deleteIcon"
+                android:layout_width="@dimen/toolbar_button_size"
+                android:layout_height="@dimen/toolbar_button_size"
+                android:src="@drawable/delete1"
+                android:padding="@dimen/spacing_medium"
+                android:background="@drawable/delete_button_bg"
+                android:backgroundTint="@color/delete_icon_bg_tint"
+                android:contentDescription="@string/content_desc_delete"
+                android:clickable="true"
+                android:focusable="true"
+                app:tint="@color/red"
+                android:visibility="gone"
+                android:layout_marginEnd="@dimen/spacing_medium"/>
+
+            <ImageView
+                android:id="@+id/tickIcon"
+                android:layout_width="@dimen/toolbar_button_size"
+                android:layout_height="@dimen/toolbar_button_size"
+                android:src="@drawable/tick"
+                android:padding="@dimen/spacing_medium"
+                android:background="@drawable/tick_button_bg"
+                android:contentDescription="@string/content_desc_tick"
+                android:clickable="true"
+                android:focusable="true"
+                app:tint="@color/tick_icon_tint"
+                android:visibility="gone"/>
+        </LinearLayout>
+    </RelativeLayout>
 
     <LinearLayout
         android:id="@+id/noInternetContainer"
@@ -263,9 +358,22 @@
             android:layout_width="@dimen/no_internet_image_size"
             android:layout_height="@dimen/no_internet_image_size"
             android:layout_gravity="center"
-            android:src="@drawable/no_internet"
-            android:scaleType="fitXY"
-            android:contentDescription="@string/content_desc_no_internet" />
+            android:src="@android:color/transparent"
+            android:scaleType="fitCenter"
+            android:contentDescription="@string/content_desc_no_internet"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/noInternetText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/no_internet_message"
+            android:textSize="@dimen/text_size_normal"
+            android:textColor="@color/onSurfaceVariant"
+            android:fontFamily="@font/poppins"
+            android:gravity="center"
+            android:padding="@dimen/spacing_large"/>
     </LinearLayout>
 
     <FrameLayout
@@ -275,4 +383,4 @@
         android:background="@color/transparent"
         android:visibility="gone" />
 
-</FrameLayout>
+</RelativeLayout>

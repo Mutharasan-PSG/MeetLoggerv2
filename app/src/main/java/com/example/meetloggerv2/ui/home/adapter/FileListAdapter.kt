@@ -20,18 +20,26 @@ class FileListAdapter(
         val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.list_item_2, parent, false)
 
         val fileNameTextView = view.findViewById<TextView>(R.id.textViewFileName)
-        val statusTextView = view.findViewById<TextView>(R.id.textViewStatus)
+        val statusImageView = view.findViewById<android.widget.ImageView>(R.id.imageViewStatus)
 
         val (fileName, status, _) = fileList[position] // Ignore timestamp in display
 
         fileNameTextView.text = fileName.substringBeforeLast(".")  // Show file name without extension
-        statusTextView.text = status.capitalize(Locale.ROOT)  // Capitalize the status text
 
-        // Change the color of the status text based on its value
-        if (status.equals("processed", ignoreCase = true)) {
-            statusTextView.setTextColor(ContextCompat.getColor(context, R.color.green)) // Green color
-        } else {
-            statusTextView.setTextColor(ContextCompat.getColor(context, R.color.red)) // Red color
+        // Set status image resource and color filter dynamically based on file state
+        when (status.lowercase(Locale.ROOT)) {
+            "processed" -> {
+                statusImageView.setImageResource(R.drawable.ic_status_processed)
+                statusImageView.setColorFilter(ContextCompat.getColor(context, R.color.green))
+            }
+            "processing" -> {
+                statusImageView.setImageResource(R.drawable.ic_status_processing)
+                statusImageView.setColorFilter(ContextCompat.getColor(context, R.color.BLUE))
+            }
+            else -> {
+                statusImageView.setImageResource(R.drawable.ic_status_saved)
+                statusImageView.setColorFilter(ContextCompat.getColor(context, R.color.Grey))
+            }
         }
 
         return view

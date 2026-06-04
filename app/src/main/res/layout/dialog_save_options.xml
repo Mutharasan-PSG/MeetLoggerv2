@@ -1,73 +1,100 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="19dp"
+    android:padding="@dimen/dialog_padding"
     android:background="@drawable/dialog_background_rounded">
 
-    <LinearLayout
+    <!-- Responsive Title Bar -->
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:layout_marginBottom="@dimen/spacing_normal">
 
-    <TextView
-        android:id="@+id/warning_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/dialog_title_warning"
-        android:textSize="18sp"
-        android:textColor="@color/red"
-        android:fontFamily="@font/poppins_medium"
-        android:paddingBottom="8dp" />
+        <TextView
+            android:id="@+id/warning_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="@string/dialog_title_warning"
+            android:textSize="@dimen/text_size_normal"
+            android:textColor="@color/red"
+            android:fontFamily="@font/poppins_semibold" />
 
         <ImageView
             android:id="@+id/cancel_button"
-            android:layout_width="17dp"
-            android:layout_height="20dp"
-            android:scaleType="fitXY"
+            android:layout_width="@dimen/close_icon_size"
+            android:layout_height="@dimen/close_icon_size"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:padding="@dimen/spacing_medium_tiny"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:scaleType="fitCenter"
             android:src="@drawable/dialog_close"
             android:contentDescription="@string/dialog_cancel"
-            android:layout_marginStart="180dp"
-            android:layout_gravity="end" />
+            app:tint="@color/Grey" />
 
-    </LinearLayout>
+    </RelativeLayout>
 
+    <!-- Subtitle/Warning Message -->
     <TextView
         android:id="@+id/dialog_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:justificationMode="inter_word"
         android:text="@string/msg_overwrite_warning"
-        android:textColor="@color/onSurfaceColor"
-        android:textSize="16sp"
+        android:textColor="@color/onSurfaceVariant"
+        android:textSize="@dimen/text_size_medium"
+        android:lineSpacingMultiplier="1.25"
         android:fontFamily="@font/poppins"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="@dimen/spacing_extra_large"/>
 
+    <!-- Buttons Row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="end">
 
+        <!-- Destructive action: Overwrite styled with soft red background -->
         <Button
             android:id="@+id/overwrite_button"
+            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:elevation="7dp"
+            android:layout_height="@dimen/popup_item_min_height"
+            android:background="@drawable/button_bg_soft_red"
+            app:backgroundTint="@null"
             android:text="@string/dialog_overwrite"
             android:textColor="@color/red"
-            android:fontFamily="@font/poppins_medium"/>
+            android:textAllCaps="false"
+            android:fontFamily="@font/poppins_semibold"
+            android:textSize="@dimen/text_size_small"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="@dimen/profile_sign_out_btn_padding_horizontal"
+            android:paddingEnd="@dimen/profile_sign_out_btn_padding_horizontal" />
 
+        <!-- Positive action: New Copy styled with primary blue background -->
         <Button
             android:id="@+id/new_copy_button"
+            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:elevation="7dp"
+            android:layout_height="@dimen/popup_item_min_height"
+            android:background="@drawable/button_background"
+            app:backgroundTint="@null"
             android:text="@string/dialog_new_copy"
-            android:textColor="@color/BLUE"
-            android:fontFamily="@font/poppins_medium"
-            android:layout_marginStart="20dp"/>
+            android:textColor="@color/fixed_white"
+            android:textAllCaps="false"
+            android:fontFamily="@font/poppins_semibold"
+            android:textSize="@dimen/text_size_small"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="@dimen/profile_sign_out_btn_padding_horizontal"
+            android:paddingEnd="@dimen/profile_sign_out_btn_padding_horizontal"
+            android:layout_marginStart="@dimen/spacing_normal" />
 
     </LinearLayout>
 

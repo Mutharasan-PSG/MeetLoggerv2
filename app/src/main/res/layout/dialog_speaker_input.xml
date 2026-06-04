@@ -11,10 +11,8 @@
         android:layout_height="@dimen/close_icon_size"
         android:gravity="center"
         android:layout_marginBottom="@dimen/app_logo_margin_top"
-        android:text="Go Back"
-        android:elevation="7dp"
         android:src="@drawable/back"
-        android:scaleType="fitXY"
+        android:scaleType="fitCenter"
         android:contentDescription="@string/content_desc_back"/>
 
     <!-- Scrollable Speaker List -->
@@ -23,6 +21,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/backButton"
+        android:scrollbars="none"
         android:fillViewport="true">
 
         <LinearLayout
@@ -42,33 +41,25 @@
 
         <Button
             android:id="@+id/addSpeakerButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_below="@id/speakerScrollView"
-            android:gravity="center"
-            android:layout_margin="@dimen/spacing_medium"
-            android:layout_marginEnd="@dimen/spacing_large"
             android:layout_gravity="center"
-            android:elevation="7dp"
-            android:textColor="@color/black"
+            android:layout_margin="@dimen/spacing_medium"
+            android:fontFamily="@font/poppins_medium"
             android:text="@string/btn_add_speaker"
-            android:fontFamily="@font/poppins"
-            android:backgroundTint="@color/surfaceColor"
-            android:contentDescription="@string/content_desc_add_speaker"/>
+            android:textColor="@color/BLUE"
+            android:contentDescription="@string/content_desc_add_speaker" />
 
         <Button
             android:id="@+id/proceedButton"
-            android:fontFamily="@font/poppins"
-            android:layout_below="@id/addSpeakerButton"
-            android:layout_gravity="center"
-            android:layout_margin="@dimen/spacing_medium"
-            android:gravity="center"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:elevation="7dp"
-            android:textColor="@color/BLUE"
-            android:backgroundTint="@color/surfaceColor"
-            android:text="@string/dialog_proceed"/>
+            android:layout_gravity="center"
+            android:layout_margin="@dimen/spacing_medium"
+            android:fontFamily="@font/poppins_medium"
+            android:text="@string/dialog_proceed"
+            android:textColor="@color/fixed_white" />
 
     </LinearLayout>
 </RelativeLayout>

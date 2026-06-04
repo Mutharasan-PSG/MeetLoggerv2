@@ -21,7 +21,7 @@
         <ImageView
             android:layout_width="@dimen/audio_icon_size"
             android:layout_height="@dimen/audio_icon_size"
-            android:scaleType="fitXY"
+            android:scaleType="fitCenter"
             android:src="@drawable/language"/> <!-- Add a language icon -->
 
         <TextView
@@ -35,26 +35,6 @@
             android:textSize="@dimen/text_size_medium"/>
 
     </LinearLayout>
-
-
-    <!-- Overlay for ProgressBar with semi-transparent background -->
-    <FrameLayout
-        android:id="@+id/progressOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/modal_blur"
-        android:visibility="gone">
-
-        <ProgressBar
-            android:id="@+id/translationProgressBar"
-            style="?android:attr/progressBarStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:indeterminateTint="@color/BLUE"
-            android:indeterminateTintMode="src_in" />
-
-    </FrameLayout>
 
 
     <LinearLayout
@@ -72,6 +52,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
+            android:scrollbars="none"
             android:fillViewport="true">
 
             <TextView
@@ -79,7 +60,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/poppins"
-                android:textSize="@dimen/text_size_normal"
+                android:textSize="@dimen/text_size_medium"
                 android:textColor="@color/Grey"
                 android:padding="@dimen/spacing_normal"
                 android:justificationMode="inter_word" />
@@ -94,7 +75,6 @@
         android:layout_width="@dimen/details_bottom_container_width"
         android:layout_height="@dimen/details_bottom_container_height"
         android:layout_gravity="center_horizontal|bottom"
-        android:elevation="20dp"
         android:padding="1dp"
         android:gravity="center"
         android:orientation="horizontal"
@@ -111,13 +91,16 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
 
             <ImageView
                 android:layout_width="@dimen/details_action_icon_size"
                 android:layout_height="@dimen/details_action_icon_size"
                 android:src="@drawable/edit_document"
-                android:scaleType="fitXY"
+                android:scaleType="fitCenter"
                 android:contentDescription="@string/content_desc_edit" />
 
             <TextView
@@ -136,13 +119,16 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
 
             <ImageView
                 android:layout_width="@dimen/details_action_icon_size"
                 android:layout_height="@dimen/details_action_icon_size"
                 android:src="@drawable/file_export"
-                android:scaleType="fitXY"
+                android:scaleType="fitCenter"
                 android:contentDescription="@string/content_desc_export" />
 
             <TextView
@@ -161,13 +147,16 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
 
             <ImageView
                 android:layout_width="@dimen/details_action_icon_size"
                 android:layout_height="@dimen/details_action_icon_size"
                 android:src="@drawable/ios_share"
-                android:scaleType="fitXY"
+                android:scaleType="fitCenter"
                 android:contentDescription="@string/content_desc_share" />
 
             <TextView
@@ -179,6 +168,108 @@
                 android:textColor="@color/white"/>
         </LinearLayout>
 
+        <!-- Update Button (shown in edit mode) -->
+        <LinearLayout
+            android:id="@+id/updatelayout"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+
+            <ImageView
+                android:layout_width="@dimen/details_action_icon_size"
+                android:layout_height="@dimen/details_action_icon_size"
+                android:src="@drawable/update"
+                android:scaleType="fitCenter"
+                android:contentDescription="Update"
+                app:tint="@color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/dialog_update"
+                android:textSize="@dimen/text_size_small"
+                android:fontFamily="@font/poppins_medium"
+                android:textColor="@color/white"/>
+        </LinearLayout>
+
+        <!-- Cancel Button (shown in edit mode) -->
+        <LinearLayout
+            android:id="@+id/cancellayout"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+
+            <ImageView
+                android:layout_width="@dimen/details_action_icon_size"
+                android:layout_height="@dimen/details_action_icon_size"
+                android:src="@drawable/cancel"
+                android:scaleType="fitCenter"
+                android:contentDescription="Cancel"
+                app:tint="@color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/dialog_cancel"
+                android:textSize="@dimen/text_size_small"
+                android:fontFamily="@font/poppins_medium"
+                android:textColor="@color/white"/>
+        </LinearLayout>
+
     </LinearLayout>
+
+    <!-- Overlay for ProgressBar — unified card loader style (rendered on top) -->
+    <FrameLayout
+        android:id="@+id/progressOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/modal_blur"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="@dimen/spacing_extra_large"
+            android:background="@drawable/dialog_background_rounded"
+            android:minWidth="@dimen/progress_overlay_min_width">
+
+            <ProgressBar
+                android:id="@+id/translationProgressBar"
+                style="?android:attr/progressBarStyle"
+                android:layout_width="@dimen/progress_bar_size"
+                android:layout_height="@dimen/progress_bar_size"
+                android:indeterminateTint="@color/BLUE"
+                android:indeterminateTintMode="src_in" />
+
+            <TextView
+                android:id="@+id/progressText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/spacing_normal"
+                android:text="@string/placeholder_loading"
+                android:fontFamily="@font/poppins_medium"
+                android:textSize="@dimen/text_size_instruction"
+                android:textColor="@color/onSurfaceColor" />
+
+        </LinearLayout>
+
+    </FrameLayout>
 
 </FrameLayout>

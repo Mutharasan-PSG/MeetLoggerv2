@@ -8,21 +8,17 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.activity.viewModels
 import com.example.meetloggerv2.R
-import com.example.meetloggerv2.core.session.SessionManager
 import com.example.meetloggerv2.ui.home.activity.HomeActivity
-import com.example.meetloggerv2.ui.login.activity.LoginActivity
+import com.example.meetloggerv2.ui.login.activity.IntroActivity
 import com.example.meetloggerv2.ui.main.viewmodel.MainViewModel
 
 class SplashActivity : AppCompatActivity() {
 
-    private lateinit var sessionManager: SessionManager
     private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
-
-        sessionManager = SessionManager(this)
 
         window.navigationBarColor = ContextCompat.getColor(this, R.color.black)
 
@@ -31,12 +27,12 @@ class SplashActivity : AppCompatActivity() {
                 if (isValid) {
                     startActivity(Intent(this, HomeActivity::class.java))
                 } else {
-                    startActivity(Intent(this, LoginActivity::class.java))
+                    startActivity(Intent(this, IntroActivity::class.java))
                 }
                 finish()
             }, 1000)
         }
 
-        viewModel.checkSession(sessionManager)
+        viewModel.checkSession()
     }
 }

@@ -4,7 +4,9 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.meetloggerv2.core.session.AuthSession
 import com.example.meetloggerv2.data.repository.FileRepository
+import com.example.meetloggerv2.data.repository.IFileRepository
 import com.google.firebase.Timestamp
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.Translation
@@ -12,7 +14,10 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-class FileDetailsViewModel(private val fileRepository: FileRepository = FileRepository()) : ViewModel() {
+class FileDetailsViewModel @JvmOverloads constructor(
+    private val fileRepository: IFileRepository = FileRepository(),
+    private val authSession: AuthSession = AuthSession()
+) : ViewModel() {
 
     private val _fileDetails = MutableLiveData<Map<String, Any>?>()
     val fileDetails: LiveData<Map<String, Any>?> = _fileDetails
@@ -23,7 +28,8 @@ class FileDetailsViewModel(private val fileRepository: FileRepository = FileRepo
     private val _uiState = MutableLiveData<DetailsUiState>(DetailsUiState.Idle)
     val uiState: LiveData<DetailsUiState> = _uiState
 
-    fun fetchDetails(userId: String, fileName: String) {
+    fun fetchDetails(fileName: String) {
+        val userId = authSession.currentUserId() ?: return
         _uiState.value = DetailsUiState.Loading("Loading details...")
         fileRepository.getFileDetails(userId, fileName, {
             _fileDetails.value = it
@@ -48,8 +54,6 @@ class FileDetailsViewModel(private val fileRepository: FileRepository = FileRepo
                 
                 _uiState.value = DetailsUiState.Loading("Translating...")
                 
-                // Split text into smaller chunks if necessary, but for now simple translation
-                // ML Kit has limits on text size per call
                 val paragraphs = text.split("\n\n")
                 val translatedParagraphs = paragraphs.map { p ->
                     if (p.isBlank()) "" else translator.translate(p).await()
@@ -65,7 +69,8 @@ class FileDetailsViewModel(private val fileRepository: FileRepository = FileRepo
         }
     }
 
-    fun updateContent(userId: String, fileName: String, content: String, languageCode: String) {
+    fun updateContent(fileName: String, content: String, languageCode: String) {
+        val userId = authSession.currentUserId() ?: return
         _uiState.value = DetailsUiState.Loading("Updating...")
         val updates = mapOf(
             "Response" to content,
@@ -73,13 +78,14 @@ class FileDetailsViewModel(private val fileRepository: FileRepository = FileRepo
         )
         fileRepository.updateFileContent(userId, fileName, updates, {
             _uiState.value = DetailsUiState.Success("Content updated")
-            fetchDetails(userId, fileName)
+            fetchDetails(fileName)
         }, {
             _uiState.value = DetailsUiState.Error(it.message ?: "Update failed")
         })
     }
 
-    fun saveAsNewCopy(userId: String, newFileName: String, data: Map<String, Any>) {
+    fun saveAsNewCopy(newFileName: String, data: Map<String, Any>) {
+        val userId = authSession.currentUserId() ?: return
         _uiState.value = DetailsUiState.Loading("Saving new copy...")
         val newData = data.toMutableMap()
         newData["isCopy"] = true

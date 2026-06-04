@@ -57,30 +57,26 @@
 
         <Button
             android:id="@+id/cancelButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins"
             android:text="@string/dialog_cancel"
             android:textColor="@color/red"
-            android:textSize="@dimen/text_size_normal"
-            android:elevation="7dp"
-            android:backgroundTint="@color/surfaceColor"/>
+            android:textSize="@dimen/text_size_normal"/>
 
         <Space
             android:layout_width="@dimen/spacing_large"
             android:layout_height="0dp" />
 
-
         <Button
             android:id="@+id/proceedButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:elevation="7dp"
             android:fontFamily="@font/poppins"
             android:text="@string/dialog_proceed"
-            android:textColor="@color/BLUE"
-            android:textSize="@dimen/text_size_normal"
-            android:backgroundTint="@color/surfaceColor"/>
+            android:textColor="@color/fixed_white"
+            android:textSize="@dimen/text_size_normal"/>
 
 
     </LinearLayout>

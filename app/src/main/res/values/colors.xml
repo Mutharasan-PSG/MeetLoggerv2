@@ -1,32 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Basic Colors -->
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
-    <color name="green">#4CAF50</color>
-    <color name="red">#FF0000</color>
-    <color name="BLUE">#2B8CFF</color>
-    <color name="LIGHT_BLUE">#E8F9FF</color>
-    <color name="Pale_white">#FBFBFB</color>
-    <color name="Grey">#808080</color>
-    <color name="LightGrey">#F5F5F5</color>
-    <color name="DarkGrey">#71797E</color>
-    <color name="Pink">#FFC0CB</color>
+    <color name="black">#0F172A</color>
+    <color name="white">#FFFFFF</color>
+    <color name="green">#10B981</color>
+    <color name="red">#EF4444</color>
+    <color name="BLUE">#4361EE</color>
+    <color name="LIGHT_BLUE">#EEF2F6</color>
+    <color name="Pale_white">#F8FAFC</color>
+    <color name="Grey">#64748B</color>
+    <color name="LightGrey">#F1F5F9</color>
+    <color name="DarkGrey">#475569</color>
+    <color name="Pink">#FDA4AF</color>
     <color name="transparent">#00000000</color>
 
     <color name="fixed_white">#FFFFFF</color>
     <color name="fixed_black">#000000</color>
 
     <!-- Semantic Colors (Light Theme) -->
-    <color name="backgroundColor">#FFFFFF</color>
+    <color name="backgroundColor">#F1F5F9</color>
     <color name="surfaceColor">#FFFFFF</color>
-    <color name="onBackgroundColor">#000000</color>
-    <color name="onSurfaceColor">#000000</color>
-    <color name="onSurfaceVariant">#808080</color> <!-- Grey -->
+    <color name="onBackgroundColor">#0F172A</color>
+    <color name="onSurfaceColor">#1E293B</color>
+    <color name="onSurfaceVariant">#64748B</color>
     <color name="cardBackgroundColor">#FFFFFF</color>
-    <color name="dividerColor">#DDDDDD</color>
+    <color name="dividerColor">#E2E8F0</color>
 
-    <color name="modal_blur">#80000000</color>
+    <color name="modal_blur">#CC000000</color>
+    <color name="ripple_color">#0F000000</color>
     <color name="sign_in_button_text_color">#FFFFFF</color>
-    <color name="sign_in_button_background_color">#2B8CFF</color>
+    <color name="sign_in_button_background_color">#4361EE</color>
+
+    <!-- Semantic background tints -->
+    <color name="export_pdf_bg_tint">#FFE5E5</color>
+    <color name="export_docx_bg_tint">#E5F0FF</color>
+    <color name="delete_icon_bg_tint">#1FE53935</color>
+    <color name="tick_icon_tint">#4CAF50</color>
 </resources>

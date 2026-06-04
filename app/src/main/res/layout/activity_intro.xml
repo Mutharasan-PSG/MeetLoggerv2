@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/backgroundColor"
+    tools:context=".ui.login.activity.IntroActivity">
+
+    <!-- Ambient Glow Spot Top-Left -->
+    <View
+        android:layout_width="320dp"
+        android:layout_height="320dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginStart="-120dp"
+        android:layout_marginTop="-120dp"
+        android:background="@drawable/glow_blue" />
+
+    <!-- Ambient Glow Spot Bottom-Right -->
+    <View
+        android:layout_width="360dp"
+        android:layout_height="360dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="-120dp"
+        android:layout_marginBottom="-120dp"
+        android:background="@drawable/glow_purple" />
+
+    <!-- Main Vertical content, centered slogan and logo -->
+    <LinearLayout
+        android:id="@+id/centerContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="start"
+        android:layout_centerVertical="true"
+        android:paddingHorizontal="@dimen/screen_margin_horizontal">
+
+        <!-- Slogan Text (Left-aligned, slightly bigger 30sp, Medium weight) -->
+        <TextView
+            android:id="@+id/AppContext"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins_medium"
+            android:text="@string/app_slogan"
+            android:textColor="@color/onBackgroundColor"
+            android:textSize="@dimen/login_slogan_text_size"
+            android:gravity="start"
+            android:lineSpacingMultiplier="1.25" />
+
+        <!-- App Logo below Slogan (slightly bigger 200dp x 60dp) -->
+        <ImageView
+            android:id="@+id/AppIcon"
+            android:layout_width="200dp"
+            android:layout_height="60dp"
+            android:layout_marginTop="24dp"
+            android:src="@drawable/splashlogo"
+            android:scaleType="fitStart"
+            android:contentDescription="@string/app_name" />
+
+    </LinearLayout>
+
+    <!-- Bottom Container (Button + Policy footer) at the bottom end -->
+    <LinearLayout
+        android:id="@+id/bottomContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="16dp"
+        android:paddingHorizontal="@dimen/screen_margin_horizontal">
+
+        <!-- Get Started Button -->
+        <Button
+            android:id="@+id/buttonGetStarted"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/auth_button_height"
+            android:text="@string/btn_get_started"
+            android:textColor="@color/fixed_white"
+            android:fontFamily="@font/poppins_semibold"
+            android:textSize="@dimen/text_size_normal"
+            android:background="@drawable/button_background"
+            app:backgroundTint="@null"
+            android:elevation="@dimen/spacing_tiny"
+            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Policy Agreement text -->
+        <TextView
+            android:id="@+id/privacy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:fontFamily="@font/poppins"
+            android:text="@string/privacy_policy_agreement"
+            android:textColor="@color/onSurfaceVariant"
+            android:textColorHighlight="@android:color/transparent"
+            android:textSize="@dimen/text_size_small"
+            android:lineSpacingMultiplier="1.2" />
+
+    </LinearLayout>
+
+</RelativeLayout>
