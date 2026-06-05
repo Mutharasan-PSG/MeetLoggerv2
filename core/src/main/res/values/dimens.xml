@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common Spacing -->
+    <dimen name="spacing_tiny">2dp</dimen>
+    <dimen name="spacing_small">4dp</dimen>
+    <dimen name="spacing_medium">8dp</dimen>
+    <dimen name="spacing_normal">12dp</dimen>
+    <dimen name="spacing_large">16dp</dimen>
+    <dimen name="spacing_extra_large">24dp</dimen>
+    <dimen name="spacing_huge">32dp</dimen>
+
+    <!-- Screen Margins -->
+    <dimen name="screen_margin_horizontal">22dp</dimen>
+    <dimen name="screen_margin_vertical">20dp</dimen>
+    <dimen name="search_margin_top">26dp</dimen>
+    <dimen name="search_margin_bottom">25dp</dimen>
+    <dimen name="search_margin_horizontal">25dp</dimen>
+    <dimen name="search_bar_height">52dp</dimen>
+
+    <!-- Logo and Profile Sizes -->
+    <dimen name="app_logo_width">177dp</dimen>
+    <dimen name="app_logo_height">75dp</dimen>
+    <dimen name="app_logo_margin_start">23dp</dimen>
+    <dimen name="app_logo_margin_top">5dp</dimen>
+    <dimen name="profile_pic_size">40dp</dimen>
+    <dimen name="profile_pic_margin_top">20dp</dimen>
+    <dimen name="profile_pic_margin_end">26dp</dimen>
+
+    <!-- Text Sizes -->
+    <dimen name="text_size_tiny">12sp</dimen>
+    <dimen name="text_size_small">14sp</dimen>
+    <dimen name="text_size_medium">16sp</dimen>
+    <dimen name="text_size_normal">18sp</dimen>
+    <dimen name="text_size_large">20sp</dimen>
+    <dimen name="text_size_extra_large">22sp</dimen>
+    <dimen name="text_size_headline">26sp</dimen>
+
+    <!-- Placeholder Sizes -->
+    <dimen name="placeholder_image_size">280dp</dimen>
+    <dimen name="no_internet_image_size">230dp</dimen>
+
+    <!-- Button Sizes -->
+    <dimen name="audio_button_margin_bottom">122dp</dimen>
+    <dimen name="audio_button_padding">11dp</dimen>
+    <dimen name="audio_icon_size">24dp</dimen>
+    <dimen name="audio_button_margin_end">16dp</dimen>
+
+    <!-- Bottom Nav -->
+    <dimen name="bottom_nav_height">70dp</dimen>
+
+    <!-- Overlay/Popup -->
+    <dimen name="audio_options_width">240dp</dimen>
+    <dimen name="audio_options_height">180dp</dimen>
+    <dimen name="audio_options_margin_bottom">86dp</dimen>
+    <dimen name="option_item_padding">10dp</dimen>
+    <dimen name="option_icon_size">25dp</dimen>
+    <dimen name="option_icon_size_large">27dp</dimen>
+    <dimen name="close_icon_size">28dp</dimen>
+
+    <!-- Login Screen -->
+    <dimen name="login_slogan_margin_top">249dp</dimen>
+    <dimen name="login_slogan_text_size">30sp</dimen>
+    <dimen name="login_logo_margin_top">150dp</dimen>
+    <dimen name="login_logo_width">250dp</dimen>
+    <dimen name="login_logo_height">50dp</dimen>
+    <dimen name="intro_logo_width">200dp</dimen>
+    <dimen name="intro_logo_height">60dp</dimen>
+    <dimen name="intro_logo_margin_top">24dp</dimen>
+    <dimen name="google_signin_width">270dp</dimen>
+    <dimen name="google_signin_height">40dp</dimen>
+    <dimen name="google_logo_margin_start">40dp</dimen>
+
+    <!-- List Item -->
+    <dimen name="list_item_padding">14dp</dimen>
+    <dimen name="list_item_margin_bottom">15dp</dimen>
+    <dimen name="list_item_icon_size">30dp</dimen>
+    <dimen name="list_item_text_size">17sp</dimen>
+
+    <!-- Audio List Screen -->
+    <dimen name="audio_topic_margin_top">30dp</dimen>
+    <dimen name="audio_topic_text_size">24sp</dimen>
+    <dimen name="audio_list_search_margin_top">80dp</dimen>
+    <dimen name="select_all_margin_top">135dp</dimen>
+    <dimen name="audio_list_view_margin_top">150dp</dimen>
+    <dimen name="mini_player_padding">15dp</dimen>
+    <dimen name="mini_player_margin_horizontal">20dp</dimen>
+    <dimen name="mini_player_margin_bottom">10dp</dimen>
+
+    <!-- Profile Screen -->
+    <dimen name="profile_title_margin_top">9dp</dimen>
+    <dimen name="profile_title_text_size">28sp</dimen>
+    <dimen name="profile_image_size">100dp</dimen>
+    <dimen name="profile_label_text_size">21sp</dimen>
+    <dimen name="profile_value_text_size">20sp</dimen>
+    <dimen name="sign_out_button_margin_top">52dp</dimen>
+    <dimen name="sign_out_icon_width">20dp</dimen>
+    <dimen name="sign_out_icon_height">22dp</dimen>
+
+    <!-- File Details Screen -->
+    <dimen name="details_content_margin_top">52dp</dimen>
+    <dimen name="details_content_margin_bottom">30dp</dimen>
+    <dimen name="details_bottom_container_width">210dp</dimen>
+    <dimen name="details_bottom_container_height">60dp</dimen>
+    <dimen name="details_action_icon_size">30dp</dimen>
+
+    <!-- Dialogs and BottomSheets -->
+    <dimen name="dialog_corner_radius">24dp</dimen>
+    <dimen name="dialog_padding">16dp</dimen>
+    <dimen name="dialog_item_margin">12dp</dimen>
+    <dimen name="instruction_text_size">19sp</dimen>
+    <dimen name="process_button_elevation">5dp</dimen>
+
+    <!-- Recording Screen -->
+    <dimen name="timer_text_size">30sp</dimen>
+    <dimen name="record_icon_width">85dp</dimen>
+    <dimen name="record_icon_height">70dp</dimen>
+    <dimen name="record_timer_margin_end">30dp</dimen>
+    <dimen name="record_button_margin_start">35dp</dimen>
+
+    <!-- Popups -->
+    <dimen name="popup_width">160dp</dimen>
+    <dimen name="popup_item_min_height">48dp</dimen>
+
+    <!-- Original values -->
+    <dimen name="list_item_spacing">16dp</dimen>
+    <dimen name="list_item_spacing_half">8dp</dimen>
+    <dimen name="mini_player_bottom_margin">30dp</dimen>
+
+    <!-- Modernized UI Elements -->
+    <dimen name="toolbar_padding_horizontal">16dp</dimen>
+    <dimen name="toolbar_padding_vertical">12dp</dimen>
+    <dimen name="toolbar_button_size">40dp</dimen>
+    <dimen name="toolbar_button_padding">10dp</dimen>
+    <dimen name="toolbar_title_text_size">22sp</dimen>
+    <dimen name="toolbar_title_margin_start">8dp</dimen>
+    
+    <dimen name="profile_avatar_container_size">128dp</dimen>
+    <dimen name="profile_avatar_image_size">120dp</dimen>
+    <dimen name="profile_avatar_margin_top">24dp</dimen>
+    <dimen name="profile_avatar_elevation">6dp</dimen>
+    
+    <dimen name="profile_card_margin_horizontal">20dp</dimen>
+    <dimen name="profile_card_margin_top">32dp</dimen>
+    <dimen name="profile_card_padding">20dp</dimen>
+    <dimen name="profile_card_elevation">2dp</dimen>
+    
+    <dimen name="profile_row_icon_size">24dp</dimen>
+    <dimen name="profile_row_icon_margin_end">16dp</dimen>
+    <dimen name="profile_row_placeholder_text_size">13sp</dimen>
+    <dimen name="profile_row_value_text_size">18sp</dimen>
+    <dimen name="profile_row_margin_top">2dp</dimen>
+    <dimen name="profile_row_divider_height">1dp</dimen>
+    <dimen name="profile_row_divider_margin_vertical">16dp</dimen>
+    
+    <dimen name="profile_sign_out_btn_height">48dp</dimen>
+    <dimen name="profile_sign_out_btn_margin_top">36dp</dimen>
+    <dimen name="profile_sign_out_btn_padding_horizontal">24dp</dimen>
+    <dimen name="profile_sign_out_icon_size">22dp</dimen>
+    <dimen name="profile_sign_out_text_size">18sp</dimen>
+    <dimen name="profile_sign_out_text_margin_start">8dp</dimen>
+    
+    <dimen name="version_footer_margin_bottom">16dp</dimen>
+    <dimen name="version_footer_text_size">14sp</dimen>
+
+    <!-- Standardized layout spacing / sizes -->
+    <dimen name="drag_handle_width">40dp</dimen>
+    <dimen name="drag_handle_height">4dp</dimen>
+    <dimen name="drag_handle_margin_top">12dp</dimen>
+    <dimen name="drag_handle_margin_bottom">8dp</dimen>
+    
+    <dimen name="text_size_instruction">15sp</dimen>
+    <dimen name="text_size_formats_desc">13sp</dimen>
+    <dimen name="text_size_detail_loading">15sp</dimen>
+    <dimen name="divider_height">1dp</dimen>
+    
+    <dimen name="upload_card_height">120dp</dimen>
+    <dimen name="upload_icon_container_size">52dp</dimen>
+    <dimen name="upload_icon_size">26dp</dimen>
+    <dimen name="selected_file_icon_size">20dp</dimen>
+    <dimen name="selected_file_icon_margin_end">10dp</dimen>
+    
+    <dimen name="action_button_height">54dp</dimen>
+    <dimen name="action_button_margin_bottom">28dp</dimen>
+    <dimen name="action_button_corner_radius">27dp</dimen>
+    <dimen name="action_button_padding_horizontal">32dp</dimen>
+    <dimen name="mini_control_button_size">36dp</dimen>
+    <dimen name="dialog_option_icon_container_size">48dp</dimen>
+    
+    <dimen name="progress_overlay_min_width">120dp</dimen>
+    <dimen name="progress_bar_size">40dp</dimen>
+    
+    <dimen name="record_ring_container_size">180dp</dimen>
+    <dimen name="record_ring_inner_halo_size">148dp</dimen>
+    <dimen name="record_center_circle_size">112dp</dimen>
+    <dimen name="record_center_circle_elevation">4dp</dimen>
+    <dimen name="record_center_icon_size">56dp</dimen>
+    <dimen name="record_sheet_vertical_spacing">24dp</dimen>
+    <dimen name="text_size_record_sheet_btn">14sp</dimen>
+    <dimen name="text_size_radio">16sp</dimen>
+    <dimen name="radio_button_padding">12dp</dimen>
+    <dimen name="equalizer_container_height">48dp</dimen>
+    <dimen name="equalizer_bar_width">5dp</dimen>
+    <dimen name="equalizer_bar_margin">3dp</dimen>
+    <dimen name="equalizer_bar1_height">32dp</dimen>
+    <dimen name="equalizer_bar2_height">42dp</dimen>
+    <dimen name="equalizer_bar3_height">24dp</dimen>
+    <dimen name="equalizer_bar4_height">36dp</dimen>
+    <dimen name="equalizer_bar5_height">28dp</dimen>
+    
+    <dimen name="spacing_medium_tiny">6dp</dimen>
+    <dimen name="spacing_one">1dp</dimen>
+    <dimen name="select_all_margin_start">45dp</dimen>
+    
+    <dimen name="bottom_nav_bar_inner_height">68dp</dimen>
+    <dimen name="bottom_nav_icon_size">24dp</dimen>
+
+    <!-- Authentication Dimensions -->
+    <dimen name="auth_form_margin_top">15dp</dimen>
+    <dimen name="auth_button_height">50dp</dimen>
+    <dimen name="auth_card_margin_top">32dp</dimen>
+    <dimen name="auth_card_elevation">4dp</dimen>
+    <dimen name="auth_card_padding">20dp</dimen>
+    <dimen name="auth_input_margin_bottom">12dp</dimen>
+    <dimen name="auth_logo_margin_top">16dp</dimen>
+    <dimen name="auth_title_margin_bottom">16dp</dimen>
+    <dimen name="auth_input_corner_radius">12dp</dimen>
+    <dimen name="auth_header_margin_top">32dp</dimen>
+    <dimen name="auth_footer_margin_vertical">8dp</dimen>
+</resources>

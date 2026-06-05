@@ -21,4 +21,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "MeetLoggerv2"
 include(":app")
+include(":core")
+include(":data")
+include(":feature:auth")
+include(":feature:dashboard")
+include(":feature:details")
+include(":feature:report")
  

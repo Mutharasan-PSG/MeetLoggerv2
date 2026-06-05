@@ -1,7 +1,8 @@
 package com.example.meetloggerv2
 
-import com.example.meetloggerv2.data.repository.FileRepository
-import com.example.meetloggerv2.data.repository.AuthRepository
+import com.example.meetloggerv2.data.repository.IFileRepository
+import com.example.meetloggerv2.data.repository.IAuthRepository
+import com.example.meetloggerv2.core.R
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.Timestamp
 import android.app.Application
@@ -13,12 +14,15 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.appcompat.app.AppCompatDelegate
 import com.google.firebase.FirebaseApp
+import dagger.hilt.android.HiltAndroidApp
 import java.util.Calendar
+import javax.inject.Inject
 
+@HiltAndroidApp
 class MeetLoggerApp : Application() {
 
-    private lateinit var fileRepository: FileRepository
-    private lateinit var authRepository: AuthRepository
+    @Inject lateinit var fileRepository: IFileRepository
+    @Inject lateinit var authRepository: IAuthRepository
     private var listenerRegistration: ListenerRegistration? = null
     private val TAG = "MeetLoggerApp"
 
@@ -26,8 +30,6 @@ class MeetLoggerApp : Application() {
         super.onCreate()
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         FirebaseApp.initializeApp(this)
-        fileRepository = FileRepository()
-        authRepository = AuthRepository()
         setupNotificationListener()
     }
 
