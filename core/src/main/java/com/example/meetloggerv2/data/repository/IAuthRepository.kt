@@ -11,5 +11,6 @@ interface IAuthRepository {
     fun sendPasswordResetEmail(email: String, onComplete: (Boolean, Exception?) -> Unit)
     fun sendEmailVerification(user: FirebaseUser, onComplete: (Boolean, Exception?) -> Unit)
     fun reloadUser(user: FirebaseUser, onComplete: (Boolean, Exception?) -> Unit)
+    fun fetchSignInMethodsForEmail(email: String, onComplete: (List<String>?, Exception?) -> Unit)
     fun signOut()
 }

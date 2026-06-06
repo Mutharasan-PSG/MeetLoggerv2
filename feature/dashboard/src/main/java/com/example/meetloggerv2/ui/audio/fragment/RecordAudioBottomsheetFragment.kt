@@ -14,15 +14,17 @@ import androidx.activity.OnBackPressedCallback
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -53,7 +56,13 @@ import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.media.AudioPlayerManager
 import com.example.meetloggerv2.core.network.NetworkMonitor
 import com.example.meetloggerv2.core.session.AuthSession
+import com.example.meetloggerv2.core.theme.GradientEnd
+import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
+import com.example.meetloggerv2.core.theme.pressScale
+import com.example.meetloggerv2.core.theme.pressScaleClick
+import com.example.meetloggerv2.core.ui.components.PremiumAudioPlayer
+import com.example.meetloggerv2.core.ui.components.SheetHeader
 import com.example.meetloggerv2.ui.audio.util.AudioProcessingDialog
 import com.example.meetloggerv2.ui.audio.viewmodel.RecordAudioViewModel
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -94,6 +103,11 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private var showSaveDialogState = mutableStateOf(false)
     private var showDeleteConfirmState = mutableStateOf(false)
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NORMAL, com.example.meetloggerv2.core.R.style.CustomBottomSheetDialog)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -109,9 +123,9 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                     val savedFileName = savedFileNameState.value
                     LaunchedEffect(savedFileName) {
                         if (savedFileName != null) {
-                            setBottomSheetHeight(0.88)
+                            setBottomSheetHeight(0.85)
                         } else {
-                            setBottomSheetHeight(0.70)
+                            setBottomSheetHeight(0.65)
                         }
                     }
                     RecordAudioScreen(
@@ -134,11 +148,12 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                         onStopRecord = { stopRecording() },
                         onToggleLock = { toggleSheetLock() },
                         onPlayPausePlayback = { togglePlayback() },
-                        onStopPlayback = { stopPlayback() },
                         onSeekPlayback = { progress ->
                             audioPlayer.seekTo(progress)
                             playbackProgressState.value = progress
                         },
+                        onRewind = { audioPlayer.rewind() },
+                        onForward = { audioPlayer.fastForward() },
                         onProcessAudio = { showSpeakerSelection() },
                         onNewRecording = { resetRecordingUI() },
                         onDeleteRecording = { showDeleteConfirmation() },
@@ -152,18 +167,44 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                             delay(100)
                             saveFocusRequester.requestFocus()
                         }
-                        AlertDialog(
-                            onDismissRequest = { /* Cannot dismiss by tapping outside */ },
-                            title = { Text("Save Recording", fontWeight = FontWeight.Bold) },
-                            text = {
-                                Column {
-                                    Text("Enter a name for your recording:")
-                                    Spacer(modifier = Modifier.height(8.dp))
+                        Dialog(onDismissRequest = { }) {
+                            Card(
+                                shape = RoundedCornerShape(24.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                modifier = Modifier.fillMaxWidth(0.95f)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Save Recording",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 20.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Start
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "Enter a name for your recording:",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Start,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Spacer(modifier = Modifier.height(20.dp))
                                     OutlinedTextField(
                                         value = fileNameInput,
                                         onValueChange = { fileNameInput = it },
                                         singleLine = true,
                                         shape = RoundedCornerShape(24.dp),
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Password,
+                                            autoCorrectEnabled = false
+                                        ),
+                                        visualTransformation = VisualTransformation.None,
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                                             unfocusedBorderColor = Color.Transparent,
@@ -173,36 +214,64 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                                         modifier = Modifier.fillMaxWidth().focusRequester(saveFocusRequester),
                                         placeholder = { Text("Meeting name...") }
                                     )
-                                }
-                            },
-                            confirmButton = {
-                                Button(
-                                    onClick = {
-                                        val name = fileNameInput.trim()
-                                        if (name.isNotEmpty()) {
-                                            saveRecording(name)
-                                            showSaveDialogState.value = false
-                                        } else {
-                                            Toast.makeText(context, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+                                    Spacer(modifier = Modifier.height(32.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        val discardInteractionSource = remember { MutableInteractionSource() }
+                                        OutlinedButton(
+                                            onClick = {
+                                                audioFile?.delete()
+                                                resetRecordingUI()
+                                                showSaveDialogState.value = false
+                                            },
+                                            interactionSource = discardInteractionSource,
+                                            modifier = Modifier.weight(1f).height(48.dp).pressScale(discardInteractionSource),
+                                            shape = RoundedCornerShape(24.dp),
+                                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        ) {
+                                            Text("Discard", fontWeight = FontWeight.Bold)
+                                        }
+
+                                        val saveInteractionSource = remember { MutableInteractionSource() }
+                                        Surface(
+                                            onClick = {
+                                                val name = fileNameInput.trim()
+                                                if (name.isNotEmpty()) {
+                                                    saveRecording(name)
+                                                    showSaveDialogState.value = false
+                                                } else {
+                                                    Toast.makeText(context, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f).height(48.dp).pressScale(saveInteractionSource),
+                                            shape = RoundedCornerShape(24.dp),
+                                            color = Color.Transparent
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (isSavingState.value) {
+                                                    Box(modifier = Modifier.size(24.dp)) {
+                                                        CircularProgressIndicator(
+                                                            color = Color.White,
+                                                            strokeWidth = 2.5.dp
+                                                        )
+                                                    }
+                                                } else {
+                                                    Text("Save", fontWeight = FontWeight.Bold, color = Color.White)
+                                                }
+                                            }
                                         }
                                     }
-                                ) {
-                                    Text("Save")
                                 }
-                            },
-                            dismissButton = {
-                                TextButton(
-                                    onClick = {
-                                        audioFile?.delete()
-                                        resetRecordingUI()
-                                        showSaveDialogState.value = false
-                                    }
-                                ) {
-                                    Text("Discard", color = MaterialTheme.colorScheme.error)
-                                }
-                            },
-                            shape = RoundedCornerShape(16.dp)
-                        )
+                            }
+                        }
                     }
 
                     if (showSpeakerSelectionState.value) {
@@ -222,33 +291,77 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                     }
 
                     if (showDeleteConfirmState.value) {
-                        AlertDialog(
-                            onDismissRequest = { showDeleteConfirmState.value = false },
-                            title = { Text("Confirm Delete", fontWeight = FontWeight.Bold) },
-                            text = { Text("Are you sure you want to delete this recording?") },
-                            confirmButton = {
-                                Button(
-                                    onClick = {
-                                        val uid = authSession.currentUserId()
-                                        if (uid != null && audioFile != null) {
-                                            viewModel.deleteAudio(uid, audioFile!!.name)
-                                        }
-                                        resetRecordingUI()
-                                        showDeleteConfirmState.value = false
-                                    },
-                                    shape = RoundedCornerShape(20.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        Dialog(onDismissRequest = { showDeleteConfirmState.value = false }) {
+                            Card(
+                                shape = RoundedCornerShape(24.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                modifier = Modifier.fillMaxWidth(0.95f)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Text("Delete", fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = "Confirm Delete",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 20.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Start
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "Are you sure you want to delete this recording?",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Start,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Spacer(modifier = Modifier.height(32.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        val cancelInteractionSource = remember { MutableInteractionSource() }
+                                        OutlinedButton(
+                                            onClick = { showDeleteConfirmState.value = false },
+                                            interactionSource = cancelInteractionSource,
+                                            modifier = Modifier.weight(1f).height(48.dp).pressScale(cancelInteractionSource),
+                                            shape = RoundedCornerShape(24.dp),
+                                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        ) {
+                                            Text("Cancel", fontWeight = FontWeight.Bold)
+                                        }
+
+                                        val deleteInteractionSource = remember { MutableInteractionSource() }
+                                        Surface(
+                                            onClick = {
+                                                val uid = authSession.currentUserId()
+                                                if (uid != null && audioFile != null) {
+                                                    viewModel.deleteAudio(uid, audioFile!!.name)
+                                                }
+                                                resetRecordingUI()
+                                                showDeleteConfirmState.value = false
+                                            },
+                                            modifier = Modifier.weight(1f).height(48.dp).pressScale(deleteInteractionSource),
+                                            shape = RoundedCornerShape(24.dp),
+                                            color = Color.Transparent
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Brush.linearGradient(colors = listOf(Color(0xFFEF5350), Color(0xFFD32F2F)))),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text("Delete", fontWeight = FontWeight.Bold, color = Color.White)
+                                            }
+                                        }
+                                    }
                                 }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { showDeleteConfirmState.value = false }) {
-                                    Text("Cancel", fontWeight = FontWeight.Bold)
-                                }
-                            },
-                            shape = RoundedCornerShape(16.dp)
-                        )
+                            }
+                        }
                     }
                 }
             }
@@ -258,7 +371,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     override fun onStart() {
         super.onStart()
         dialog?.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        setBottomSheetHeight(0.76)
+        setBottomSheetHeight(0.70)
     }
 
     private fun setBottomSheetHeight(fraction: Double) {
@@ -368,15 +481,6 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
         }
     }
 
-    private fun stopPlayback() {
-        if (!isProcessingState.value) {
-            audioPlayer.stop()
-            isPlaybackPlayingState.value = false
-            playbackProgressState.value = 0
-            playbackCurrentTimeState.value = "00:00"
-        }
-    }
-
     private fun showSpeakerSelection() {
         showSpeakerSelectionState.value = true
     }
@@ -407,6 +511,8 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                             }
                             is RecordAudioViewModel.UiState.Saved -> {
                                 savedFileNameState.value = state.fileName
+                                playbackMaxState.value = elapsedSecondsState.value * 1000
+                                playbackTotalTimeState.value = audioPlayer.formatTime(playbackMaxState.value)
                             }
                             is RecordAudioViewModel.UiState.Processing -> {
                                 progressMessageState.value = state.stage
@@ -472,6 +578,7 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordAudioScreen(
     isRecording: Boolean,
@@ -493,8 +600,9 @@ fun RecordAudioScreen(
     onStopRecord: () -> Unit,
     onToggleLock: () -> Unit,
     onPlayPausePlayback: () -> Unit,
-    onStopPlayback: () -> Unit,
     onSeekPlayback: (Int) -> Unit,
+    onRewind: () -> Unit,
+    onForward: () -> Unit,
     onProcessAudio: () -> Unit,
     onNewRecording: () -> Unit,
     onDeleteRecording: () -> Unit,
@@ -545,58 +653,42 @@ fun RecordAudioScreen(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Drag handle / bar
-            Box(
-                modifier = Modifier
-                    .width(40.dp)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Record Audio",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (isRecording) {
-                    IconButton(
-                        onClick = onToggleLock,
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = if (isSheetLocked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(id = if (isSheetLocked) R.drawable.ic_lock else R.drawable.ic_unlock),
-                            contentDescription = "Toggle Sheet Lock",
-                            tint = if (isSheetLocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else if (savedFileName == null) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
+            SheetHeader(
+                title = if (isRecording && !isPaused) "Recording..." else "Record Audio",
+                onDismiss = onDismiss,
+                showCloseButton = !isRecording && !isPaused && !isProcessing && !isSaving,
+                trailingContent = {
+                    if ((isRecording || isPaused) && !isProcessing && !isSaving) {
+                        Surface(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .pressScaleClick(onClick = onToggleLock),
+                            shape = CircleShape,
+                            color = if (isSheetLocked) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = if (isSheetLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                    contentDescription = "Toggle Sheet Lock",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = if (isSheetLocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
                     }
                 }
-            }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -636,8 +728,8 @@ fun RecordAudioScreen(
                             .background(
                                 Brush.radialGradient(
                                     colors = listOf(
-                                        Color(0xFF4361EE).copy(alpha = pulseAlpha),
-                                        Color(0xFF7209B7).copy(alpha = 0f)
+                                        GradientStart.copy(alpha = pulseAlpha),
+                                        GradientEnd.copy(alpha = 0f)
                                     )
                                 )
                             )
@@ -660,8 +752,8 @@ fun RecordAudioScreen(
                                     .background(
                                         Brush.verticalGradient(
                                             colors = listOf(
-                                                Color(0xFF7209B7),
-                                                Color(0xFF4361EE)
+                                                GradientEnd,
+                                                GradientStart
                                             )
                                         )
                                     )
@@ -684,8 +776,8 @@ fun RecordAudioScreen(
                                     .background(
                                         Brush.verticalGradient(
                                             colors = listOf(
-                                                Color(0xFF7209B7).copy(alpha = 0.5f),
-                                                Color(0xFF4361EE).copy(alpha = 0.5f)
+                                                GradientEnd.copy(alpha = 0.5f),
+                                                GradientStart.copy(alpha = 0.5f)
                                             )
                                         )
                                     )
@@ -704,6 +796,12 @@ fun RecordAudioScreen(
                     fontSize = 36.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Recording in progress",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else if (savedFileName != null) {
                 Text(
@@ -733,136 +831,153 @@ fun RecordAudioScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Button(
-                        onClick = onStartRecord,
+                    Surface(
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(56.dp)
+                            .pressScaleClick(enabled = !isProcessing && !isSaving) { onStartRecord() },
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isRecording) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                        )
+                        color = Color.Transparent
                     ) {
-                        Text(
-                            text = if (isRecording) "Pause" else if (isPaused) "Resume" else "Start",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    if (isRecording) {
+                                        Brush.linearGradient(
+                                            colors = listOf(
+                                                Color(0xFFFFA726),
+                                                Color(0xFFFB8C00)
+                                            )
+                                        )
+                                    } else {
+                                        Brush.linearGradient(
+                                            colors = listOf(GradientStart, GradientEnd)
+                                        )
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isRecording) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isRecording) "Pause" else if (isPaused) "Resume" else "Start",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
                     }
 
                     if (isRecording || isPaused) {
                         Spacer(modifier = Modifier.width(16.dp))
-                        Button(
-                            onClick = onStopRecord,
+                        Surface(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(56.dp),
+                                .height(56.dp)
+                                .pressScaleClick(enabled = !isProcessing && !isSaving) { onStopRecord() },
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            )
+                            color = Color.Transparent
                         ) {
-                            Text(
-                                text = "Stop",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.linearGradient(
+                                            colors = listOf(
+                                                Color(0xFFEF5350),
+                                                Color(0xFFD32F2F)
+                                            )
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Stop,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Stop",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             } else {
-                // Preview & Process controls
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // Mini player seekbar and timings
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(text = playbackCurrentTime, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Slider(
-                                    value = playbackProgress.toFloat(),
-                                    onValueChange = { onSeekPlayback(it.toInt()) },
-                                    valueRange = 0f..playbackMax.toFloat().coerceAtLeast(1f),
-                                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = MaterialTheme.colorScheme.primary,
-                                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                                        inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
-                                    )
-                                )
-                                Text(text = playbackTotalTime, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                // Premium Integrated Player
+                PremiumAudioPlayer(
+                    isPlaying = isPlaybackPlaying,
+                    playbackProgress = playbackProgress,
+                    playbackMax = playbackMax,
+                    currentTimeStr = playbackCurrentTime,
+                    totalTimeStr = playbackTotalTime,
+                    onPlayPause = onPlayPausePlayback,
+                    onSeek = onSeekPlayback,
+                    onRewind = onRewind,
+                    onForward = onForward
+                )
 
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val playPauseInteractionSource = remember { MutableInteractionSource() }
-                                IconButton(
-                                    onClick = onPlayPausePlayback,
-                                    interactionSource = playPauseInteractionSource,
-                                    modifier = Modifier.pressScale(playPauseInteractionSource)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = if (isPlaybackPlaying) R.drawable.pause1 else R.drawable.play),
-                                        contentDescription = if (isPlaybackPlaying) "Pause" else "Play",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                                val stopPlaybackInteractionSource = remember { MutableInteractionSource() }
-                                IconButton(
-                                    onClick = onStopPlayback,
-                                    interactionSource = stopPlaybackInteractionSource,
-                                    modifier = Modifier.pressScale(stopPlaybackInteractionSource)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.stop),
-                                        contentDescription = "Stop",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(36.dp))
 
                     // Saved Section action buttons (Vertical Column Stack)
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Premium Gradient "Process Audio" Button (Full Width)
-                        val processInteractionSource = remember { MutableInteractionSource() }
+                        // Outlined "New Recording" Button (Full Width)
                         Surface(
-                            onClick = onProcessAudio,
-                            shape = RoundedCornerShape(25.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
-                                .pressScale(processInteractionSource),
+                                .pressScaleClick(enabled = !isProcessing && !isSaving) { onNewRecording() },
+                            shape = RoundedCornerShape(25.dp),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                            color = Color.Transparent
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "New Recording",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+
+                        // Premium Gradient "Process Audio" Button (Full Width)
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .pressScaleClick(enabled = !isProcessing && !isSaving) { onProcessAudio() },
+                            shape = RoundedCornerShape(25.dp),
                             shadowElevation = 4.dp,
                             color = Color.Transparent
                         ) {
@@ -870,8 +985,8 @@ fun RecordAudioScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(
-                                        Brush.horizontalGradient(
-                                            colors = listOf(Color(0xFF4361EE), Color(0xFF7209B7))
+                                        Brush.linearGradient(
+                                            colors = listOf(GradientStart, GradientEnd)
                                         )
                                     ),
                                 contentAlignment = Alignment.Center
@@ -884,7 +999,7 @@ fun RecordAudioScreen(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = null,
                                         tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
@@ -896,72 +1011,7 @@ fun RecordAudioScreen(
                                 }
                             }
                         }
-
-                        // Outlined "New Recording" Button (Full Width)
-                        val newInteractionSource = remember { MutableInteractionSource() }
-                        OutlinedButton(
-                            onClick = onNewRecording,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .pressScale(newInteractionSource),
-                            shape = RoundedCornerShape(24.dp),
-                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                            interactionSource = newInteractionSource
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "New Recording",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-
-                        // Delete File Button (Full Width)
-                        val deleteInteractionSource = remember { MutableInteractionSource() }
-                        Button(
-                            onClick = onDeleteRecording,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .pressScale(deleteInteractionSource),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            ),
-                            interactionSource = deleteInteractionSource
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Delete File",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
                     }
-                }
             }
         }
 
@@ -988,3 +1038,4 @@ fun RecordAudioScreen(
             }
         }
     }
+}

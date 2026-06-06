@@ -104,7 +104,8 @@
     </style>
 
     <style name="CustomBottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
-        <item name="backgroundTint">@color/backgroundColor</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+        <item name="android:background">@android:color/transparent</item>
         <item name="shapeAppearanceOverlay">@style/BottomSheetCorners</item>
         <item name="android:windowEnterAnimation">@anim/slide_up</item>
         <item name="android:windowExitAnimation">@anim/slide_down</item>

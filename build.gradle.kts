@@ -16,6 +16,6 @@ plugins {
     id("com.android.library") version "9.2.1" apply false
     alias(libs.plugins.legacy.kapt) apply false
     alias(libs.plugins.google.gms.google.services) apply false
-    id("com.google.firebase.crashlytics") version "3.0.7" apply false
     alias(libs.plugins.hilt.android) apply false
+    id("com.google.firebase.crashlytics") version "3.0.7" apply false
 }

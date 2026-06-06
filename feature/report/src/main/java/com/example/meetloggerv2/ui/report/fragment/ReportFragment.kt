@@ -23,6 +23,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,23 +32,17 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import com.example.meetloggerv2.core.theme.pressScale
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -56,6 +51,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,7 +66,11 @@ import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.export.DocumentExportManager
 import com.example.meetloggerv2.core.navigation.findNavigationRouter
 import com.example.meetloggerv2.core.network.NetworkMonitor
+import com.example.meetloggerv2.core.theme.GradientEnd
+import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
+import com.example.meetloggerv2.core.theme.pressScale
+import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.core.util.ShareHelper
 import com.example.meetloggerv2.ui.report.viewmodel.ReportViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -123,11 +124,25 @@ class ReportFragment : Fragment() {
                         onOpenDetails = { shortName -> openFileDetailsFragment(shortName) },
                         onOpenAudioList = { openAudioListFragment() },
                         onExportAction = { name, format -> performExport(name, format) },
-                        onShareAction = { name, format -> performShare(name, format) }
+                        onShareAction = { name, format -> performShare(name, format) },
+                        onShowFormatSelection = { action, name -> showFormatSelectionBottomSheet(action, name) }
                     )
                 }
             }
         }
+    }
+
+    private fun showFormatSelectionBottomSheet(action: String, name: String) {
+        com.example.meetloggerv2.core.util.FormatSelectionBottomSheetFragment.newInstance(
+            title = "Choose format",
+            subtitle = if (action == "EXPORT") "Select the format to save your file" else "Select the format to share your file"
+        ).setCallback { format ->
+            if (action == "EXPORT") {
+                performExport(name, format)
+            } else {
+                performShare(name, format)
+            }
+        }.show(parentFragmentManager, "FormatSelectionBottomSheet")
     }
 
     private fun setupObservers() {
@@ -237,17 +252,18 @@ fun ReportScreenContent(
     onOpenDetails: (String) -> Unit,
     onOpenAudioList: () -> Unit,
     onExportAction: (name: String, format: String) -> Unit,
-    onShareAction: (name: String, format: String) -> Unit
+    onShareAction: (name: String, format: String) -> Unit,
+    onShowFormatSelection: (action: String, name: String) -> Unit
 ) {
     val context = LocalContext.current
-    val focusManager = LocalFocusManager.current
 
     val files by viewModel.filteredFiles.collectAsState(initial = emptyList())
     val uiState by viewModel.uiState.collectAsState()
+    val isLoading = uiState is ReportViewModel.ReportUiState.Loading
 
     var searchQuery by remember { mutableStateOf("") }
     var isDeleteMode by remember { mutableStateOf(false) }
-    val selectedItems = remember { mutableStateListOf<Int>() }
+    val selectedFiles = remember { mutableStateListOf<String>() }
 
     var renamingPosition by remember { mutableStateOf(-1) }
     var renameText by remember { mutableStateOf("") }
@@ -260,27 +276,14 @@ fun ReportScreenContent(
     var copyNewName by remember { mutableStateOf("") }
 
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-    var showFormatSelectionDialogForAction by remember { mutableStateOf<Pair<String, String>?>(null) } // Pair(ActionType, name)
 
-    // Backpress handler for delete mode and rename mode
-    val backCallback = remember {
-        object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (renamingPosition != -1) {
-                    renamingPosition = -1
-                } else if (isDeleteMode) {
-                    isDeleteMode = false
-                    selectedItems.clear()
-                } else {
-                    onBack()
-                }
-            }
+    androidx.activity.compose.BackHandler(enabled = isDeleteMode || renamingPosition != -1) {
+        if (renamingPosition != -1) {
+            renamingPosition = -1
+        } else if (isDeleteMode) {
+            isDeleteMode = false
+            selectedFiles.clear()
         }
-    }
-
-    DisposableEffect(isDeleteMode, renamingPosition) {
-        backCallback.isEnabled = isDeleteMode || renamingPosition != -1
-        onDispose {}
     }
 
     if (!isOnline) {
@@ -290,31 +293,11 @@ fun ReportScreenContent(
                 .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(64.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = stringResource(id = R.string.content_desc_no_internet),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(id = R.string.no_internet_message),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            EmptyStatePlaceholder(
+                icon = Icons.Default.WifiOff,
+                title = "No Internet Connection",
+                subtitle = "Check your network settings and try again"
+            )
         }
     } else {
         Scaffold(
@@ -324,34 +307,42 @@ fun ReportScreenContent(
                         Text(
                             text = stringResource(id = R.string.summarized_files),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
+                            fontSize = 20.sp,
+                            modifier = Modifier.padding(start = 5.dp)
                         )
                     },
                     navigationIcon = {
-                        val navInteractionSource = remember { MutableInteractionSource() }
-                        IconButton(
-                            onClick = {
-                                if (isDeleteMode) {
-                                    isDeleteMode = false
-                                    selectedItems.clear()
-                                } else if (renamingPosition != -1) {
-                                    renamingPosition = -1
-                                } else {
-                                    onBack()
-                                }
-                            },
-                            interactionSource = navInteractionSource,
-                            modifier = Modifier.pressScale(navInteractionSource)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Back"
-                            )
+                            Surface(
+                                modifier = Modifier
+                                    .padding(start = 12.dp)
+                                    .size(40.dp)
+                                    .pressScaleClick(enabled = !isLoading) {
+                                        if (isDeleteMode) {
+                                            isDeleteMode = false
+                                            selectedFiles.clear()
+                                        } else if (renamingPosition != -1) {
+                                            renamingPosition = -1
+                                        } else {
+                                            onBack()
+                                        }
+                                    },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 2.dp,
+                                shadowElevation = 4.dp
+                            ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     },
                     actions = {
                         if (renamingPosition != -1) {
-                            val confirmInteractionSource = remember { MutableInteractionSource() }
                             IconButton(
                                 onClick = {
                                     val item = files.getOrNull(renamingPosition)
@@ -367,8 +358,8 @@ fun ReportScreenContent(
                                     }
                                     renamingPosition = -1
                                 },
-                                interactionSource = confirmInteractionSource,
-                                modifier = Modifier.pressScale(confirmInteractionSource).padding(end = 8.dp)
+                                enabled = !isLoading,
+                                modifier = Modifier.pressScale().padding(end = 8.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
@@ -377,12 +368,11 @@ fun ReportScreenContent(
                                 )
                             }
                         } else if (isDeleteMode) {
-                            if (selectedItems.isNotEmpty()) {
-                                val deleteInteractionSource = remember { MutableInteractionSource() }
+                            if (selectedFiles.isNotEmpty()) {
                                 IconButton(
                                     onClick = { showDeleteConfirmDialog = true },
-                                    interactionSource = deleteInteractionSource,
-                                    modifier = Modifier.pressScale(deleteInteractionSource).padding(end = 8.dp)
+                                    enabled = !isLoading,
+                                    modifier = Modifier.pressScale().padding(end = 8.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
@@ -391,17 +381,16 @@ fun ReportScreenContent(
                                     )
                                 }
                             }
-                        } else {
-                            val listInteractionSource = remember { MutableInteractionSource() }
+                        }
+else {
                             IconButton(
                                 onClick = onOpenAudioList,
-                                interactionSource = listInteractionSource,
-                                modifier = Modifier.pressScale(listInteractionSource).padding(end = 8.dp)
+                                modifier = Modifier.pressScaleClick { onOpenAudioList() }.padding(end = 8.dp)
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.audioo),
+                                    imageVector = Icons.Default.GraphicEq,
                                     contentDescription = "Audio List",
-                                    tint = Color.Unspecified,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(26.dp)
                                 )
                             }
@@ -429,50 +418,62 @@ fun ReportScreenContent(
                         .padding(horizontal = 16.dp)
                 ) {
                     // Search Bar
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = {
-                            searchQuery = it
-                            viewModel.setQuery(it)
-                        },
-                        placeholder = { Text("Search summaries...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                val clearInteractionSource = remember { MutableInteractionSource() }
-                                IconButton(
-                                    onClick = {
-                                        searchQuery = ""
-                                        viewModel.setQuery("")
-                                    },
-                                    interactionSource = clearInteractionSource,
-                                    modifier = Modifier.pressScale(clearInteractionSource)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Clear"
-                                    )
+                    if (files.isNotEmpty() || searchQuery.isNotEmpty()) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = {
+                                searchQuery = it
+                                viewModel.setQuery(it)
+                            },
+                            placeholder = {
+                                Text(
+                                    "Search summaries...",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    val clearInteractionSource = remember { MutableInteractionSource() }
+                                    IconButton(
+                                        onClick = {
+                                            searchQuery = ""
+                                            viewModel.setQuery("")
+                                        },
+                                        interactionSource = clearInteractionSource,
+                                        modifier = Modifier.pressScale(clearInteractionSource)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Clear"
+                                        )
+                                    }
                                 }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                autoCorrectEnabled = false
+                            ),
+                            visualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                            )
                         )
-                    )
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -481,18 +482,18 @@ fun ReportScreenContent(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                                .padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
                         ) {
                             Checkbox(
-                                checked = selectedItems.size == files.size && files.isNotEmpty(),
+                                checked = selectedFiles.size == files.size && files.isNotEmpty(),
                                 onCheckedChange = { checked ->
-                                    selectedItems.clear()
+                                    selectedFiles.clear()
                                     if (checked) {
-                                        files.indices.forEach { selectedItems.add(it) }
+                                        files.forEach { selectedFiles.add(it.first) }
                                     }
                                 }
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = stringResource(id = R.string.select_all),
                                 fontWeight = FontWeight.SemiBold,
@@ -508,14 +509,19 @@ fun ReportScreenContent(
                                 .weight(1f),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = if (searchQuery.isEmpty())
-                                    stringResource(id = R.string.empty_report_message)
-                                else
-                                    stringResource(id = R.string.empty_report_search_message),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 14.sp
-                            )
+                            if (searchQuery.isEmpty()) {
+                                EmptyStatePlaceholder(
+                                    icon = Icons.Default.Description,
+                                    title = "No summaries yet",
+                                    subtitle = "Summarized files will show up here once processed"
+                                )
+                            } else {
+                                Text(
+                                    text = stringResource(id = R.string.empty_report_search_message),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp
+                                )
+                            }
                         }
                     } else {
                         LazyColumn(
@@ -529,7 +535,7 @@ fun ReportScreenContent(
                                 val name = item.first
                                 val timestamp = item.second
 
-                                val isSelected = selectedItems.contains(index)
+                                val isSelected = selectedFiles.contains(name)
                                 val isRenamingThis = renamingPosition == index
 
                                 val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -537,14 +543,13 @@ fun ReportScreenContent(
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .pressScale(interactionSource)
                                         .clip(RoundedCornerShape(16.dp))
                                         .combinedClickable(
                                             interactionSource = interactionSource,
                                             indication = null,
                                             onClick = {
                                                 if (isDeleteMode) {
-                                                    if (isSelected) selectedItems.remove(index) else selectedItems.add(index)
+                                                    if (isSelected) selectedFiles.remove(name) else selectedFiles.add(name)
                                                 } else if (renamingPosition == -1) {
                                                     onOpenDetails(name)
                                                 }
@@ -552,26 +557,27 @@ fun ReportScreenContent(
                                             onLongClick = {
                                                 if (!isDeleteMode && renamingPosition == -1) {
                                                     isDeleteMode = true
-                                                    selectedItems.add(index)
+                                                    selectedFiles.add(name)
                                                 }
                                             }
-                                        ),
+                                        )
+                                        .pressScale(interactionSource),
                                     shape = RoundedCornerShape(16.dp),
-                                    border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)),
+                                    border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (isSelected)
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.surface
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        contentColor = MaterialTheme.colorScheme.onSurface
                                     ),
                                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                                ) {
+                                )
+{
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(16.dp)
                                     ) {
+                                        val isDark = MaterialTheme.colorScheme.onSurface == Color.White
                                         if (isDeleteMode) {
                                             Checkbox(
                                                 checked = isSelected,
@@ -579,12 +585,20 @@ fun ReportScreenContent(
                                             )
                                             Spacer(modifier = Modifier.width(16.dp))
                                         } else {
-                                            Icon(
-                                                painter = painterResource(id = R.drawable.ic_docx),
-                                                contentDescription = "docImage",
-                                                tint = Color.Unspecified,
-                                                modifier = Modifier.size(32.dp)
-                                            )
+                                            Surface(
+                                                modifier = Modifier.size(44.dp),
+                                                shape = RoundedCornerShape(12.dp),
+                                                color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Description,
+                                                        contentDescription = "docImage",
+                                                        tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
+                                                }
+                                            }
                                             Spacer(modifier = Modifier.width(16.dp))
                                         }
 
@@ -603,7 +617,12 @@ fun ReportScreenContent(
                                                         renameText = it.text
                                                     },
                                                     singleLine = true,
-                                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                                    keyboardOptions = KeyboardOptions(
+                                                        keyboardType = KeyboardType.Password,
+                                                        imeAction = ImeAction.Done,
+                                                        autoCorrectEnabled = false
+                                                    ),
+                                                    visualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
                                                     keyboardActions = KeyboardActions(
                                                         onDone = {
                                                             val oldFull = viewModel.getFullFileName(name)
@@ -623,8 +642,10 @@ fun ReportScreenContent(
                                                     colors = TextFieldDefaults.colors(
                                                         focusedContainerColor = Color.Transparent,
                                                         unfocusedContainerColor = Color.Transparent,
-                                                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                                                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                                                        focusedIndicatorColor = Color.Transparent,
+                                                        unfocusedIndicatorColor = Color.Transparent,
+                                                        disabledIndicatorColor = Color.Transparent,
+                                                        cursorColor = MaterialTheme.colorScheme.primary
                                                     ),
                                                     textStyle = LocalTextStyle.current.copy(
                                                         fontWeight = FontWeight.SemiBold,
@@ -654,11 +675,9 @@ fun ReportScreenContent(
 
                                         if (!isDeleteMode && renamingPosition == -1) {
                                             Box {
-                                                val menuInteractionSource = remember { MutableInteractionSource() }
                                                 IconButton(
                                                     onClick = { expandedMenuPosition = index },
-                                                    interactionSource = menuInteractionSource,
-                                                    modifier = Modifier.pressScale(menuInteractionSource)
+                                                    modifier = Modifier.pressScaleClick { expandedMenuPosition = index }
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.MoreVert,
@@ -666,60 +685,81 @@ fun ReportScreenContent(
                                                     )
                                                 }
 
-                                                DropdownMenu(
-                                                    expanded = expandedMenuPosition == index,
-                                                    onDismissRequest = { expandedMenuPosition = -1 },
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(16.dp))
-                                                        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)), RoundedCornerShape(16.dp))
-                                                        .background(MaterialTheme.colorScheme.surface)
+                                                MaterialTheme(
+                                                    shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(28.dp))
                                                 ) {
-                                                    val renameInteractionSource = remember { MutableInteractionSource() }
-                                                    DropdownMenuItem(
-                                                        text = { Text("Rename", fontWeight = FontWeight.Medium) },
-                                                        leadingIcon = { Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
-                                                        interactionSource = renameInteractionSource,
-                                                        modifier = Modifier.pressScale(renameInteractionSource),
-                                                        onClick = {
-                                                            expandedMenuPosition = -1
-                                                            renameTextValue = TextFieldValue(text = name, selection = TextRange(name.length))
-                                                            renamingPosition = index
-                                                        }
-                                                    )
-                                                    val exportInteractionSource = remember { MutableInteractionSource() }
-                                                    DropdownMenuItem(
-                                                        text = { Text("Export", fontWeight = FontWeight.Medium) },
-                                                        leadingIcon = { Icon(painterResource(id = R.drawable.ic_export_doc), contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
-                                                        interactionSource = exportInteractionSource,
-                                                        modifier = Modifier.pressScale(exportInteractionSource),
-                                                        onClick = {
-                                                            expandedMenuPosition = -1
-                                                            showFormatSelectionDialogForAction = Pair("EXPORT", name)
-                                                        }
-                                                    )
-                                                    val shareInteractionSource = remember { MutableInteractionSource() }
-                                                    DropdownMenuItem(
-                                                        text = { Text("Share", fontWeight = FontWeight.Medium) },
-                                                        leadingIcon = { Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
-                                                        interactionSource = shareInteractionSource,
-                                                        modifier = Modifier.pressScale(shareInteractionSource),
-                                                        onClick = {
-                                                            expandedMenuPosition = -1
-                                                            showFormatSelectionDialogForAction = Pair("SHARE", name)
-                                                        }
-                                                    )
-                                                    val copyInteractionSource = remember { MutableInteractionSource() }
-                                                    DropdownMenuItem(
-                                                        text = { Text("Copy", fontWeight = FontWeight.Medium) },
-                                                        leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_docx), contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
-                                                        interactionSource = copyInteractionSource,
-                                                        modifier = Modifier.pressScale(copyInteractionSource),
-                                                        onClick = {
-                                                            expandedMenuPosition = -1
-                                                            copyNewName = "copy of $name"
-                                                            showCopyDialogForPos = index
-                                                        }
-                                                    )
+                                                    DropdownMenu(
+                                                        expanded = expandedMenuPosition == index,
+                                                        onDismissRequest = { expandedMenuPosition = -1 },
+                                                        modifier = Modifier
+                                                            .widthIn(min = 140.dp, max = 220.dp)
+                                                            .background(MaterialTheme.colorScheme.surface)
+                                                            .border(
+                                                                BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                                                                RoundedCornerShape(28.dp)
+                                                            )
+                                                    ) {
+                                                        val isDarkMenu = MaterialTheme.colorScheme.onSurface == Color.White
+                                                        val menuIconTint = if (isDarkMenu) Color.White else MaterialTheme.colorScheme.primary
+                                                        val menuSecondaryTint = if (isDarkMenu) Color.White else MaterialTheme.colorScheme.secondary
+
+                                                        DropdownMenuItem(
+                                                            text = { Text("Rename", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                                                            leadingIcon = { Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(24.dp), tint = menuIconTint) },
+                                                            contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                                                            modifier = Modifier.pressScaleClick {
+                                                                expandedMenuPosition = -1
+                                                                renameTextValue = TextFieldValue(text = name, selection = TextRange(name.length))
+                                                                renamingPosition = index
+                                                            },
+                                                            onClick = {
+                                                                expandedMenuPosition = -1
+                                                                renameTextValue = TextFieldValue(text = name, selection = TextRange(name.length))
+                                                                renamingPosition = index
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("Export", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                                                            leadingIcon = { Icon(imageVector = Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(24.dp), tint = menuIconTint) },
+                                                            contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                                                            modifier = Modifier.pressScaleClick {
+                                                                expandedMenuPosition = -1
+                                                                onShowFormatSelection("EXPORT", name)
+                                                            },
+                                                            onClick = {
+                                                                expandedMenuPosition = -1
+                                                                onShowFormatSelection("EXPORT", name)
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("Share", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                                                            leadingIcon = { Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(24.dp), tint = menuIconTint) },
+                                                            contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                                                            modifier = Modifier.pressScaleClick {
+                                                                expandedMenuPosition = -1
+                                                                onShowFormatSelection("SHARE", name)
+                                                            },
+                                                            onClick = {
+                                                                expandedMenuPosition = -1
+                                                                onShowFormatSelection("SHARE", name)
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("Copy", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                                                            leadingIcon = { Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(24.dp), tint = menuSecondaryTint) },
+                                                            contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                                                            modifier = Modifier.pressScaleClick {
+                                                                expandedMenuPosition = -1
+                                                                copyNewName = "copy of $name"
+                                                                showCopyDialogForPos = index
+                                                            },
+                                                            onClick = {
+                                                                expandedMenuPosition = -1
+                                                                copyNewName = "copy of $name"
+                                                                showCopyDialogForPos = index
+                                                            }
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -763,18 +803,44 @@ fun ReportScreenContent(
                     delay(100)
                     copyFocusRequester.requestFocus()
                 }
-                AlertDialog(
-                    onDismissRequest = { showCopyDialogForPos = -1 },
-                    title = { Text(text = stringResource(id = R.string.dialog_title_copy_report)) },
-                    text = {
-                        Column {
-                            Text(text = "Enter new filename:")
-                            Spacer(modifier = Modifier.height(8.dp))
+                Dialog(onDismissRequest = { showCopyDialogForPos = -1 }) {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                        modifier = Modifier.fillMaxWidth(0.95f)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.dialog_title_copy_report),
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 20.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Start
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Enter a name for your copy:",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Start,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
                             OutlinedTextField(
                                 value = copyNewName,
                                 onValueChange = { copyNewName = it },
                                 singleLine = true,
                                 shape = RoundedCornerShape(24.dp),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Password,
+                                    autoCorrectEnabled = false
+                                ),
+                                visualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                                     unfocusedBorderColor = Color.Transparent,
@@ -783,164 +849,190 @@ fun ReportScreenContent(
                                 ),
                                 modifier = Modifier.fillMaxWidth().focusRequester(copyFocusRequester)
                             )
-                        }
-                    },
-                    confirmButton = {
-                        val proceedInteractionSource = remember { MutableInteractionSource() }
-                        Button(
-                            onClick = {
-                                val trimmed = copyNewName.trim()
-                                if (trimmed.isNotEmpty()) {
-                                    val ext = full.substringAfterLast(".", "mp3")
-                                    viewModel.copyFile(full, "$trimmed.$ext")
-                                    showCopyDialogForPos = -1
-                                } else {
-                                    Toast.makeText(context, R.string.error_name_empty, Toast.LENGTH_SHORT).show()
+                            Spacer(modifier = Modifier.height(32.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .pressScaleClick { showCopyDialogForPos = -1 },
+                                    shape = RoundedCornerShape(24.dp),
+                                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                    color = Color.Transparent
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
-                            },
-                            shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            interactionSource = proceedInteractionSource,
-                            modifier = Modifier.pressScale(proceedInteractionSource)
-                        ) {
-                            Text(stringResource(id = R.string.dialog_proceed), fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    dismissButton = {
-                        val cancelInteractionSource = remember { MutableInteractionSource() }
-                        TextButton(
-                            onClick = { showCopyDialogForPos = -1 },
-                            interactionSource = cancelInteractionSource,
-                            modifier = Modifier.pressScale(cancelInteractionSource)
-                        ) {
-                            Text(stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold)
+
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .pressScaleClick {
+                                            val trimmed = copyNewName.trim()
+                                            if (trimmed.isNotEmpty()) {
+                                                val ext = full.substringAfterLast(".", "mp3")
+                                                viewModel.copyFile(full, "$trimmed.$ext")
+                                                showCopyDialogForPos = -1
+                                            } else {
+                                                Toast.makeText(context, R.string.error_name_empty, Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                    shape = RoundedCornerShape(24.dp),
+                                    color = Color.Transparent
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        val isCopying = uiState is ReportViewModel.ReportUiState.Loading && (uiState as ReportViewModel.ReportUiState.Loading).message == "Copying..."
+                                        if (isCopying) {
+                                            Box(modifier = Modifier.size(24.dp)) {
+                                                CircularProgressIndicator(
+                                                    color = Color.White,
+                                                    strokeWidth = 2.5.dp
+                                                )
+                                            }
+                                        } else {
+                                            Text(stringResource(id = R.string.dialog_proceed), fontWeight = FontWeight.Bold, color = Color.White)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                )
+                }
             }
         }
     }
 
     if (showDeleteConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text(text = "Confirm Delete") },
-            text = { Text(text = stringResource(id = R.string.msg_delete_selected_reports)) },
-            confirmButton = {
-                val confirmInteractionSource = remember { MutableInteractionSource() }
-                Button(
-                    onClick = {
-                        val filesToDelete = selectedItems.mapNotNull {
-                            val shortName = files.getOrNull(it)?.first
-                            if (shortName != null) viewModel.getFullFileName(shortName) else null
-                        }
-                        viewModel.deleteFiles(filesToDelete)
-                        isDeleteMode = false
-                        selectedItems.clear()
-                        showDeleteConfirmDialog = false
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    interactionSource = confirmInteractionSource,
-                    modifier = Modifier.pressScale(confirmInteractionSource)
-                ) {
-                    Text(stringResource(id = R.string.dialog_delete), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                val dismissInteractionSource = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { showDeleteConfirmDialog = false },
-                    interactionSource = dismissInteractionSource,
-                    modifier = Modifier.pressScale(dismissInteractionSource)
-                ) {
-                    Text(stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
-
-    showFormatSelectionDialogForAction?.let { pair ->
-        val action = pair.first
-        val reportName = pair.second
-        Dialog(onDismissRequest = { showFormatSelectionDialogForAction = null }) {
+        Dialog(onDismissRequest = { showDeleteConfirmDialog = false }) {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier.fillMaxWidth(0.95f)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = stringResource(id = R.string.dialog_title_choose_format),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "Confirm Delete",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Start
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = stringResource(id = R.string.dialog_subtitle_export_format),
-                        fontSize = 13.sp,
+                        text = stringResource(id = R.string.msg_delete_selected_reports),
+                        fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth()
                     )
-
-                    val formats = listOf("PDF", "DOCX", "TXT")
-                    formats.forEach { format ->
-                        val iconRes = when (format) {
-                            "PDF" -> R.drawable.pdf
-                            "DOCX" -> R.drawable.ic_docx
-                            else -> R.drawable.doc_1
-                        }
-                        val formatBtnInteractionSource = remember { MutableInteractionSource() }
-                        OutlinedButton(
-                            onClick = {
-                                if (action == "EXPORT") {
-                                    onExportAction(reportName, format)
-                                } else {
-                                    onShareAction(reportName, format)
-                                }
-                                showFormatSelectionDialogForAction = null
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                            interactionSource = formatBtnInteractionSource,
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                                .weight(1f)
                                 .height(48.dp)
-                                .pressScale(formatBtnInteractionSource)
+                                .pressScaleClick { showDeleteConfirmDialog = false },
+                            shape = RoundedCornerShape(24.dp),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            color = Color.Transparent
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = iconRes),
-                                    contentDescription = null,
-                                    tint = Color.Unspecified,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(text = format, fontWeight = FontWeight.Bold)
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val formatCancelInteractionSource = remember { MutableInteractionSource() }
-                    TextButton(
-                        onClick = { showFormatSelectionDialogForAction = null },
-                        interactionSource = formatCancelInteractionSource,
-                        modifier = Modifier.pressScale(formatCancelInteractionSource)
-                    ) {
-                        Text(stringResource(id = R.string.dialog_cancel))
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .pressScaleClick {
+                                    val filesToDelete = selectedFiles.mapNotNull { shortName ->
+                                        viewModel.getFullFileName(shortName)
+                                    }
+                                    viewModel.deleteFiles(filesToDelete)
+                                    isDeleteMode = false
+                                    selectedFiles.clear()
+                                    showDeleteConfirmDialog = false
+                                },
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color.Transparent
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Brush.linearGradient(colors = listOf(Color(0xFFEF5350), Color(0xFFD32F2F)))),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(stringResource(id = R.string.dialog_delete), fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun EmptyStatePlaceholder(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        val isDark = MaterialTheme.colorScheme.onSurface == Color.White
+        Surface(
+            modifier = Modifier.size(100.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(56.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = subtitle,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp
+        )
     }
 }

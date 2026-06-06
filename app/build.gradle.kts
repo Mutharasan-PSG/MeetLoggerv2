@@ -49,7 +49,11 @@ android {
     }
 
     packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
         resources {
+            excludes.add("dump_syms/**")
             excludes.add("META-INF/DEPENDENCIES")
             excludes.add("META-INF/NOTICE.md")
             excludes.add("META-INF/LICENSE.md")
@@ -85,13 +89,12 @@ dependencies {
     kapt("com.github.bumptech.glide:compiler:4.16.0")
 
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.crashlytics)
     implementation("com.google.firebase:firebase-storage:22.0.1")
     implementation(libs.firebase.messaging.ktx)
-    implementation(libs.firebase.crashlytics.buildtools)
     implementation("com.google.android.gms:play-services-auth:21.5.1")
 
     // Networking (Retrofit & OkHttp)

@@ -1,25 +1,30 @@
 package com.example.meetloggerv2.ui.profile.fragment
 
-import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -30,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -38,6 +44,8 @@ import com.bumptech.glide.Glide
 import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.navigation.findNavigationRouter
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
+import com.example.meetloggerv2.core.theme.pressScale
+import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.ui.profile.viewmodel.ProfileViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -65,7 +73,11 @@ class ProfileFragment : Fragment() {
                 MeetLoggerTheme {
                     ProfileScreen(
                         viewModel = viewModel,
-                        onBack = { parentFragmentManager.popBackStack() }
+                        onBack = { parentFragmentManager.popBackStack() },
+                        onNavigateToLegal = { type -> findNavigationRouter()?.navigateToLegal(type) },
+                        onNavigateToHelpSupport = { findNavigationRouter()?.navigateToHelpSupport() },
+                        onNavigateToSettings = { findNavigationRouter()?.navigateToSettings() },
+                        onNavigateToSubscriptions = { findNavigationRouter()?.navigateToSubscriptions() }
                     )
                 }
             }
@@ -100,10 +112,17 @@ class ProfileFragment : Fragment() {
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToLegal: (String) -> Unit,
+    onNavigateToHelpSupport: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToSubscriptions: () -> Unit
 ) {
     val context = LocalContext.current
     val userProfile by viewModel.userProfile.collectAsState()
+    val signOutState by viewModel.signOutState.collectAsState()
+    val isSigningOut = signOutState is ProfileViewModel.SignOutState.Loading
+    val scrollState = rememberScrollState()
 
     val appVersion = remember {
         try {
@@ -114,6 +133,8 @@ fun ProfileScreen(
         }
     }
 
+    val stopRed = Color(0xFFEF5350)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -121,12 +142,29 @@ fun ProfileScreen(
                     Text(
                         text = "Profile",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
+                        fontSize = 20.sp,
+                        modifier = Modifier.padding(start = 5.dp)
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                    Surface(
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .size(40.dp)
+                            .pressScaleClick { onBack() },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 2.dp,
+                        shadowElevation = 4.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -145,116 +183,218 @@ fun ProfileScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            userProfile?.let { profile ->
-                val name = profile["name"] as? String ?: "User"
-                val email = profile["email"] as? String ?: ""
-                val photoUrl = profile["photoUrl"] as? String
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Profile Image wrapper with Glide
-                val avatarDrawable = remember(name) {
-                    com.example.meetloggerv2.core.util.AvatarGenerator.getAvatar(context, name)
-                }
-
-                Card(
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    AndroidView(
-                        factory = { ctx ->
-                            ImageView(ctx).apply {
-                                scaleType = ImageView.ScaleType.CENTER_CROP
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        update = { imageView ->
-                            Glide.with(context)
-                                .load(photoUrl)
-                                .placeholder(avatarDrawable)
-                                .error(avatarDrawable)
-                                .fallback(avatarDrawable)
-                                .circleCrop()
-                                .into(imageView)
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Text(
-                    text = name,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = email,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } ?: run {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Premium Sign Out Button
-            Card(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .clickable {
-                        viewModel.signOut()
-                    },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f)
-                )
+                    .weight(1f) // Take up all available space
+                    .verticalScroll(scrollState),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.signout),
-                        contentDescription = "Sign Out",
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
+                userProfile?.let { profile ->
+                    val name = profile["name"] as? String ?: "User"
+                    val email = profile["email"] as? String ?: ""
+                    val photoUrl = profile["photoUrl"] as? String
+
+                    // Minimized space between title and profile pic
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Profile Image wrapper with Glide
+                    val avatarDrawable = remember(name) {
+                        com.example.meetloggerv2.core.util.AvatarGenerator.getAvatar(context, name)
+                    }
+
+                    Card(
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .size(110.dp)
+                            .clip(CircleShape),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        AndroidView(
+                            factory = { ctx ->
+                                ImageView(ctx).apply {
+                                    scaleType = ImageView.ScaleType.CENTER_CROP
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                            update = { imageView ->
+                                Glide.with(context)
+                                    .load(photoUrl)
+                                    .placeholder(avatarDrawable)
+                                    .error(avatarDrawable)
+                                    .fallback(avatarDrawable)
+                                    .circleCrop()
+                                    .into(imageView)
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Text(
-                        text = "Sign Out",
+                        text = name,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onErrorContainer
+                        color = MaterialTheme.colorScheme.onBackground
                     )
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Text(
+                        text = email,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Profile Options
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        ProfileOptionItem(
+                            icon = Icons.Default.Settings,
+                            title = "Settings",
+                            onClick = { if (!isSigningOut) onNavigateToSettings() }
+                        )
+                        ProfileOptionItem(
+                            icon = Icons.Default.CardMembership,
+                            title = "Subscriptions",
+                            onClick = { if (!isSigningOut) onNavigateToSubscriptions() }
+                        )
+                        ProfileOptionItem(
+                            icon = Icons.Default.Security,
+                            title = "Privacy & security",
+                            onClick = { if (!isSigningOut) onNavigateToLegal("policy") }
+                        )
+                        ProfileOptionItem(
+                            icon = Icons.AutoMirrored.Filled.Help,
+                            title = "Help & support",
+                            onClick = { if (!isSigningOut) onNavigateToHelpSupport() }
+                        )
+                    }
+                } ?: run {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Premium Sign Out Button
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .pressScaleClick(enabled = !isSigningOut) {
+                            viewModel.signOut()
+                        },
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.5.dp, stopRed.copy(alpha = 0.2f)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = stopRed.copy(alpha = 0.08f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        if (isSigningOut) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = stopRed
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = "Sign Out",
+                                tint = stopRed,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Sign Out",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = stopRed
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
+            // Version text stuck to the absolute bottom
             Text(
                 text = appVersion,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun ProfileOptionItem(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressScaleClick(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Square Icon Background
+            val isDark = MaterialTheme.colorScheme.onSurface == Color.White
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Title
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Arrow
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

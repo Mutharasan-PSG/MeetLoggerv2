@@ -2,7 +2,9 @@ package com.example.meetloggerv2
 
 import com.example.meetloggerv2.data.repository.IFileRepository
 import com.example.meetloggerv2.data.repository.IAuthRepository
+import com.example.meetloggerv2.data.local.SettingsDataStore
 import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.ThemeManager
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.Timestamp
 import android.app.Application
@@ -15,6 +17,10 @@ import androidx.core.app.NotificationCompat
 import androidx.appcompat.app.AppCompatDelegate
 import com.google.firebase.FirebaseApp
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
 
@@ -23,14 +29,32 @@ class MeetLoggerApp : Application() {
 
     @Inject lateinit var fileRepository: IFileRepository
     @Inject lateinit var authRepository: IAuthRepository
+    @Inject lateinit var settingsDataStore: SettingsDataStore
     private var listenerRegistration: ListenerRegistration? = null
     private val TAG = "MeetLoggerApp"
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         FirebaseApp.initializeApp(this)
+        observeThemeSettings()
         setupNotificationListener()
+    }
+
+    private fun observeThemeSettings() {
+        applicationScope.launch {
+            settingsDataStore.themeMode.collect { mode ->
+                ThemeManager.setThemeMode(mode)
+                
+                // Sync with XML if necessary, though we use Compose mostly
+                val nightMode = when (mode) {
+                    1 -> AppCompatDelegate.MODE_NIGHT_NO
+                    2 -> AppCompatDelegate.MODE_NIGHT_YES
+                    else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                }
+                AppCompatDelegate.setDefaultNightMode(nightMode)
+            }
+        }
     }
 
     private fun setupNotificationListener() {

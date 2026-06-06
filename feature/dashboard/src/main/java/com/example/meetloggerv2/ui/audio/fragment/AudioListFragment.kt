@@ -13,19 +13,17 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.core.*
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,27 +32,32 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -67,6 +70,8 @@ import com.example.meetloggerv2.core.network.NetworkMonitor
 import com.example.meetloggerv2.core.network.NetworkUtil
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
 import com.example.meetloggerv2.core.theme.pressScale
+import com.example.meetloggerv2.core.theme.pressScaleClick
+import com.example.meetloggerv2.core.ui.components.PremiumAudioPlayer
 import com.example.meetloggerv2.ui.audio.util.AudioProcessingDialog
 import com.example.meetloggerv2.ui.audio.viewmodel.AudioListViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -117,6 +122,8 @@ class AudioListFragment : Fragment() {
         }
     }
 
+    private var autoPlayNextState = mutableStateOf(false)
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -143,13 +150,17 @@ class AudioListFragment : Fragment() {
                             playbackMax = playbackMaxState.value,
                             currentTimeStr = currentTimeStrState.value,
                             totalTimeStr = totalTimeStrState.value,
+                            autoPlayNext = autoPlayNextState.value,
                             onBack = { parentFragmentManager.popBackStack() },
+                            onToggleAutoPlay = { autoPlayNextState.value = !autoPlayNextState.value },
                             onPlayItem = { name, index ->
                                 currentAudioIndex = index
                                 downloadAndPlayAudio(name)
                             },
                             onPlayNext = { playNextAudio() },
                             onPlayPrev = { playPreviousAudio() },
+                            onRewind = { audioPlayer.rewind() },
+                            onForward = { audioPlayer.fastForward() },
                             onPlayPauseToggle = {
                                 if (audioPlayer.isReady()) {
                                     isPlayingState.value = audioPlayer.togglePlayPause()
@@ -236,7 +247,15 @@ class AudioListFragment : Fragment() {
         currentAudioNameState.value = name
         showMiniPlayerState.value = true
         isPlayingState.value = true
-        audioPlayer.play(path, { playNextAudio() }) { curr, dur ->
+        audioPlayer.play(path, {
+            if (autoPlayNextState.value) {
+                playNextAudio()
+            } else {
+                isPlayingState.value = false
+                playbackProgressState.value = 0
+                currentTimeStrState.value = "00:00"
+            }
+        }) { curr, dur ->
             playbackProgressState.value = curr
             playbackMaxState.value = dur
             currentTimeStrState.value = audioPlayer.formatTime(curr)
@@ -414,10 +433,14 @@ fun AudioListScreen(
     playbackMax: Int,
     currentTimeStr: String,
     totalTimeStr: String,
+    autoPlayNext: Boolean,
     onBack: () -> Unit,
+    onToggleAutoPlay: () -> Unit,
     onPlayItem: (String, Int) -> Unit,
     onPlayNext: () -> Unit,
     onPlayPrev: () -> Unit,
+    onRewind: () -> Unit,
+    onForward: () -> Unit,
     onPlayPauseToggle: () -> Unit,
     onStopPlayback: () -> Unit,
     onSeekPlayback: (Int) -> Unit,
@@ -426,13 +449,14 @@ fun AudioListScreen(
     onSummarizeItem: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val focusManager = LocalFocusManager.current
+    val uiState by viewModel.uiState.collectAsState()
+    val isLoading = uiState is AudioListViewModel.AudioUiState.Loading
 
     val files by viewModel.filteredAudioFiles.collectAsState(initial = emptyList())
 
     var searchQuery by remember { mutableStateOf("") }
     var isDeleteMode by remember { mutableStateOf(false) }
-    val selectedItems = remember { mutableStateListOf<Int>() }
+    val selectedFiles = remember { mutableStateListOf<String>() }
 
     var renamingPosition by remember { mutableStateOf(-1) }
     var renameText by remember { mutableStateOf("") }
@@ -448,7 +472,7 @@ fun AudioListScreen(
             renamingPosition = -1
         } else if (isDeleteMode) {
             isDeleteMode = false
-            selectedItems.clear()
+            selectedFiles.clear()
         }
     }
 
@@ -459,32 +483,11 @@ fun AudioListScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(24.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.no_internet),
-                    contentDescription = null,
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(120.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "No Internet Connection",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(id = R.string.no_internet_message),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
+            EmptyStatePlaceholder(
+                icon = Icons.Default.WifiOff,
+                title = "No Internet Connection",
+                subtitle = "Check your network settings and try again"
+            )
         }
     } else {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -495,31 +498,42 @@ fun AudioListScreen(
                             Text(
                                 text = "Audio Recordings",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp
+                                fontSize = 20.sp,
+                                modifier = Modifier.padding(start = 5.dp)
                             )
                         },
                         navigationIcon = {
-                            val navInteractionSource = remember { MutableInteractionSource() }
-                            IconButton(
-                                onClick = {
-                                    if (isDeleteMode) {
-                                        isDeleteMode = false
-                                        selectedItems.clear()
-                                    } else if (renamingPosition != -1) {
-                                        renamingPosition = -1
-                                    } else {
-                                        onBack()
-                                    }
-                                },
-                                interactionSource = navInteractionSource,
-                                modifier = Modifier.pressScale(navInteractionSource)
+                            Surface(
+                                modifier = Modifier
+                                    .padding(start = 12.dp)
+                                    .size(40.dp)
+                                    .pressScaleClick(enabled = !isLoading) {
+                                        if (isDeleteMode) {
+                                            isDeleteMode = false
+                                            selectedFiles.clear()
+                                        } else if (renamingPosition != -1) {
+                                            renamingPosition = -1
+                                        } else {
+                                            onBack()
+                                        }
+                                    },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 2.dp,
+                                shadowElevation = 4.dp
                             ) {
-                                Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         },
                         actions = {
                             if (renamingPosition != -1) {
-                                val confirmInteractionSource = remember { MutableInteractionSource() }
                                 IconButton(
                                     onClick = {
                                         val item = files.getOrNull(renamingPosition)
@@ -533,18 +547,17 @@ fun AudioListScreen(
                                         }
                                         renamingPosition = -1
                                     },
-                                    interactionSource = confirmInteractionSource,
-                                    modifier = Modifier.pressScale(confirmInteractionSource).padding(end = 8.dp)
+                                    enabled = !isLoading,
+                                    modifier = Modifier.pressScale().padding(end = 8.dp)
                                 ) {
                                     Icon(imageVector = Icons.Default.Check, contentDescription = "Confirm", tint = MaterialTheme.colorScheme.secondary)
                                 }
                             } else if (isDeleteMode) {
-                                if (selectedItems.isNotEmpty()) {
-                                    val deleteInteractionSource = remember { MutableInteractionSource() }
+                                if (selectedFiles.isNotEmpty()) {
                                     IconButton(
                                         onClick = { showDeleteConfirmDialog = true },
-                                        interactionSource = deleteInteractionSource,
-                                        modifier = Modifier.pressScale(deleteInteractionSource).padding(end = 8.dp)
+                                        enabled = !isLoading,
+                                        modifier = Modifier.pressScaleClick { showDeleteConfirmDialog = true }.padding(end = 8.dp)
                                     ) {
                                         Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                                     }
@@ -567,41 +580,54 @@ fun AudioListScreen(
                         .padding(horizontal = 24.dp)
                 ) {
                     // Search Bar
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = {
-                            searchQuery = it
-                            viewModel.setQuery(it)
-                        },
-                        placeholder = { Text("Search recordings...") },
-                        leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                val clearInteractionSource = remember { MutableInteractionSource() }
-                                IconButton(
-                                    onClick = {
-                                        searchQuery = ""
-                                        viewModel.setQuery("")
-                                    },
-                                    interactionSource = clearInteractionSource,
-                                    modifier = Modifier.pressScale(clearInteractionSource)
-                                ) {
-                                    Icon(imageVector = Icons.Default.Close, contentDescription = "Clear")
+                    if (files.isNotEmpty() || searchQuery.isNotEmpty()) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = {
+                                searchQuery = it
+                                viewModel.setQuery(it)
+                            },
+                            placeholder = { Text("Search recordings...") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    val clearInteractionSource = remember { MutableInteractionSource() }
+                                    IconButton(
+                                        onClick = {
+                                            searchQuery = ""
+                                            viewModel.setQuery("")
+                                        },
+                                        interactionSource = clearInteractionSource,
+                                        modifier = Modifier.pressScale(clearInteractionSource)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.Close, contentDescription = "Clear")
+                                    }
                                 }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                autoCorrectEnabled = false
+                            ),
+                            visualTransformation = VisualTransformation.None,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                            )
                         )
-                    )
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -610,18 +636,18 @@ fun AudioListScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                                .padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
                         ) {
                             Checkbox(
-                                checked = selectedItems.size == files.size && files.isNotEmpty(),
+                                checked = selectedFiles.size == files.size && files.isNotEmpty(),
                                 onCheckedChange = { checked ->
-                                    selectedItems.clear()
+                                    selectedFiles.clear()
                                     if (checked) {
-                                        files.indices.forEach { selectedItems.add(it) }
+                                        files.forEach { selectedFiles.add(it) }
                                     }
                                 }
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Select All",
                                 fontWeight = FontWeight.SemiBold,
@@ -637,11 +663,19 @@ fun AudioListScreen(
                                 .weight(1f),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = if (searchQuery.isEmpty()) "Recorded or uploaded audio files appear here" else "No matching recordings found",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
+                            if (searchQuery.isEmpty()) {
+                                EmptyStatePlaceholder(
+                                    icon = Icons.Default.Mic,
+                                    title = "No recordings yet",
+                                    subtitle = "Recorded or uploaded audio files will appear here"
+                                )
+                            } else {
+                                Text(
+                                    text = "No matching recordings found",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     } else {
                         LazyColumn(
@@ -652,28 +686,28 @@ fun AudioListScreen(
                             contentPadding = PaddingValues(bottom = 120.dp)
                         ) {
                             itemsIndexed(files) { index, item ->
-                                val isSelected = selectedItems.contains(index)
+                                val isSelected = selectedFiles.contains(item)
                                 val isRenamingThis = renamingPosition == index
 
                                 val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
 
                                 Card(
                                     shape = RoundedCornerShape(16.dp),
-                                    border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)),
+                                    border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        contentColor = MaterialTheme.colorScheme.onSurface
                                     ),
                                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .pressScale(interactionSource)
                                         .clip(RoundedCornerShape(16.dp))
                                         .combinedClickable(
                                             interactionSource = interactionSource,
                                             indication = null,
                                             onClick = {
                                                 if (isDeleteMode) {
-                                                    if (isSelected) selectedItems.remove(index) else selectedItems.add(index)
+                                                    if (isSelected) selectedFiles.remove(item) else selectedFiles.add(item)
                                                 } else if (renamingPosition == -1) {
                                                     onPlayItem(item, index)
                                                 }
@@ -681,10 +715,11 @@ fun AudioListScreen(
                                             onLongClick = {
                                                 if (!isDeleteMode && renamingPosition == -1) {
                                                     isDeleteMode = true
-                                                    selectedItems.add(index)
+                                                    selectedFiles.add(item)
                                                 }
                                             }
                                         )
+                                        .pressScale(interactionSource)
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -692,6 +727,7 @@ fun AudioListScreen(
                                             .fillMaxWidth()
                                             .padding(16.dp)
                                     ) {
+                                        val isDark = MaterialTheme.colorScheme.onSurface == Color.White
                                         if (isDeleteMode) {
                                             Checkbox(
                                                 checked = isSelected,
@@ -699,12 +735,20 @@ fun AudioListScreen(
                                             )
                                             Spacer(modifier = Modifier.width(16.dp))
                                         } else {
-                                            Icon(
-                                                painter = painterResource(id = R.drawable.audioo),
-                                                contentDescription = null,
-                                                tint = Color.Unspecified,
-                                                modifier = Modifier.size(32.dp)
-                                            )
+                                            Surface(
+                                                modifier = Modifier.size(44.dp),
+                                                shape = RoundedCornerShape(12.dp),
+                                                color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.AudioFile,
+                                                        contentDescription = null,
+                                                        tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
+                                                }
+                                            }
                                             Spacer(modifier = Modifier.width(16.dp))
                                         }
 
@@ -721,7 +765,12 @@ fun AudioListScreen(
                                                         renameText = it.text
                                                     },
                                                     singleLine = true,
-                                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                                    keyboardOptions = KeyboardOptions(
+                                                        keyboardType = KeyboardType.Password,
+                                                        imeAction = ImeAction.Done,
+                                                        autoCorrectEnabled = false
+                                                    ),
+                                                    visualTransformation = VisualTransformation.None,
                                                     keyboardActions = KeyboardActions(
                                                         onDone = {
                                                             val newName = renameText.trim()
@@ -739,8 +788,10 @@ fun AudioListScreen(
                                                     colors = TextFieldDefaults.colors(
                                                         focusedContainerColor = Color.Transparent,
                                                         unfocusedContainerColor = Color.Transparent,
-                                                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                                                        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                                                        focusedIndicatorColor = Color.Transparent,
+                                                        unfocusedIndicatorColor = Color.Transparent,
+                                                        disabledIndicatorColor = Color.Transparent,
+                                                        cursorColor = MaterialTheme.colorScheme.primary
                                                     ),
                                                     textStyle = LocalTextStyle.current.copy(
                                                         fontWeight = FontWeight.SemiBold,
@@ -762,69 +813,88 @@ fun AudioListScreen(
 
                                         if (!isDeleteMode && renamingPosition == -1) {
                                             Box {
-                                                val menuInteractionSource = remember { MutableInteractionSource() }
                                                 IconButton(
                                                     onClick = { expandedMenuPosition = index },
-                                                    interactionSource = menuInteractionSource,
-                                                    modifier = Modifier.pressScale(menuInteractionSource)
+                                                    modifier = Modifier.pressScaleClick { expandedMenuPosition = index }
                                                 ) {
                                                     Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Options")
                                                 }
 
-                                                DropdownMenu(
-                                                    expanded = expandedMenuPosition == index,
-                                                    onDismissRequest = { expandedMenuPosition = -1 },
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(16.dp))
-                                                        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)), RoundedCornerShape(16.dp))
-                                                        .background(MaterialTheme.colorScheme.surface)
+                                                MaterialTheme(
+                                                    shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(28.dp))
                                                 ) {
-                                                    val renameInteractionSource = remember { MutableInteractionSource() }
-                                                    DropdownMenuItem(
-                                                        text = { Text("Rename", fontWeight = FontWeight.Medium) },
-                                                        leadingIcon = { Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
-                                                        interactionSource = renameInteractionSource,
-                                                        modifier = Modifier.pressScale(renameInteractionSource),
-                                                        onClick = {
-                                                            expandedMenuPosition = -1
-                                                            renameTextValue = TextFieldValue(text = item, selection = TextRange(item.length))
-                                                            renameText = item
-                                                            renamingPosition = index
-                                                        }
-                                                    )
-                                                    val downloadInteractionSource = remember { MutableInteractionSource() }
-                                                    DropdownMenuItem(
-                                                        text = { Text("Download", fontWeight = FontWeight.Medium) },
-                                                        leadingIcon = { Icon(painter = painterResource(id = R.drawable.save), contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
-                                                        interactionSource = downloadInteractionSource,
-                                                        modifier = Modifier.pressScale(downloadInteractionSource),
-                                                        onClick = {
-                                                            expandedMenuPosition = -1
-                                                            onDownloadItem(item)
-                                                        }
-                                                    )
-                                                    val shareInteractionSource = remember { MutableInteractionSource() }
-                                                    DropdownMenuItem(
-                                                        text = { Text("Share", fontWeight = FontWeight.Medium) },
-                                                        leadingIcon = { Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) },
-                                                        interactionSource = shareInteractionSource,
-                                                        modifier = Modifier.pressScale(shareInteractionSource),
-                                                        onClick = {
-                                                            expandedMenuPosition = -1
-                                                            onShareItem(item)
-                                                        }
-                                                    )
-                                                    val summarizeInteractionSource = remember { MutableInteractionSource() }
-                                                    DropdownMenuItem(
-                                                        text = { Text("Summarize", fontWeight = FontWeight.Medium) },
-                                                        leadingIcon = { Icon(painter = painterResource(id = R.drawable.summarize), contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary) },
-                                                        interactionSource = summarizeInteractionSource,
-                                                        modifier = Modifier.pressScale(summarizeInteractionSource),
-                                                        onClick = {
-                                                            expandedMenuPosition = -1
-                                                            onSummarizeItem(item)
-                                                        }
-                                                    )
+                                                    DropdownMenu(
+                                                        expanded = expandedMenuPosition == index,
+                                                        onDismissRequest = { expandedMenuPosition = -1 },
+                                                        modifier = Modifier
+                                                            .widthIn(min = 150.dp, max = 220.dp)
+                                                            .background(MaterialTheme.colorScheme.surface)
+                                                            .border(
+                                                                BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                                                                RoundedCornerShape(28.dp)
+                                                            )
+                                                    ) {
+                                                        val isDarkMenu = MaterialTheme.colorScheme.onSurface == Color.White
+                                                        val menuIconTint = if (isDarkMenu) Color.White else MaterialTheme.colorScheme.primary
+                                                        val menuSummarizeTint = if (isDarkMenu) Color.White else MaterialTheme.colorScheme.secondary
+
+                                                        DropdownMenuItem(
+                                                            text = { Text("Rename", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                                                            leadingIcon = { Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(24.dp), tint = menuIconTint) },
+                                                            contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                                                            modifier = Modifier.pressScaleClick {
+                                                                expandedMenuPosition = -1
+                                                                renameTextValue = TextFieldValue(text = item, selection = TextRange(item.length))
+                                                                renameText = item
+                                                                renamingPosition = index
+                                                            },
+                                                            onClick = {
+                                                                expandedMenuPosition = -1
+                                                                renameTextValue = TextFieldValue(text = item, selection = TextRange(item.length))
+                                                                renameText = item
+                                                                renamingPosition = index
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("Download", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                                                            leadingIcon = { Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(24.dp), tint = menuIconTint) },
+                                                            contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                                                            modifier = Modifier.pressScaleClick {
+                                                                expandedMenuPosition = -1
+                                                                onDownloadItem(item)
+                                                            },
+                                                            onClick = {
+                                                                expandedMenuPosition = -1
+                                                                onDownloadItem(item)
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("Share", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                                                            leadingIcon = { Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(24.dp), tint = menuIconTint) },
+                                                            contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                                                            modifier = Modifier.pressScaleClick {
+                                                                expandedMenuPosition = -1
+                                                                onShareItem(item)
+                                                            },
+                                                            onClick = {
+                                                                expandedMenuPosition = -1
+                                                                onShareItem(item)
+                                                            }
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("Summarize", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                                                            leadingIcon = { Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(24.dp), tint = menuSummarizeTint) },
+                                                            contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                                                            modifier = Modifier.pressScaleClick {
+                                                                expandedMenuPosition = -1
+                                                                onSummarizeItem(item)
+                                                            },
+                                                            onClick = {
+                                                                expandedMenuPosition = -1
+                                                                onSummarizeItem(item)
+                                                            }
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -855,162 +925,100 @@ fun AudioListScreen(
                         }
                         .fillMaxWidth(0.9f)
                 ) {
+                    PremiumAudioPlayer(
+                        title = currentAudioName,
+                        isPlaying = isPlaying,
+                        playbackProgress = playbackProgress,
+                        playbackMax = playbackMax,
+                        currentTimeStr = currentTimeStr,
+                        totalTimeStr = totalTimeStr,
+                        onPlayPause = onPlayPauseToggle,
+                        onSeek = onSeekPlayback,
+                        onRewind = onRewind,
+                        onForward = onForward,
+                        onSkipNext = onPlayNext,
+                        onSkipPrev = onPlayPrev,
+                        onStop = onStopPlayback,
+                        autoPlayNext = autoPlayNext,
+                        onToggleAutoPlay = onToggleAutoPlay,
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                }
+            }
+
+            if (showDeleteConfirmDialog) {
+                Dialog(onDismissRequest = { showDeleteConfirmDialog = false }) {
                     Card(
                         shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(0.95f)
                     ) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
+                            modifier = Modifier.padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            Text(
+                                text = "Confirm Delete",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 20.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Start
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(id = R.string.msg_delete_selected_audio),
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Start,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(32.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Text(
-                                    text = currentAudioName,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                val stopInteractionSource = remember { MutableInteractionSource() }
-                                IconButton(
-                                    onClick = onStopPlayback,
-                                    interactionSource = stopInteractionSource,
-                                    modifier = Modifier.pressScale(stopInteractionSource)
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .pressScaleClick { showDeleteConfirmDialog = false },
+                                    shape = RoundedCornerShape(24.dp),
+                                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                    color = Color.Transparent
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Stop",
-                                        tint = MaterialTheme.colorScheme.onSurface
-                                    )
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
-                            }
 
-                            // Seekbar
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = currentTimeStr,
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Slider(
-                                    value = playbackProgress.toFloat(),
-                                    onValueChange = { onSeekPlayback(it.toInt()) },
-                                    valueRange = 0f..playbackMax.toFloat().coerceAtLeast(1f),
-                                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = MaterialTheme.colorScheme.primary,
-                                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                                        inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
-                                    )
-                                )
-                                Text(
-                                    text = totalTimeStr,
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            // Playback action controls
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val prevInteractionSource = remember { MutableInteractionSource() }
-                                IconButton(
-                                    onClick = onPlayPrev,
-                                    interactionSource = prevInteractionSource,
-                                    modifier = Modifier.pressScale(prevInteractionSource)
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .pressScaleClick {
+                                            viewModel.deleteAudioFiles(selectedFiles.toList())
+                                            isDeleteMode = false
+                                            selectedFiles.clear()
+                                            showDeleteConfirmDialog = false
+                                        },
+                                    shape = RoundedCornerShape(24.dp),
+                                    color = Color.Transparent
                                 ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.previous),
-                                        contentDescription = "Previous",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                val playPauseInteractionSource = remember { MutableInteractionSource() }
-                                IconButton(
-                                    onClick = onPlayPauseToggle,
-                                    interactionSource = playPauseInteractionSource,
-                                    modifier = Modifier.pressScale(playPauseInteractionSource)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = if (isPlaying) R.drawable.pause1 else R.drawable.play),
-                                        contentDescription = if (isPlaying) "Pause" else "Play",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                                val nextInteractionSource = remember { MutableInteractionSource() }
-                                IconButton(
-                                    onClick = onPlayNext,
-                                    interactionSource = nextInteractionSource,
-                                    modifier = Modifier.pressScale(nextInteractionSource)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.next),
-                                        contentDescription = "Next",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Brush.linearGradient(colors = listOf(Color(0xFFEF5350), Color(0xFFD32F2F)))),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(stringResource(id = R.string.dialog_delete), fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-
-            if (showDeleteConfirmDialog) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteConfirmDialog = false },
-                    title = { Text(text = "Confirm Delete") },
-                    text = { Text(text = stringResource(id = R.string.msg_delete_selected_audio)) },
-                    confirmButton = {
-                        val confirmBtnInteractionSource = remember { MutableInteractionSource() }
-                        Button(
-                            onClick = {
-                                val selectedFiles = selectedItems.mapNotNull { files.getOrNull(it) }
-                                viewModel.deleteAudioFiles(selectedFiles)
-                                isDeleteMode = false
-                                selectedItems.clear()
-                                showDeleteConfirmDialog = false
-                            },
-                            shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            interactionSource = confirmBtnInteractionSource,
-                            modifier = Modifier.pressScale(confirmBtnInteractionSource)
-                        ) {
-                            Text(stringResource(id = R.string.dialog_delete), fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    dismissButton = {
-                        val dismissBtnInteractionSource = remember { MutableInteractionSource() }
-                        TextButton(
-                            onClick = { showDeleteConfirmDialog = false },
-                            interactionSource = dismissBtnInteractionSource,
-                            modifier = Modifier.pressScale(dismissBtnInteractionSource)
-                        ) {
-                            Text(stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold)
-                        }
-                    }
-                )
             }
 
             if (isProcessing) {
@@ -1036,5 +1044,51 @@ fun AudioListScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun EmptyStatePlaceholder(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        val isDark = MaterialTheme.colorScheme.onSurface == Color.White
+        Surface(
+            modifier = Modifier.size(100.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(56.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = subtitle,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp
+        )
     }
 }

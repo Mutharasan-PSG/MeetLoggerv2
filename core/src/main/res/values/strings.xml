@@ -92,9 +92,9 @@
     <string name="dialog_update">UPDATE</string>
 
     <string name="dialog_title_save_recording">Save Recording</string>
-    <string name="dialog_title_copy_report">Copy Report</string>
+    <string name="dialog_title_copy_report">Copy File</string>
     <string name="dialog_title_choose_language">CHOOSE LANGUAGE</string>
-    <string name="dialog_title_choose_format">CHOOSE DESIRED FORMAT</string>
+    <string name="dialog_title_choose_format">CHOOSE FORMAT</string>
     <string name="dialog_title_warning">WARNING</string>
 
     <string name="msg_delete_selected_reports">Delete selected reports?</string>

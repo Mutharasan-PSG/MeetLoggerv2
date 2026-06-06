@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.meetloggerv2.data.local.db.AppDatabase
 import com.example.meetloggerv2.data.local.db.UserDao
 import com.example.meetloggerv2.data.local.db.LocalFileDao
+import com.example.meetloggerv2.data.local.SettingsDataStore
 import com.example.meetloggerv2.data.repository.IAuthRepository
 import com.example.meetloggerv2.data.repository.AuthRepository
 import com.example.meetloggerv2.data.repository.IAudioRepository
@@ -58,5 +59,11 @@ object AppModule {
         localFileDao: LocalFileDao
     ): IFileRepository {
         return FileRepository(userDao, localFileDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSettingsDataStore(@ApplicationContext context: Context): SettingsDataStore {
+        return SettingsDataStore(context)
     }
 }

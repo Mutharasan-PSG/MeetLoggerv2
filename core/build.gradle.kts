@@ -64,11 +64,12 @@ dependencies {
     implementation("org.apache.poi:poi-ooxml:5.5.1")
 
     // Compose
-    implementation(platform(libs.androidx.compose.bom))
+    api(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
+    api(libs.androidx.compose.material3)
+    api("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

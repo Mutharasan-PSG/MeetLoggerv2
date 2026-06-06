@@ -9,40 +9,38 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,6 +56,8 @@ import com.bumptech.glide.Glide
 import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.navigation.findNavigationRouter
 import com.example.meetloggerv2.core.network.NetworkMonitor
+import com.example.meetloggerv2.core.theme.GradientEnd
+import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
 import com.example.meetloggerv2.core.theme.pressScale
 import com.example.meetloggerv2.core.theme.pressScaleClick
@@ -177,19 +177,6 @@ fun HomeScreenContent(
         userProfile?.get("photoUrl") as? String
     }
 
-    // Handles back pressed for audio options overlay
-    val backCallback = remember {
-        object : OnBackPressedCallback(false) {
-            override fun handleOnBackPressed() {
-                showAudioOptions = false
-            }
-        }
-    }
-
-    LaunchedEffect(showAudioOptions) {
-        backCallback.isEnabled = showAudioOptions
-    }
-
     androidx.activity.compose.BackHandler(enabled = showAudioOptions) {
         showAudioOptions = false
     }
@@ -201,32 +188,11 @@ fun HomeScreenContent(
                 .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(24.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.no_internet),
-                    contentDescription = null,
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(120.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "No Internet Connection",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(id = R.string.no_internet_message),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
+            EmptyStatePlaceholder(
+                icon = Icons.Default.WifiOff,
+                title = "No Internet Connection",
+                subtitle = "Check your network settings and try again"
+            )
         }
     } else {
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -267,7 +233,6 @@ fun HomeScreenContent(
                                 .size(46.dp)
                                 .clip(CircleShape)
                                 .pressScaleClick { onProfileClick() },
-                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
                             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                         ) {
                             AndroidView(
@@ -309,6 +274,11 @@ fun HomeScreenContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 8.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                autoCorrectEnabled = false
+                            ),
+                            visualTransformation = VisualTransformation.None,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -328,12 +298,10 @@ fun HomeScreenContent(
                                 .weight(1f),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = stringResource(id = R.string.empty_home_message),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 32.dp),
-                                fontSize = 14.sp
+                            EmptyStatePlaceholder(
+                                icon = Icons.Default.HourglassEmpty,
+                                title = "No activity yet",
+                                subtitle = "Status of recorded or uploaded files will appear here"
                             )
                         }
                     } else if (filteredFiles.isEmpty()) {
@@ -382,9 +350,9 @@ fun HomeScreenContent(
                                             .padding(horizontal = 16.dp, vertical = 14.dp)
                                     ) {
                                         Icon(
-                                            painter = painterResource(id = R.drawable.audio_file),
+                                            imageVector = Icons.Default.AudioFile,
                                             contentDescription = null,
-                                            tint = Color.Unspecified,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(34.dp)
                                         )
 
@@ -403,22 +371,23 @@ fun HomeScreenContent(
 
                                         Spacer(modifier = Modifier.width(12.dp))
 
-                                        val statusIconRes = when (status.lowercase(Locale.ROOT)) {
-                                            "processed" -> R.drawable.ic_status_processed
-                                            "processing" -> R.drawable.ic_status_processing
-                                            else -> R.drawable.ic_status_saved
+                                        val statusIcon = when (status.lowercase(Locale.ROOT)) {
+                                            "processed" -> Icons.Default.CheckCircle
+                                            "processing" -> Icons.Default.Autorenew
+                                            else -> Icons.Default.Cloud
                                         }
+                                        val isDark = MaterialTheme.colorScheme.onSurface == Color.White
                                         val statusColor = when (status.lowercase(Locale.ROOT)) {
-                                            "processed" -> Color(0xFF10B981) // Emerald Green
-                                            "processing" -> Color(0xFF4361EE) // Indigo Blue
-                                            else -> Color(0xFF64748B) // Slate Grey
+                                            "processed" -> MaterialTheme.colorScheme.secondary
+                                            "processing" -> MaterialTheme.colorScheme.primary
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                         }
 
                                         Box(
                                             modifier = Modifier
                                                 .size(36.dp)
                                                 .clip(CircleShape)
-                                                .background(statusColor.copy(alpha = 0.12f)),
+                                                .background(if (isDark) statusColor else statusColor.copy(alpha = 0.12f)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (status.lowercase(Locale.ROOT) == "processing") {
@@ -433,18 +402,18 @@ fun HomeScreenContent(
                                                     label = "angle"
                                                 )
                                                 Icon(
-                                                    painter = painterResource(id = statusIconRes),
+                                                    imageVector = statusIcon,
                                                     contentDescription = status,
-                                                    tint = statusColor,
+                                                    tint = if (isDark) Color.White else statusColor,
                                                     modifier = Modifier
                                                         .size(20.dp)
                                                         .rotate(rotationAngle)
                                                 )
                                             } else {
                                                 Icon(
-                                                    painter = painterResource(id = statusIconRes),
+                                                    imageVector = statusIcon,
                                                     contentDescription = status,
-                                                    tint = statusColor,
+                                                    tint = if (isDark) Color.White else statusColor,
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                             }
@@ -479,12 +448,11 @@ fun HomeScreenContent(
                     .padding(bottom = 96.dp, end = 24.dp)
             ) {
                 Surface(
-                    onClick = { showAudioOptions = !showAudioOptions },
-                    shape = RoundedCornerShape(25.dp),
                     modifier = Modifier
                         .height(50.dp)
                         .width(fabWidth)
-                        .pressScale(),
+                        .pressScaleClick { showAudioOptions = !showAudioOptions },
+                    shape = RoundedCornerShape(25.dp),
                     shadowElevation = 6.dp,
                     color = Color.Transparent
                 ) {
@@ -500,11 +468,8 @@ fun HomeScreenContent(
                                         )
                                     )
                                 } else {
-                                    Brush.horizontalGradient(
-                                        colors = listOf(
-                                            Color(0xFF4361EE),
-                                            Color(0xFF7209B7)
-                                        )
+                                    Brush.linearGradient(
+                                        colors = listOf(GradientStart, GradientEnd)
                                     )
                                 }
                             )
@@ -526,7 +491,7 @@ fun HomeScreenContent(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.audio),
+                                    imageVector = Icons.Default.GraphicEq,
                                     contentDescription = "Audio Action",
                                     tint = Color.White,
                                     modifier = Modifier.size(20.dp)
@@ -589,7 +554,7 @@ fun HomeScreenContent(
                                 .padding(vertical = 4.dp)
                         ) {
                             Text(
-                                text = "Record Live Audio",
+                                text = "Record Audio",
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 fontSize = 16.sp
@@ -601,13 +566,13 @@ fun HomeScreenContent(
                                     .clip(CircleShape)
                                     .background(
                                         Brush.linearGradient(
-                                            colors = listOf(Color(0xFF4361EE), Color(0xFF3F37C9))
+                                            colors = listOf(GradientStart, GradientEnd)
                                         )
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.live_record),
+                                    imageVector = Icons.Default.RadioButtonChecked,
                                     contentDescription = null,
                                     tint = Color.White,
                                     modifier = Modifier.size(24.dp)
@@ -627,7 +592,7 @@ fun HomeScreenContent(
                                 .padding(vertical = 4.dp)
                         ) {
                             Text(
-                                text = "Upload Audio File",
+                                text = "Upload Audio",
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 fontSize = 16.sp
@@ -639,13 +604,13 @@ fun HomeScreenContent(
                                     .clip(CircleShape)
                                     .background(
                                         Brush.linearGradient(
-                                            colors = listOf(Color(0xFF4361EE), Color(0xFF3F37C9))
+                                            colors = listOf(GradientStart, GradientEnd)
                                         )
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.upload),
+                                    imageVector = Icons.Default.Upload,
                                     contentDescription = null,
                                     tint = Color.White,
                                     modifier = Modifier.size(24.dp)
@@ -656,6 +621,51 @@ fun HomeScreenContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun EmptyStatePlaceholder(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            modifier = Modifier.size(100.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(56.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = subtitle,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp
+        )
     }
 }
 
@@ -680,19 +690,19 @@ fun CustomFloatingBottomBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             BottomNavItem(
-                iconRes = R.drawable.home,
+                icon = Icons.Default.Home,
                 label = "Home",
                 selected = true,
                 onClick = {}
             )
             BottomNavItem(
-                iconRes = R.drawable.files,
+                icon = Icons.Default.Description,
                 label = "Files",
                 selected = false,
                 onClick = onNavigateToReport
             )
             BottomNavItem(
-                iconRes = R.drawable.audio,
+                icon = Icons.Default.GraphicEq,
                 label = "Audio",
                 selected = false,
                 onClick = onNavigateToAudio
@@ -703,7 +713,7 @@ fun CustomFloatingBottomBar(
 
 @Composable
 fun RowScope.BottomNavItem(
-    iconRes: Int,
+    icon: ImageVector,
     label: String,
     selected: Boolean,
     onClick: () -> Unit
@@ -721,27 +731,35 @@ fun RowScope.BottomNavItem(
     Column(
         modifier = Modifier
             .weight(1f)
-            .pressScaleClick(onClick = onClick)
-            .padding(vertical = 2.dp),
+            .fillMaxHeight() // Fill full height for vertical centering
+            .pressScaleClick(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // Extra top spacing as requested
+        Spacer(modifier = Modifier.height(6.dp))
+        
         Icon(
-            painter = painterResource(id = iconRes),
+            imageVector = icon,
             contentDescription = label,
             tint = color,
             modifier = Modifier
-                .size(24.dp)
+                .size(20.dp)
                 .graphicsLayer(scaleX = scale, scaleY = scale)
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
         Text(
             text = label,
-            fontSize = 9.sp,
+            fontSize = 10.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = color
+            color = color,
+            maxLines = 1
         )
+        
         Spacer(modifier = Modifier.height(2.dp))
+        
         // Smooth scaling indicator dot
         Box(
             modifier = Modifier
@@ -749,5 +767,8 @@ fun RowScope.BottomNavItem(
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary)
         )
+        
+        // Bottom spacer to ensure the dot isn't touching the edge
+        Spacer(modifier = Modifier.height(4.dp))
     }
 }

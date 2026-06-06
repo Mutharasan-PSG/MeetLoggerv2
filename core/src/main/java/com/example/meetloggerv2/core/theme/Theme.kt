@@ -16,21 +16,28 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Indigo,
+    primary = LightIndigo,
+    onPrimary = Color.White,
     secondary = Emerald,
+    onSecondary = Color.White,
     tertiary = CoralRed,
+    onTertiary = Color.White,
     background = DarkBackground,
     surface = DarkSurface,
-    onBackground = DarkOnBackground,
-    onSurface = DarkOnSurface,
-    onSurfaceVariant = DarkOnSurfaceVariant,
-    outline = DarkDivider
+    onBackground = Color.White,
+    onSurface = Color.White,
+    onSurfaceVariant = Slate200,
+    outline = DarkDivider,
+    primaryContainer = LightIndigo.copy(alpha = 0.15f),
+    onPrimaryContainer = Color.White,
+    surfaceVariant = Zinc800
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -42,12 +49,14 @@ private val LightColorScheme = lightColorScheme(
     onBackground = LightOnBackground,
     onSurface = LightOnSurface,
     onSurfaceVariant = LightOnSurfaceVariant,
-    outline = LightDivider
+    outline = LightDivider,
+    primaryContainer = Indigo.copy(alpha = 0.08f),
+    surfaceVariant = Slate200
 )
 
 @Composable
 fun MeetLoggerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = ThemeManager.isDarkTheme(),
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -97,6 +106,7 @@ fun Modifier.pressScale(
 
 @Composable
 fun Modifier.pressScaleClick(
+    enabled: Boolean = true,
     onClick: () -> Unit
 ): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
@@ -105,6 +115,7 @@ fun Modifier.pressScaleClick(
         .clickable(
             interactionSource = interactionSource,
             indication = null,
+            enabled = enabled,
             onClick = onClick
         )
 }

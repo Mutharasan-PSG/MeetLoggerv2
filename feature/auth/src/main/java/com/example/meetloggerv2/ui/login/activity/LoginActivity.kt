@@ -23,9 +23,10 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.example.meetloggerv2.core.theme.pressScale
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,12 +48,22 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import com.example.meetloggerv2.core.theme.pressScale
+import com.example.meetloggerv2.core.theme.pressScaleClick
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.network.NetworkUtil
 import com.example.meetloggerv2.core.session.SessionManager
+import com.example.meetloggerv2.core.theme.GradientEnd
+import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
+import com.example.meetloggerv2.core.theme.pressScale
+import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.data.model.User
 import com.example.meetloggerv2.ui.login.fragment.TermsPolicyBottomSheetFragment
 import com.example.meetloggerv2.ui.login.viewmodel.LoginViewModel
@@ -71,6 +82,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var googleSignInClient: GoogleSignInClient
     private lateinit var signInResultLauncher: ActivityResultLauncher<Intent>
     private val viewModel: LoginViewModel by viewModels()
+    private val isGoogleLoading = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,7 +104,10 @@ class LoginActivity : AppCompatActivity() {
                     handleSignInResult(account)
                 } catch (e: ApiException) {
                     Log.e("LoginActivity", "Google sign-in failed: ${e.message}")
+                    isGoogleLoading.value = false
                 }
+            } else {
+                isGoogleLoading.value = false
             }
         }
 
@@ -103,12 +118,21 @@ class LoginActivity : AppCompatActivity() {
                 var verificationMessage by remember { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(loginState) {
+                    if (loginState !is LoginViewModel.LoginState.Loading) {
+                        isGoogleLoading.value = false
+                    }
                     when (loginState) {
                         is LoginViewModel.LoginState.Success -> {
                             navigateToHome((loginState as LoginViewModel.LoginState.Success).user)
                         }
                         is LoginViewModel.LoginState.EmailNotVerified -> {
                             verificationMessage = (loginState as LoginViewModel.LoginState.EmailNotVerified).message
+                        }
+                        is LoginViewModel.LoginState.UserNotFound -> {
+                            // Automatically navigate to Sign Up
+                            Toast.makeText(this@LoginActivity, (loginState as LoginViewModel.LoginState.UserNotFound).message, Toast.LENGTH_LONG).show()
+                            startActivity(Intent(this@LoginActivity, SignUpActivity::class.java))
+                            viewModel.resetStates()
                         }
                         is LoginViewModel.LoginState.Error -> {
                             Toast.makeText(this@LoginActivity, (loginState as LoginViewModel.LoginState.Error).message, Toast.LENGTH_LONG).show()
@@ -137,13 +161,17 @@ class LoginActivity : AppCompatActivity() {
 
                 LoginScreen(
                     loginState = loginState,
+                    isGoogleLoading = isGoogleLoading.value,
                     onLogin = { email, password ->
                         viewModel.signInWithEmail(email, password)
                     },
                     onGoogleLogin = {
+                        isGoogleLoading.value = true
+                        viewModel.resetStates() // Reset any previous errors
                         signInWithGoogle()
                     },
                     onForgotPassword = {
+                        // startActivity handled in LoginScreen via callback
                         startActivity(Intent(this, ForgotPasswordActivity::class.java))
                     },
                     onSignUp = {
@@ -157,42 +185,149 @@ class LoginActivity : AppCompatActivity() {
                 )
 
                 if (verificationMessage != null) {
-                    AlertDialog(
-                        onDismissRequest = {
+                    val resendState by viewModel.resendVerificationState.collectAsState()
+                    val isResending = resendState is LoginViewModel.VerificationResendState.Loading
+                    
+                    Dialog(onDismissRequest = {
+                        if (!isResending) {
                             verificationMessage = null
                             viewModel.resetStates()
-                        },
-                        title = {
-                            Text(
-                                text = "Email Verification Required",
-                                fontWeight = FontWeight.Bold
-                            )
-                        },
-                        text = {
-                            Text(text = verificationMessage.orEmpty())
-                        },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    verificationMessage = null
-                                    viewModel.resendVerificationEmail()
-                                }
+                        }
+                    }) {
+                        Card(
+                            shape = RoundedCornerShape(32.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                            modifier = Modifier.fillMaxWidth(0.95f)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Resend Email")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(
-                                onClick = {
-                                    verificationMessage = null
-                                    viewModel.resetStates()
+                                // 1. Icon with square-round background (Premium Style)
+                                val isDark = MaterialTheme.colorScheme.onSurface == Color.White
+                                Surface(
+                                    modifier = Modifier.size(100.dp),
+                                    shape = RoundedCornerShape(24.dp),
+                                    color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.MarkEmailRead,
+                                            contentDescription = null,
+                                            tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(52.dp)
+                                        )
+                                    }
                                 }
-                            ) {
-                                Text("Dismiss")
+
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                // 2. Title
+                                Text(
+                                    text = "Verify Your Email",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 22.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // 3. Message Content
+                                val emailText = verificationMessage?.substringAfter("link to:\n")?.substringBefore("\n\nPlease") ?: "your inbox"
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "Your account is almost ready! Please verify your email address to continue.",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        lineHeight = 20.sp
+                                    )
+                                    
+                                    if (emailText.contains("@")) {
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                            modifier = Modifier.wrapContentWidth()
+                                        ) {
+                                            Text(
+                                                text = emailText,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(32.dp))
+
+                                // 4. Action Buttons
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    // Dismiss Button (Outlined style)
+                                    Surface(
+                                        onClick = {
+                                            if (!isResending) {
+                                                verificationMessage = null
+                                                viewModel.resetStates()
+                                            }
+                                        },
+                                        enabled = !isResending,
+                                        shape = RoundedCornerShape(24.dp),
+                                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                                        color = Color.Transparent,
+                                        modifier = Modifier.weight(1f).height(50.dp).pressScale()
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                "Dismiss", 
+                                                fontWeight = FontWeight.Bold, 
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    // Resend Button (Gradient style)
+                                    Surface(
+                                        onClick = {
+                                            viewModel.resendVerificationEmail()
+                                        },
+                                        enabled = !isResending,
+                                        shape = RoundedCornerShape(24.dp),
+                                        color = Color.Transparent,
+                                        modifier = Modifier.weight(1f).height(50.dp).pressScale()
+                                    ) {
+                                        val resendBrush = Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(
+                                                    if (isResending) Brush.linearGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f)))
+                                                    else resendBrush
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isResending) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = Color.White
+                                                )
+                                            } else {
+                                                Text("Resend", fontWeight = FontWeight.Bold, color = Color.White)
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                        },
-                        shape = RoundedCornerShape(16.dp)
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -200,6 +335,7 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        isGoogleLoading.value = false
         viewModel.resetStates()
     }
 
@@ -245,6 +381,7 @@ class LoginActivity : AppCompatActivity() {
 @Composable
 fun LoginScreen(
     loginState: LoginViewModel.LoginState,
+    isGoogleLoading: Boolean,
     onLogin: (String, String) -> Unit,
     onGoogleLogin: () -> Unit,
     onForgotPassword: () -> Unit,
@@ -255,6 +392,7 @@ fun LoginScreen(
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scrollState = rememberScrollState()
 
     var email by remember { mutableStateOf("") }
@@ -264,7 +402,41 @@ fun LoginScreen(
     var passwordError by remember { mutableStateOf<String?>(null) }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    val isLoading = loginState is LoginViewModel.LoginState.Loading
+    // Background Reset Logic: Clear fields when the screen is hidden
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                // Reset states while hidden so there's no flicker when returning
+                if (loginState !is LoginViewModel.LoginState.Loading && !isGoogleLoading) {
+                    email = ""
+                    password = ""
+                    emailError = null
+                    passwordError = null
+                    focusManager.clearFocus()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val isEmailLoading = loginState is LoginViewModel.LoginState.Loading
+    val isLoading = isEmailLoading || isGoogleLoading
+
+    // Handle external errors (like Incorrect Password)
+    LaunchedEffect(loginState) {
+        if (loginState is LoginViewModel.LoginState.Error) {
+            val msg = loginState.message.lowercase()
+            if (msg.contains("password")) {
+                passwordError = loginState.message
+            }
+            if (msg.contains("email") || msg.contains("registered")) {
+                emailError = loginState.message
+            }
+        }
+    }
 
     BackHandler(onBack = onBack)
 
@@ -291,15 +463,14 @@ fun LoginScreen(
             if (isValid) Toast.makeText(context, "Please enter your password", Toast.LENGTH_SHORT).show()
             isValid = false
         } else if (!trimmedPassword.matches(passwordRegex)) {
-            passwordError = context.getString(R.string.error_password_rules)
-            if (isValid) Toast.makeText(context, context.getString(R.string.error_password_rules), Toast.LENGTH_LONG).show()
+            passwordError = "Invalid password"
+            if (isValid) Toast.makeText(context, "Invalid password", Toast.LENGTH_SHORT).show()
             isValid = false
         } else {
             passwordError = null
         }
 
         if (isValid) {
-            focusManager.clearFocus()
             if (NetworkUtil.isNetworkAvailable(context)) {
                 onLogin(trimmedEmail, trimmedPassword)
             } else {
@@ -318,47 +489,43 @@ fun LoginScreen(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.Center
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+                horizontalAlignment = Alignment.Start,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp)
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.launchlogo),
-                    contentDescription = null,
-                    modifier = Modifier.size(90.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = stringResource(id = R.string.app_name),
-                    fontSize = 30.sp,
+                    text = "Welcome back",
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Log back into your meeting archive",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Start
                 )
             }
 
+            Spacer(modifier = Modifier.height(32.dp))
+
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 24.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 OutlinedTextField(
                     value = email,
                     onValueChange = {
-                        email = it
-                        if (emailError != null) emailError = null
+                        if (it.length <= 150) {
+                            email = it
+                            if (emailError != null) emailError = null
+                        }
                     },
                     label = { Text("Email Address") },
                     isError = emailError != null,
@@ -366,9 +533,11 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Next
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Next,
+                        autoCorrectEnabled = false
                     ),
+                    visualTransformation = VisualTransformation.None,
                     keyboardActions = KeyboardActions(
                         onNext = { focusManager.moveFocus(FocusDirection.Down) }
                     ),
@@ -376,12 +545,18 @@ fun LoginScreen(
                         Icon(imageVector = Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     },
                     singleLine = true,
-                    enabled = !isLoading,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.surface,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledLeadingIconColor = MaterialTheme.colorScheme.primary,
+                        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 )
 
@@ -390,8 +565,10 @@ fun LoginScreen(
                 OutlinedTextField(
                     value = password,
                     onValueChange = {
-                        password = it
-                        if (passwordError != null) passwordError = null
+                        if (it.length <= 128) {
+                            password = it
+                            if (passwordError != null) passwordError = null
+                        }
                     },
                     label = { Text("Password") },
                     isError = passwordError != null,
@@ -401,7 +578,8 @@ fun LoginScreen(
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done
+                        imeAction = ImeAction.Done,
+                        autoCorrectEnabled = false
                     ),
                     keyboardActions = KeyboardActions(
                         onDone = { validateAndSubmit() }
@@ -412,18 +590,24 @@ fun LoginScreen(
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
-                                painter = painterResource(id = if (passwordVisible) R.drawable.ic_visibility else R.drawable.ic_visibility_off),
+                                imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                 contentDescription = if (passwordVisible) "Hide password" else "Show password"
                             )
                         }
                     },
                     singleLine = true,
-                    enabled = !isLoading,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.surface,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledLeadingIconColor = MaterialTheme.colorScheme.primary,
+                        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 )
 
@@ -439,7 +623,9 @@ fun LoginScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         modifier = Modifier
-                            .clickable(enabled = !isLoading, onClick = onForgotPassword)
+                            .pressScaleClick(enabled = !isLoading) { 
+                                if (!isLoading) onForgotPassword() 
+                            }
                             .padding(vertical = 4.dp)
                     )
                 }
@@ -448,12 +634,14 @@ fun LoginScreen(
 
                 // Premium Gradient Submit Button
                 Surface(
-                    onClick = { validateAndSubmit() },
-                    enabled = !isLoading,
-                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .height(56.dp)
+                        .pressScaleClick(enabled = !isLoading) { 
+                            focusManager.clearFocus()
+                            validateAndSubmit() 
+                        },
+                    shape = RoundedCornerShape(16.dp),
                     shadowElevation = 4.dp,
                     color = Color.Transparent
                 ) {
@@ -461,26 +649,27 @@ fun LoginScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(Color(0xFF4361EE), Color(0xFF7209B7))
+                                Brush.linearGradient(
+                                    colors = listOf(GradientStart, GradientEnd)
                                 )
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.5.dp
-                            )
-                        } else {
-                            Text(
-                                text = "Login",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
+                                if (isEmailLoading) {
+                                    Box(modifier = Modifier.size(24.dp)) {
+                                        CircularProgressIndicator(
+                                            color = Color.White,
+                                            strokeWidth = 2.5.dp
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Login",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
                     }
                 }
 
@@ -493,18 +682,21 @@ fun LoginScreen(
                 ) {
                     HorizontalDivider(
                         modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 1f),
+                        thickness = 2.5.dp
                     )
+                    @Suppress("DEPRECATION")
                     Text(
                         text = "OR",
                         modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 1f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                     HorizontalDivider(
                         modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 1f),
+                        thickness = 2.5.dp
                     )
                 }
 
@@ -512,11 +704,12 @@ fun LoginScreen(
 
                 // Premium Google Sign In Button with subtle border and elevation
                 Surface(
-                    onClick = onGoogleLogin,
-                    enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .height(56.dp)
+                        .pressScaleClick(enabled = !isLoading) { 
+                            onGoogleLogin() 
+                        },
                     shape = RoundedCornerShape(16.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
                     color = MaterialTheme.colorScheme.surface,
@@ -527,82 +720,53 @@ fun LoginScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.google_logo),
-                            contentDescription = "Google Logo",
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Continue with Google",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        if (isGoogleLoading) {
+                            Box(modifier = Modifier.size(24.dp)) {
+                                CircularProgressIndicator(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    strokeWidth = 2.5.dp
+                                )
+                            }
+                        } else {
+                            Image(
+                                painter = painterResource(id = R.drawable.google_logo),
+                                contentDescription = "Google Logo",
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Continue with Google",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
-            }
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+                Spacer(modifier = Modifier.height(10.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Don't have an account? ",
+                        text = "Don't have an account?",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
-                    TextButton(onClick = onSignUp, enabled = !isLoading) {
-                        Text(
-                            text = "Sign Up",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 14.sp
-                        )
-                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Sign Up",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 14.sp,
+                        modifier = Modifier.pressScaleClick(enabled = !isLoading) { 
+                            if (!isLoading) onSignUp()
+                        }
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                val annotatedString = buildAnnotatedString {
-                    append("By signing in, you agree to our ")
-                    pushStringAnnotation(tag = "TERMS", annotation = "terms")
-                    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) {
-                        append("Terms")
-                    }
-                    pop()
-                    append(" & ")
-                    pushStringAnnotation(tag = "POLICY", annotation = "policy")
-                    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) {
-                        append("Privacy Policy")
-                    }
-                    pop()
-                    append(".")
-                }
-
-                ClickableText(
-                    text = annotatedString,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    ),
-                    onClick = { offset ->
-                        annotatedString.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
-                            .firstOrNull()?.let {
-                                onShowTerms()
-                            }
-                        annotatedString.getStringAnnotations(tag = "POLICY", start = offset, end = offset)
-                            .firstOrNull()?.let {
-                                onShowPolicy()
-                            }
-                    }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }

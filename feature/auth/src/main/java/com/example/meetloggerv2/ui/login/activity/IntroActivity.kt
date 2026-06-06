@@ -13,6 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -23,6 +25,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.GradientEnd
+import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
 import com.example.meetloggerv2.ui.login.fragment.TermsPolicyBottomSheetFragment
 
@@ -65,93 +69,109 @@ fun IntroScreen(
                 .fillMaxSize()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.Bottom
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .wrapContentHeight(Alignment.CenterVertically)
-            ) {
+            // Push everything to the bottom
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Slogan positioned just above the logo
+            Text(
+                text = stringResource(id = R.string.app_slogan),
+                fontSize = 26.sp,
+                textAlign = TextAlign.Start,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 36.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Logo and App Name group
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Image(
                     painter = painterResource(id = R.drawable.launchlogo),
                     contentDescription = null,
-                    modifier = Modifier.size(120.dp)
+                    modifier = Modifier.size(110.dp)
                 )
-                Spacer(modifier = Modifier.height(24.dp))
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
                 Text(
                     text = stringResource(id = R.string.app_name),
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(id = R.string.app_slogan),
-                    fontSize = 18.sp,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 26.sp
-                )
             }
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Action Button
+            Surface(
+                onClick = onGetStarted,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = Color.Transparent
             ) {
-                Button(
-                    onClick = onGetStarted,
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp)
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(GradientStart, GradientEnd)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = stringResource(id = R.string.btn_get_started),
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                val annotatedString = buildAnnotatedString {
-                    append("By signing in, you agree to our ")
-                    pushStringAnnotation(tag = "TERMS", annotation = "terms")
-                    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) {
-                        append("Terms")
-                    }
-                    pop()
-                    append(" & ")
-                    pushStringAnnotation(tag = "POLICY", annotation = "policy")
-                    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) {
-                        append("Privacy Policy")
-                    }
-                    pop()
-                    append(".")
-                }
-
-                ClickableText(
-                    text = annotatedString,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    ),
-                    onClick = { offset ->
-                        annotatedString.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
-                            .firstOrNull()?.let {
-                                onShowTerms()
-                            }
-                        annotatedString.getStringAnnotations(tag = "POLICY", start = offset, end = offset)
-                            .firstOrNull()?.let {
-                                onShowPolicy()
-                            }
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            val annotatedString = buildAnnotatedString {
+                append("By continuing in, you agree to our ")
+                pushStringAnnotation(tag = "TERMS", annotation = "terms")
+                withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) {
+                    append("Terms")
+                }
+                pop()
+                append(" & ")
+                pushStringAnnotation(tag = "POLICY", annotation = "policy")
+                withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) {
+                    append("Privacy Policy")
+                }
+                pop()
+                append(".")
+            }
+
+            ClickableText(
+                text = annotatedString,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                ),
+                onClick = { offset ->
+                    annotatedString.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
+                        .firstOrNull()?.let {
+                            onShowTerms()
+                        }
+                    annotatedString.getStringAnnotations(tag = "POLICY", start = offset, end = offset)
+                        .firstOrNull()?.let {
+                            onShowPolicy()
+                        }
+                }
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

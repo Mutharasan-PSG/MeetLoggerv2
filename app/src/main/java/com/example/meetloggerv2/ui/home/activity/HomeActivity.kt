@@ -10,7 +10,11 @@ import com.example.meetloggerv2.ui.audio.fragment.AudioListFragment
 import com.example.meetloggerv2.ui.details.fragment.FileDetailsFragment
 import com.example.meetloggerv2.ui.home.fragment.HomeFragment
 import com.example.meetloggerv2.ui.login.activity.LoginActivity
+import com.example.meetloggerv2.ui.profile.fragment.HelpSupportFragment
+import com.example.meetloggerv2.ui.profile.fragment.LegalContentFragment
 import com.example.meetloggerv2.ui.profile.fragment.ProfileFragment
+import com.example.meetloggerv2.ui.profile.fragment.SettingsFragment
+import com.example.meetloggerv2.ui.profile.fragment.SubscriptionFragment
 import com.example.meetloggerv2.ui.report.fragment.ReportFragment
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -67,5 +71,21 @@ class HomeActivity : AppCompatActivity(), NavigationRouter {
         }
         startActivity(intent)
         finish()
+    }
+
+    override fun navigateToLegal(type: String) {
+        loadFragment(LegalContentFragment.newInstance(type), addToBackStack = true)
+    }
+
+    override fun navigateToHelpSupport() {
+        loadFragment(HelpSupportFragment(), addToBackStack = true)
+    }
+
+    override fun navigateToSettings() {
+        loadFragment(SettingsFragment(), addToBackStack = true)
+    }
+
+    override fun navigateToSubscriptions() {
+        loadFragment(SubscriptionFragment(), addToBackStack = true)
     }
 }

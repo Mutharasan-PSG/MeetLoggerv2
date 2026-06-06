@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -19,6 +22,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.meetloggerv2.core.theme.GradientEnd
+import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.pressScale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,14 +90,15 @@ fun AudioProcessingDialog(
                             fontSize = 20.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Start
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "Identify different voices and attribute transcripts to specific speakers in the final document.",
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(24.dp))
 
@@ -132,11 +138,11 @@ fun AudioProcessingDialog(
                                 Text("Cancel", fontWeight = FontWeight.Bold)
                             }
                             val next1InteractionSource = remember { MutableInteractionSource() }
-                            Button(
+                            Surface(
                                 onClick = {
                                     if (hasSpeakers == null) {
                                         Toast.makeText(context, "Please select an option", Toast.LENGTH_SHORT).show()
-                                        return@Button
+                                        return@Surface
                                     }
                                     if (hasSpeakers == true) {
                                         currentStep = WizardStep.SpeakerInput
@@ -147,9 +153,20 @@ fun AudioProcessingDialog(
                                 interactionSource = next1InteractionSource,
                                 modifier = Modifier.weight(1f).height(48.dp).pressScale(next1InteractionSource),
                                 shape = RoundedCornerShape(24.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                color = Color.Transparent
                             ) {
-                                Text("Next", fontWeight = FontWeight.Bold)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.linearGradient(
+                                                colors = listOf(GradientStart, GradientEnd)
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("Next", fontWeight = FontWeight.Bold, color = Color.White)
+                                }
                             }
                         }
                     }
@@ -204,6 +221,11 @@ fun AudioProcessingDialog(
                                         singleLine = true,
                                         shape = RoundedCornerShape(24.dp),
                                         modifier = if (index == 0) Modifier.fillMaxWidth().focusRequester(speakerFocusRequester) else Modifier.fillMaxWidth(),
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Password,
+                                            autoCorrectEnabled = false
+                                        ),
+                                        visualTransformation = VisualTransformation.None,
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                                             unfocusedBorderColor = Color.Transparent,
@@ -238,7 +260,7 @@ fun AudioProcessingDialog(
                                 }
                             }
                             val next2InteractionSource = remember { MutableInteractionSource() }
-                            Button(
+                            Surface(
                                 onClick = {
                                     if (allFilled) {
                                         currentStep = WizardStep.FollowUpSelection
@@ -248,9 +270,22 @@ fun AudioProcessingDialog(
                                 interactionSource = next2InteractionSource,
                                 modifier = Modifier.weight(1f).height(48.dp).pressScale(next2InteractionSource),
                                 shape = RoundedCornerShape(24.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                color = Color.Transparent
                             ) {
-                                Text("Next", fontWeight = FontWeight.Bold)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            if (allFilled) {
+                                                Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))
+                                            } else {
+                                                Brush.linearGradient(colors = listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f)))
+                                            }
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("Next", fontWeight = FontWeight.Bold, color = Color.White)
+                                }
                             }
                         }
                     }
@@ -334,26 +369,33 @@ fun AudioProcessingDialog(
                                     ) {
                                         Text(currentText, fontWeight = FontWeight.SemiBold)
                                     }
-                                    DropdownMenu(
-                                        expanded = expandedDropdown,
-                                        onDismissRequest = { expandedDropdown = false },
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.8f)
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)), RoundedCornerShape(16.dp))
-                                            .background(MaterialTheme.colorScheme.surface)
+                                    MaterialTheme(
+                                        shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(28.dp))
                                     ) {
-                                        userFiles.forEachIndexed { idx, file ->
-                                            val itemInteractionSource = remember { MutableInteractionSource() }
-                                            DropdownMenuItem(
-                                                text = { Text(file.substringBeforeLast("."), fontWeight = FontWeight.Medium) },
-                                                interactionSource = itemInteractionSource,
-                                                modifier = Modifier.pressScale(itemInteractionSource),
-                                                onClick = {
-                                                    selectedFileIndex = idx
-                                                    expandedDropdown = false
-                                                }
-                                            )
+                                        DropdownMenu(
+                                            expanded = expandedDropdown,
+                                            onDismissRequest = { expandedDropdown = false },
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.8f)
+                                                .background(MaterialTheme.colorScheme.surface)
+                                                .border(
+                                                    BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                                                    RoundedCornerShape(28.dp)
+                                                )
+                                        ) {
+                                            userFiles.forEachIndexed { idx, file ->
+                                                val itemInteractionSource = remember { MutableInteractionSource() }
+                                                DropdownMenuItem(
+                                                    text = { Text(file.substringBeforeLast("."), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                                                    contentPadding = PaddingValues(start = 16.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+                                                    interactionSource = itemInteractionSource,
+                                                    modifier = Modifier.pressScale(itemInteractionSource),
+                                                    onClick = {
+                                                        selectedFileIndex = idx
+                                                        expandedDropdown = false
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -364,7 +406,7 @@ fun AudioProcessingDialog(
                         val canProceed = isFollowUp == false || (isFollowUp == true && userFiles.isNotEmpty())
 
                         val processInteractionSource = remember { MutableInteractionSource() }
-                        Button(
+                        Surface(
                             onClick = {
                                 if (canProceed) {
                                     val speakers = if (hasSpeakers == true) speakerList.filter { it.isNotBlank() } else emptyList()
@@ -376,11 +418,22 @@ fun AudioProcessingDialog(
                             shape = RoundedCornerShape(24.dp),
                             interactionSource = processInteractionSource,
                             modifier = Modifier.fillMaxWidth().height(48.dp).pressScale(processInteractionSource),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
+                            color = Color.Transparent
                         ) {
-                            Text("Process & Finish", fontWeight = FontWeight.Bold)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        if (canProceed) {
+                                            Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))
+                                        } else {
+                                            Brush.linearGradient(colors = listOf(Color.Gray.copy(alpha = 0.5f), Color.Gray.copy(alpha = 0.5f)))
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Process & Finish", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
                         }
                     }
                 }
@@ -397,6 +450,7 @@ fun OptionCapsule(
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val isDark = MaterialTheme.colorScheme.onSurface == Color.White
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
@@ -404,7 +458,9 @@ fun OptionCapsule(
             width = 2.dp,
             color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
         ),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f) else Color.Transparent,
+        color = if (selected) {
+            if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+        } else Color.Transparent,
         interactionSource = interactionSource,
         modifier = modifier.height(60.dp).pressScale(interactionSource)
     ) {
@@ -416,7 +472,9 @@ fun OptionCapsule(
                 text = label,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 fontSize = 14.sp,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (selected) {
+                    if (isDark) Color.White else MaterialTheme.colorScheme.primary
+                } else MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 12.dp)
             )

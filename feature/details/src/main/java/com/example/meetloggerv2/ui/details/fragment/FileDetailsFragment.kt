@@ -8,7 +8,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
@@ -17,8 +16,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.*
@@ -35,7 +38,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,7 +51,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.export.DocumentExportManager
+import com.example.meetloggerv2.core.theme.GradientEnd
+import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
+import com.example.meetloggerv2.core.theme.pressScale
+import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.core.util.ShareHelper
 import com.example.meetloggerv2.ui.details.viewmodel.FileDetailsViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -114,11 +120,26 @@ class FileDetailsFragment : Fragment() {
                         onBack = { handleBackPressed() },
                         onShare = { content, format -> performShare(content, format) },
                         onExport = { format -> performExport(format) },
-                        onNewFileCreated = { newName -> openNewFileDetailsFragment(newName) }
+                        onNewFileCreated = { newName -> openNewFileDetailsFragment(newName) },
+                        onShowFormatSelection = { action -> showFormatSelectionBottomSheet(action) }
                     )
                 }
             }
         }
+    }
+
+    private fun showFormatSelectionBottomSheet(action: String) {
+        com.example.meetloggerv2.core.util.FormatSelectionBottomSheetFragment.newInstance(
+            title = "Choose format",
+            subtitle = if (action == "EXPORT") "Select the format to save your file" else "Select the format to share your file"
+        ).setCallback { format ->
+            if (action == "EXPORT") {
+                performExport(format)
+            } else {
+                val content = viewModel.fileDetails.value?.get("Response") as? String ?: ""
+                performShare(content, format)
+            }
+        }.show(parentFragmentManager, "FormatSelectionBottomSheet")
     }
 
     private fun setupObservers() {
@@ -207,7 +228,8 @@ fun FileDetailsScreenContent(
     onBack: () -> Unit,
     onShare: (content: String, format: String) -> Unit,
     onExport: (format: String) -> Unit,
-    onNewFileCreated: (String) -> Unit
+    onNewFileCreated: (String) -> Unit,
+    onShowFormatSelection: (action: String) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -227,8 +249,6 @@ fun FileDetailsScreenContent(
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showSaveOptionsDialog by remember { mutableStateOf(false) }
     var showOverwriteWarningDialog by remember { mutableStateOf(false) }
-    var showExportFormatDialog by remember { mutableStateOf(false) }
-    var showShareFormatDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(fileDetails) {
         fileDetails?.let { data ->
@@ -247,22 +267,9 @@ fun FileDetailsScreenContent(
         }
     }
 
-    val backCallback = remember {
-        object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (isEditing) {
-                    isEditing = false
-                    editedText = (fileDetails?.get("Response") as? String)?.replace("*", "")?.trim() ?: ""
-                } else {
-                    onBack()
-                }
-            }
-        }
-    }
-
-    DisposableEffect(isEditing) {
-        backCallback.isEnabled = isEditing
-        onDispose {}
+    androidx.activity.compose.BackHandler(enabled = isEditing) {
+        isEditing = false
+        editedText = (fileDetails?.get("Response") as? String)?.replace("*", "")?.trim() ?: ""
     }
 
     Scaffold(
@@ -274,24 +281,36 @@ fun FileDetailsScreenContent(
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 5.dp)
                     )
                 },
                 navigationIcon = {
-                    val navInteractionSource = remember { MutableInteractionSource() }
-                    IconButton(
-                        onClick = {
-                            if (isEditing) {
-                                isEditing = false
-                                editedText = (fileDetails?.get("Response") as? String)?.replace("*", "")?.trim() ?: ""
-                            } else {
-                                onBack()
-                            }
-                        },
-                        interactionSource = navInteractionSource,
-                        modifier = Modifier.pressScale(navInteractionSource)
+                    Surface(
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .size(40.dp)
+                            .pressScaleClick {
+                                if (isEditing) {
+                                    isEditing = false
+                                    editedText = (fileDetails?.get("Response") as? String)?.replace("*", "")?.trim() ?: ""
+                                } else {
+                                    onBack()
+                                }
+                            },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 2.dp,
+                        shadowElevation = 4.dp
                     ) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -310,7 +329,7 @@ fun FileDetailsScreenContent(
                 BottomAppBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.height(96.dp)
+                    modifier = Modifier.height(100.dp)
                 ) {
                     if (isEditing) {
                         Row(
@@ -320,42 +339,56 @@ fun FileDetailsScreenContent(
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val saveInteractionSource = remember { MutableInteractionSource() }
-                            Button(
-                                onClick = {
-                                    if (isContentTranslated) {
-                                        showSaveOptionsDialog = true
-                                    } else {
-                                        fileName?.let {
-                                            viewModel.updateContent(it, editedText, selectedLanguageCode)
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .pressScaleClick {
+                                        if (isContentTranslated) {
+                                            showSaveOptionsDialog = true
+                                        } else {
+                                            fileName?.let {
+                                                viewModel.updateContent(it, editedText, selectedLanguageCode)
+                                            }
+                                            isEditing = false
                                         }
-                                        isEditing = false
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                                interactionSource = saveInteractionSource,
-                                modifier = Modifier.weight(1f).height(48.dp).pressScale(saveInteractionSource),
-                                shape = RoundedCornerShape(24.dp)
+                                    },
+                                shape = RoundedCornerShape(24.dp),
+                                color = Color.Transparent
                             ) {
-                                Icon(imageVector = Icons.Default.Check, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = stringResource(id = R.string.dialog_save))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Color.White)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = stringResource(id = R.string.dialog_save), fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                }
                             }
                             Spacer(modifier = Modifier.width(16.dp))
-                            val cancelBtnInteractionSource = remember { MutableInteractionSource() }
-                            Button(
-                                onClick = {
-                                    isEditing = false
-                                    editedText = (fileDetails?.get("Response") as? String)?.replace("*", "")?.trim() ?: ""
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                interactionSource = cancelBtnInteractionSource,
-                                modifier = Modifier.weight(1f).height(48.dp).pressScale(cancelBtnInteractionSource),
-                                shape = RoundedCornerShape(24.dp)
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .pressScaleClick {
+                                        isEditing = false
+                                        editedText = (fileDetails?.get("Response") as? String)?.replace("*", "")?.trim() ?: ""
+                                    },
+                                shape = RoundedCornerShape(24.dp),
+                                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
+                                color = Color.Transparent
                             ) {
-                                Icon(imageVector = Icons.Default.Close, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = stringResource(id = R.string.dialog_cancel))
+                                Box(contentAlignment = Alignment.Center) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    }
+                                }
                             }
                         }
                     } else {
@@ -370,17 +403,17 @@ fun FileDetailsScreenContent(
                                 onClick = { isEditing = true }
                             )
                             BottomActionItem(
-                                iconRes = R.drawable.ic_export_doc,
+                                imageVector = Icons.Default.Download,
                                 label = "Export",
-                                onClick = { showExportFormatDialog = true }
+                                onClick = { onShowFormatSelection("EXPORT") }
                             )
                             BottomActionItem(
                                 imageVector = Icons.Default.Share,
                                 label = "Share",
-                                onClick = { showShareFormatDialog = true }
+                                onClick = { onShowFormatSelection("SHARE") }
                             )
                             BottomActionItem(
-                                iconRes = R.drawable.ic_translate,
+                                imageVector = Icons.Default.Translate,
                                 label = "Translate",
                                 onClick = { showLanguageDialog = true }
                             )
@@ -410,6 +443,11 @@ fun FileDetailsScreenContent(
                             .fillMaxWidth()
                             .heightIn(min = 300.dp),
                         shape = RoundedCornerShape(16.dp),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            autoCorrectEnabled = false
+                        ),
+                        visualTransformation = VisualTransformation.None,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surface,
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -462,10 +500,12 @@ fun FileDetailsScreenContent(
     if (showLanguageDialog) {
         Dialog(onDismissRequest = { showLanguageDialog = false }) {
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+                    .fillMaxWidth(0.95f)
+                    .padding(vertical = 24.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -475,30 +515,29 @@ fun FileDetailsScreenContent(
                 ) {
                     Text(
                         text = stringResource(id = R.string.dialog_title_choose_language),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = stringResource(id = R.string.dialog_language_switch_msg),
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     languages.forEach { lang ->
-                        Text(
-                            text = lang.first,
-                            fontSize = 15.sp,
-                            color = if (selectedLanguageCode == lang.second)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurface,
+                        val langInteractionSource = remember { MutableInteractionSource() }
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable(
+                                    interactionSource = langInteractionSource,
+                                    indication = androidx.compose.foundation.LocalIndication.current
+                                ) {
                                     selectedLanguageCode = lang.second
                                     val currentResp = fileDetails?.get("Response") as? String ?: ""
                                     viewModel.translateContent(
@@ -508,20 +547,32 @@ fun FileDetailsScreenContent(
                                     )
                                     showLanguageDialog = false
                                 }
-                                .padding(vertical = 12.dp, horizontal = 8.dp),
-                            fontWeight = if (selectedLanguageCode == lang.second) FontWeight.Bold else FontWeight.Normal
-                        )
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                                .padding(vertical = 12.dp, horizontal = 12.dp)
+                        ) {
+                            Text(
+                                text = lang.first,
+                                fontSize = 15.sp,
+                                color = if (selectedLanguageCode == lang.second)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (selectedLanguageCode == lang.second) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    val langCancelInteractionSource = remember { MutableInteractionSource() }
-                    TextButton(
+                    Spacer(modifier = Modifier.height(24.dp))
+                    OutlinedButton(
                         onClick = { showLanguageDialog = false },
-                        interactionSource = langCancelInteractionSource,
-                        modifier = Modifier.pressScale(langCancelInteractionSource)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .pressScaleClick { showLanguageDialog = false },
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
                     ) {
-                        Text(text = stringResource(id = R.string.dialog_cancel))
+                        Text(text = stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -530,253 +581,164 @@ fun FileDetailsScreenContent(
 
     // 2. Save Options Dialog
     if (showSaveOptionsDialog) {
-        AlertDialog(
-            onDismissRequest = { showSaveOptionsDialog = false },
-            title = { Text(text = "Save Options") },
-            text = { Text(text = "How would you like to save your edits?") },
-            confirmButton = {
-                val confirmInteractionSource = remember { MutableInteractionSource() }
-                Button(
-                    onClick = {
-                        showSaveOptionsDialog = false
-                        showOverwriteWarningDialog = true
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    interactionSource = confirmInteractionSource,
-                    modifier = Modifier.pressScale(confirmInteractionSource)
-                ) {
-                    Text(text = stringResource(id = R.string.dialog_overwrite), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                val dismissInteractionSource = remember { MutableInteractionSource() }
-                OutlinedButton(
-                    onClick = {
-                        showSaveOptionsDialog = false
-                        fileName?.let {
-                            val copyName = "${it.substringBeforeLast(".")} (Copy).mp3"
-                            viewModel.saveAsNewCopy(
-                                copyName,
-                                viewModel.fileDetails.value?.toMutableMap()?.apply {
-                                    put("fileName", copyName)
-                                    put("Response", editedText)
-                                } ?: emptyMap()
-                            )
-                        }
-                        isEditing = false
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                    interactionSource = dismissInteractionSource,
-                    modifier = Modifier.pressScale(dismissInteractionSource)
-                ) {
-                    Text(text = stringResource(id = R.string.dialog_new_copy), fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
-
-    // 3. Overwrite Warning Dialog
-    if (showOverwriteWarningDialog) {
-        val originalLangName = languages.find { it.second == originalLanguageCode }?.first ?: "unknown"
-        val currentLangName = languages.find { it.second == selectedLanguageCode }?.first ?: "unknown"
-        AlertDialog(
-            onDismissRequest = { showOverwriteWarningDialog = false },
-            title = { Text(text = stringResource(id = R.string.dialog_title_warning)) },
-            text = {
-                Text(
-                    text = "Overwriting will replace the original content ($originalLangName language) with edits made in $currentLangName."
-                )
-            },
-            confirmButton = {
-                val confirmInteractionSource = remember { MutableInteractionSource() }
-                Button(
-                    onClick = {
-                        showOverwriteWarningDialog = false
-                        fileName?.let {
-                            viewModel.updateContent(it, editedText, selectedLanguageCode)
-                        }
-                        isEditing = false
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    interactionSource = confirmInteractionSource,
-                    modifier = Modifier.pressScale(confirmInteractionSource)
-                ) {
-                    Text(text = stringResource(id = R.string.dialog_yes), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                val dismissInteractionSource = remember { MutableInteractionSource() }
-                TextButton(
-                    onClick = { showOverwriteWarningDialog = false },
-                    interactionSource = dismissInteractionSource,
-                    modifier = Modifier.pressScale(dismissInteractionSource)
-                ) {
-                    Text(text = stringResource(id = R.string.dialog_no), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                }
-            }
-        )
-    }
-
-    // 4. Export Format Selection
-    if (showExportFormatDialog) {
-        Dialog(onDismissRequest = { showExportFormatDialog = false }) {
+        Dialog(onDismissRequest = { showSaveOptionsDialog = false }) {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier.fillMaxWidth(0.95f)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = stringResource(id = R.string.dialog_title_choose_format),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "Save Options",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Start
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = stringResource(id = R.string.dialog_subtitle_export_format),
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
+                        text = "How would you like to save your edits?",
+                        fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth()
                     )
-
-                    val formats = listOf("PDF", "DOCX", "TXT")
-                    formats.forEach { format ->
-                        val iconRes = when (format) {
-                            "PDF" -> R.drawable.pdf
-                            "DOCX" -> R.drawable.ic_docx
-                            else -> R.drawable.doc_1
-                        }
-                        val btnInteractionSource = remember { MutableInteractionSource() }
-                        OutlinedButton(
-                            onClick = {
-                                onExport(format)
-                                showExportFormatDialog = false
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                            interactionSource = btnInteractionSource,
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                                .weight(1f)
                                 .height(48.dp)
-                                .pressScale(btnInteractionSource)
+                                .pressScaleClick {
+                                    showSaveOptionsDialog = false
+                                    fileName?.let {
+                                        val copyName = "${it.substringBeforeLast(".")} (Copy).mp3"
+                                        viewModel.saveAsNewCopy(
+                                            copyName,
+                                            viewModel.fileDetails.value?.toMutableMap()?.apply {
+                                                put("fileName", copyName)
+                                                put("Response", editedText)
+                                            } ?: emptyMap()
+                                        )
+                                    }
+                                    isEditing = false
+                                },
+                            shape = RoundedCornerShape(24.dp),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            color = Color.Transparent
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = iconRes),
-                                    contentDescription = null,
-                                    tint = Color.Unspecified,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(text = format, fontWeight = FontWeight.Bold)
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(text = stringResource(id = R.string.dialog_new_copy), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val exportCancelInteractionSource = remember { MutableInteractionSource() }
-                    TextButton(
-                        onClick = { showExportFormatDialog = false },
-                        interactionSource = exportCancelInteractionSource,
-                        modifier = Modifier.pressScale(exportCancelInteractionSource)
-                    ) {
-                        Text(text = stringResource(id = R.string.dialog_cancel))
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .pressScaleClick {
+                                    showSaveOptionsDialog = false
+                                    showOverwriteWarningDialog = true
+                                },
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color.Transparent
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = stringResource(id = R.string.dialog_overwrite), fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    // 5. Share Format Selection Dialog
-    if (showShareFormatDialog) {
-        Dialog(onDismissRequest = { showShareFormatDialog = false }) {
+    // 3. Overwrite Warning Dialog
+    if (showOverwriteWarningDialog) {
+        val originalLangName = languages.find { it.second == originalLanguageCode }?.first ?: "unknown"
+        val currentLangName = languages.find { it.second == selectedLanguageCode }?.first ?: "unknown"
+        Dialog(onDismissRequest = { showOverwriteWarningDialog = false }) {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier.fillMaxWidth(0.95f)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = stringResource(id = R.string.dialog_title_choose_format),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = stringResource(id = R.string.dialog_title_warning),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Start
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Choose format to share this document:",
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
+                        text = "Overwriting will replace the original content ($originalLangName language) with edits made in $currentLangName.",
+                        fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth()
                     )
-
-                    val formats = listOf("PDF", "DOCX", "TXT")
-                    formats.forEach { format ->
-                        val iconRes = when (format) {
-                            "PDF" -> R.drawable.pdf
-                            "DOCX" -> R.drawable.ic_docx
-                            else -> R.drawable.doc_1
-                        }
-                        val btnInteractionSource = remember { MutableInteractionSource() }
-                        OutlinedButton(
-                            onClick = {
-                                onShare(editedText, format)
-                                showShareFormatDialog = false
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                            interactionSource = btnInteractionSource,
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                                .weight(1f)
                                 .height(48.dp)
-                                .pressScale(btnInteractionSource)
+                                .pressScaleClick { showOverwriteWarningDialog = false },
+                            shape = RoundedCornerShape(24.dp),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            color = Color.Transparent
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = iconRes),
-                                    contentDescription = null,
-                                    tint = Color.Unspecified,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(text = format, fontWeight = FontWeight.Bold)
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(text = stringResource(id = R.string.dialog_no), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val shareCancelInteractionSource = remember { MutableInteractionSource() }
-                    TextButton(
-                        onClick = { showShareFormatDialog = false },
-                        interactionSource = shareCancelInteractionSource,
-                        modifier = Modifier.pressScale(shareCancelInteractionSource)
-                    ) {
-                        Text(text = stringResource(id = R.string.dialog_cancel))
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .pressScaleClick {
+                                    showOverwriteWarningDialog = false
+                                    fileName?.let {
+                                        viewModel.updateContent(it, editedText, selectedLanguageCode)
+                                    }
+                                    isEditing = false
+                                },
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color.Transparent
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = stringResource(id = R.string.dialog_yes), fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
                     }
                 }
             }
@@ -786,8 +748,7 @@ fun FileDetailsScreenContent(
 
 @Composable
 fun BottomActionItem(
-    iconRes: Int = 0,
-    imageVector: ImageVector? = null,
+    imageVector: ImageVector,
     label: String,
     onClick: () -> Unit
 ) {
@@ -795,6 +756,7 @@ fun BottomActionItem(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .width(72.dp)
             .clip(RoundedCornerShape(12.dp))
             .pressScale(interactionSource)
             .clickable(
@@ -802,44 +764,36 @@ fun BottomActionItem(
                 indication = null,
                 onClick = onClick
             )
-            .padding(8.dp)
+            .padding(vertical = 4.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(44.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.04f)
                         )
                     )
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (imageVector != null) {
-                Icon(
-                    imageVector = imageVector,
-                    contentDescription = label,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
-                )
-            } else if (iconRes != 0) {
-                Icon(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = label,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            Icon(
+                imageVector = imageVector,
+                contentDescription = label,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
             fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center
         )
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 // Basic palette colors
 val Indigo = Color(0xFF4361EE)
+val LightIndigo = Color(0xFF869EFF) // Lighter, more vibrant blue for better visibility in Dark Mode
 val Emerald = Color(0xFF10B981)
 val CoralRed = Color(0xFFEF4444)
 val Slate50 = Color(0xFFF8FAFC)
@@ -33,3 +34,7 @@ val DarkOnBackground = Slate50
 val DarkOnSurface = Slate50
 val DarkOnSurfaceVariant = Zinc400
 val DarkDivider = Zinc800
+
+// Gradient colors
+val GradientStart = Color(0xFF62CFF4)
+val GradientEnd = Color(0xFF5082FF) // Slightly lighter indigo for the gradient to pop in Dark Mode

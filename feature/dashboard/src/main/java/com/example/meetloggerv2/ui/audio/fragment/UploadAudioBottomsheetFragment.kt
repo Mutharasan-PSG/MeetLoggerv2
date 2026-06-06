@@ -12,23 +12,26 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,7 +45,12 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.network.NetworkMonitor
 import com.example.meetloggerv2.core.session.AuthSession
+import com.example.meetloggerv2.core.theme.GradientEnd
+import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
+import com.example.meetloggerv2.core.theme.pressScale
+import com.example.meetloggerv2.core.theme.pressScaleClick
+import com.example.meetloggerv2.core.ui.components.SheetHeader
 import com.example.meetloggerv2.core.util.FileUtils
 import com.example.meetloggerv2.ui.audio.util.AudioProcessingDialog
 import com.example.meetloggerv2.ui.audio.viewmodel.UploadAudioViewModel
@@ -73,6 +81,11 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
         }
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NORMAL, com.example.meetloggerv2.core.R.style.CustomBottomSheetDialog)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -92,6 +105,10 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
                             processingStage = processingStageState.value,
                             onSelectFile = { openAudioPicker() },
                             onProcessFile = { checkAndRequestPermissions() },
+                            onRecordInstead = {
+                                dismiss()
+                                RecordAudioBottomsheetFragment().show(parentFragmentManager, "RecordAudioSheet")
+                            },
                             onDismiss = { dismiss() }
                         )
 
@@ -119,7 +136,7 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
     override fun onStart() {
         super.onStart()
         dialog?.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        setBottomSheetHeight(0.6)
+        setBottomSheetHeight(0.7)
     }
 
     private fun setBottomSheetHeight(fraction: Double) {
@@ -218,6 +235,7 @@ fun UploadAudioScreen(
     processingStage: String,
     onSelectFile: () -> Unit,
     onProcessFile: () -> Unit,
+    onRecordInstead: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -225,10 +243,10 @@ fun UploadAudioScreen(
         selectedUri?.let { FileUtils.getFileNameFromUri(context, it) } ?: ""
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
@@ -236,99 +254,190 @@ fun UploadAudioScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Drag handle / bar
-            Box(
-                modifier = Modifier
-                    .width(40.dp)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+            SheetHeader(
+                title = "Upload Audio",
+                onDismiss = onDismiss,
+                showCloseButton = !isProcessing
             )
 
-            Row(
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // File selection area with Dotted Border
+            val borderColor = if (selectedUri != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+            val stroke = Stroke(width = 4f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f))
+            
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .height(210.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(if (selectedUri != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                    .clickable(enabled = !isProcessing) { onSelectFile() }
             ) {
-                Text(
-                    text = "Upload Audio",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (!isProcessing) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
-                    }
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawRoundRect(
+                        color = borderColor,
+                        style = stroke,
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx())
+                    )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // File selection area
-            Surface(
-                onClick = { if (!isProcessing) onSelectFile() },
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(
-                    width = 1.5.dp,
-                    color = if (selectedUri != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                ),
-                color = if (selectedUri != null) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-            ) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().padding(vertical = 12.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.audio_file),
-                        contentDescription = null,
-                        tint = if (selectedUri != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(36.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    val isDark = MaterialTheme.colorScheme.onSurface == Color.White
+                    Surface(
+                        modifier = Modifier.size(56.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (selectedUri != null) Icons.Default.AudioFile else Icons.Default.Backup,
+                                contentDescription = null,
+                                tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
                     Text(
-                        text = if (selectedUri != null) fileName else "Tap to choose an audio file",
-                        fontWeight = if (selectedUri != null) FontWeight.SemiBold else FontWeight.Normal,
-                        fontSize = 14.sp,
-                        color = if (selectedUri != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = if (selectedUri != null) fileName else "Tap to choose a file",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        modifier = Modifier.padding(horizontal = 24.dp)
                     )
+                    
                     if (selectedUri == null) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Supported formats: MP3, M4A, WAV",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            textAlign = TextAlign.Center
+                            text = "or drag and drop your audio here",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                         )
+                        
+                        Spacer(modifier = Modifier.height(20.dp))
+                        
+                        // Formats
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            FormatTag("MP3")
+                            FormatTag("M4A")
+                            FormatTag("WAV")
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            Button(
-                onClick = onProcessFile,
-                enabled = selectedUri != null && !isProcessing,
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(12.dp)
+                    .height(56.dp)
+                    .pressScaleClick(enabled = selectedUri != null && !isProcessing) { onProcessFile() },
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Transparent
             ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            if (selectedUri != null && !isProcessing) {
+                                Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))
+                            } else {
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                    )
+                                )
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Process Audio",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedUri != null && !isProcessing) Color.White else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // OR Divider
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                 Text(
-                    text = "Process Audio",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "OR",
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
+                HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Record Instead Button (Profile Style)
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pressScaleClick(enabled = !isProcessing) { onRecordInstead() },
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.GraphicEq,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Text(
+                        text = "Record live audio instead",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
 
@@ -337,7 +446,7 @@ fun UploadAudioScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.5f))
-                    .clickable(enabled = false) {}, // intercept clicks
+                    .clickable(enabled = false) {},
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -354,5 +463,24 @@ fun UploadAudioScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun FormatTag(text: String) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            softWrap = false
+        )
     }
 }

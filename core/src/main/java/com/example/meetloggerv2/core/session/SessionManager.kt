@@ -33,6 +33,11 @@ class SessionManager(context: Context) {
         return getUserDetails()?.id
     }
 
+    // Retrieve user email from SharedPreferences
+    fun getUserEmail(): String? {
+        return getUserDetails()?.email
+    }
+
     // Clear all session data
     fun clearSession() {
         prefs.edit().clear().apply()

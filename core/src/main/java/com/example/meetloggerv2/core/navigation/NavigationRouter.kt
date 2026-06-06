@@ -9,6 +9,10 @@ interface NavigationRouter {
     fun navigateToProfile()
     fun navigateToFileDetails(fileName: String)
     fun navigateToLogin()
+    fun navigateToLegal(type: String)
+    fun navigateToHelpSupport()
+    fun navigateToSettings()
+    fun navigateToSubscriptions()
 }
 
 fun Fragment.findNavigationRouter(): NavigationRouter? {
