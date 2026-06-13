@@ -2,6 +2,7 @@ package com.example.meetloggerv2.ui.details.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.meetloggerv2.core.network.NetworkResult
 import com.example.meetloggerv2.core.session.AuthSession
 import com.example.meetloggerv2.data.repository.IFileRepository
 import com.google.mlkit.common.model.DownloadConditions
@@ -21,6 +22,9 @@ class FileDetailsViewModel @Inject constructor(
     private val authSession: AuthSession
 ) : ViewModel() {
 
+    val userSubscription: String
+        get() = authSession.currentUserSubscription()
+
     private val _fileDetails = MutableStateFlow<Map<String, Any>?>(null)
     val fileDetails: StateFlow<Map<String, Any>?> = _fileDetails.asStateFlow()
 
@@ -33,12 +37,20 @@ class FileDetailsViewModel @Inject constructor(
     fun fetchDetails(fileName: String) {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = DetailsUiState.Loading("Loading details...")
-        fileRepository.getFileDetails(userId, fileName, {
-            _fileDetails.value = it
-            _uiState.value = DetailsUiState.Idle
-        }, {
-            _uiState.value = DetailsUiState.Error(it.message ?: "Failed to fetch details")
-        })
+        
+        viewModelScope.launch {
+            val result = fileRepository.getFileDetailsFromBackend(userId, fileName)
+            when (result) {
+                is NetworkResult.Success -> {
+                    _fileDetails.value = result.data
+                    _uiState.value = DetailsUiState.Idle
+                }
+                is NetworkResult.Error -> {
+                    _uiState.value = DetailsUiState.Error(result.message ?: "Failed to fetch details")
+                }
+                else -> {}
+            }
+        }
     }
 
     fun translateContent(text: String, sourceLang: String, targetLang: String) {
@@ -74,28 +86,45 @@ class FileDetailsViewModel @Inject constructor(
     fun updateContent(fileName: String, content: String, languageCode: String) {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = DetailsUiState.Loading("Updating...")
+        
         val updates = mapOf(
             "Response" to content,
             "OriginalLanguage" to languageCode
         )
-        fileRepository.updateFileContent(userId, fileName, updates, {
-            _uiState.value = DetailsUiState.Success("Content updated")
-            fetchDetails(fileName)
-        }, {
-            _uiState.value = DetailsUiState.Error(it.message ?: "Update failed")
-        })
+        
+        viewModelScope.launch {
+            val result = fileRepository.updateFileContentOnBackend(userId, fileName, updates)
+            when (result) {
+                is NetworkResult.Success -> {
+                    _uiState.value = DetailsUiState.Success("Content updated")
+                    fetchDetails(fileName)
+                }
+                is NetworkResult.Error -> {
+                    _uiState.value = DetailsUiState.Error(result.message ?: "Update failed")
+                }
+                else -> {}
+            }
+        }
     }
 
     fun saveAsNewCopy(newFileName: String, data: Map<String, Any>) {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = DetailsUiState.Loading("Saving new copy...")
-        val newData = data.toMutableMap()
-        newData["isCopy"] = true
-        fileRepository.saveFileMetadata(userId, newFileName, newData, {
-            _uiState.value = DetailsUiState.NewFileCreated(newFileName)
-        }, {
-            _uiState.value = DetailsUiState.Error(it.message ?: "Failed to create new copy")
-        })
+        
+        viewModelScope.launch {
+            // Scenario B: Saving provided data as a new file
+            val result = fileRepository.saveAsNewCopyOnBackend(userId, newFileName, data)
+            when (result) {
+                is NetworkResult.Success -> {
+                    val actualName = result.data ?: newFileName
+                    _uiState.value = DetailsUiState.NewFileCreated(actualName)
+                }
+                is NetworkResult.Error -> {
+                    _uiState.value = DetailsUiState.Error(result.message ?: "Failed to create new copy")
+                }
+                else -> {}
+            }
+        }
     }
 
     sealed class DetailsUiState {

@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,6 +57,7 @@ import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
 import com.example.meetloggerv2.core.theme.pressScale
 import com.example.meetloggerv2.core.theme.pressScaleClick
+import com.example.meetloggerv2.core.theme.shimmerBrush
 import com.example.meetloggerv2.core.util.ShareHelper
 import com.example.meetloggerv2.ui.details.viewmodel.FileDetailsViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -71,6 +73,7 @@ class FileDetailsFragment : Fragment() {
 
     private var fileName: String? = null
     private var pendingExportFormat: String? = null
+    private var pendingExportContent: String? = null
 
     private val exportLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
@@ -88,7 +91,7 @@ class FileDetailsFragment : Fragment() {
         "Gujarati" to "gu", "Hebrew" to "he", "Hindi" to "hi", "Croatian" to "hr", "Haitian" to "ht",
         "Hungarian" to "hu", "Indonesian" to "id", "Icelandic" to "is", "Italian" to "it", "Japanese" to "ja",
         "Georgian" to "ka", "Kannada" to "kn", "Korean" to "ko", "Lithuanian" to "lt", "Latvian" to "lv",
-        "Macedonian" to "mk", "Marathi" to "mr", "Malay" to "ms", "Maltese" to "mt", "Dutch" to "nl",
+        "Macedonian" to "mk", "Marathi" to "mr", "Malay" to "ms", "Malayalam" to "ml", "Maltese" to "mt", "Dutch" to "nl",
         "Norwegian" to "no", "Polish" to "pl", "Portuguese" to "pt", "Romanian" to "ro", "Russian" to "ru",
         "Slovak" to "sk", "Slovenian" to "sl", "Albanian" to "sq", "Swedish" to "sv", "Swahili" to "sw",
         "Tamil" to "ta", "Telugu" to "te", "Thai" to "th", "Tagalog" to "tl", "Turkish" to "tr",
@@ -113,31 +116,38 @@ class FileDetailsFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MeetLoggerTheme {
+                    val subscription = viewModel.userSubscription
+                    val filteredLanguages = if (subscription == "free") {
+                        val freeLangs = setOf("ta", "te", "ml", "kn", "hi", "en", "es", "fr", "de", "zh")
+                        languages.filter { it.second in freeLangs }
+                    } else {
+                        languages
+                    }
                     FileDetailsScreenContent(
                         viewModel = viewModel,
                         fileName = fileName,
-                        languages = languages,
+                        languages = filteredLanguages,
                         onBack = { handleBackPressed() },
                         onShare = { content, format -> performShare(content, format) },
                         onExport = { format -> performExport(format) },
                         onNewFileCreated = { newName -> openNewFileDetailsFragment(newName) },
-                        onShowFormatSelection = { action -> showFormatSelectionBottomSheet(action) }
+                        onShowFormatSelection = { action, content -> showFormatSelectionBottomSheet(action, content) }
                     )
                 }
             }
         }
     }
 
-    private fun showFormatSelectionBottomSheet(action: String) {
+    private fun showFormatSelectionBottomSheet(action: String, currentContent: String) {
         com.example.meetloggerv2.core.util.FormatSelectionBottomSheetFragment.newInstance(
             title = "Choose format",
             subtitle = if (action == "EXPORT") "Select the format to save your file" else "Select the format to share your file"
         ).setCallback { format ->
             if (action == "EXPORT") {
+                pendingExportContent = currentContent
                 performExport(format)
             } else {
-                val content = viewModel.fileDetails.value?.get("Response") as? String ?: ""
-                performShare(content, format)
+                performShare(currentContent, format)
             }
         }.show(parentFragmentManager, "FormatSelectionBottomSheet")
     }
@@ -160,9 +170,10 @@ class FileDetailsFragment : Fragment() {
 
     private fun performExport(format: String) {
         pendingExportFormat = format
+        val exporter = exportManager.getExporter(format) ?: return
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            type = if (format == "PDF") "application/pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            val ext = if (format == "PDF") "pdf" else "docx"
+            type = exporter.mimeType
+            val ext = exporter.fileExtension.removePrefix(".")
             val cleanName = fileName?.substringBeforeLast(".") ?: "export"
             putExtra(Intent.EXTRA_TITLE, "$cleanName.$ext")
         }
@@ -171,24 +182,22 @@ class FileDetailsFragment : Fragment() {
 
     private fun saveContentToUri(uri: Uri, format: String) {
         try {
-            val content = viewModel.fileDetails.value?.get("Response") as? String ?: ""
+            val content = pendingExportContent ?: viewModel.fileDetails.value?.get("Response") as? String ?: ""
             requireContext().contentResolver.openOutputStream(uri)?.use { os ->
                 exportManager.export(content, format, os)
             }
             Toast.makeText(requireContext(), R.string.msg_downloaded_success, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Failed to save file", Toast.LENGTH_SHORT).show()
+        } finally {
+            pendingExportContent = null
         }
     }
 
     private fun performShare(content: String, format: String) {
         val cleanName = fileName?.substringBeforeLast(".") ?: "share"
         val exporter = exportManager.getExporter(format) ?: return
-        val ext = when (format) {
-            "PDF" -> "pdf"
-            "DOCX" -> "docx"
-            else -> "txt"
-        }
+        val ext = exporter.fileExtension.removePrefix(".")
         try {
             val temp = File(requireContext().cacheDir, "$cleanName.$ext")
             FileOutputStream(temp).use { os ->
@@ -229,7 +238,7 @@ fun FileDetailsScreenContent(
     onShare: (content: String, format: String) -> Unit,
     onExport: (format: String) -> Unit,
     onNewFileCreated: (String) -> Unit,
-    onShowFormatSelection: (action: String) -> Unit
+    onShowFormatSelection: (action: String, content: String) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -331,7 +340,22 @@ fun FileDetailsScreenContent(
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.height(100.dp)
                 ) {
-                    if (isEditing) {
+                    if (uiState is FileDetailsViewModel.DetailsUiState.Loading) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(4) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(shimmerBrush())
+                                )
+                            }
+                        }
+                    } else if (isEditing) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -405,12 +429,12 @@ fun FileDetailsScreenContent(
                             BottomActionItem(
                                 imageVector = Icons.Default.Download,
                                 label = "Export",
-                                onClick = { onShowFormatSelection("EXPORT") }
+                                onClick = { onShowFormatSelection("EXPORT", editedText) }
                             )
                             BottomActionItem(
                                 imageVector = Icons.Default.Share,
                                 label = "Share",
-                                onClick = { onShowFormatSelection("SHARE") }
+                                onClick = { onShowFormatSelection("SHARE", editedText) }
                             )
                             BottomActionItem(
                                 imageVector = Icons.Default.Translate,
@@ -429,65 +453,67 @@ fun FileDetailsScreenContent(
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
-            ) {
-                if (isEditing) {
-                     OutlinedTextField(
-                        value = editedText,
-                        onValueChange = { editedText = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 300.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            autoCorrectEnabled = false
-                        ),
-                        visualTransformation = VisualTransformation.None,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
-                        )
-                    )
-                } else {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Text(
-                            text = editedText,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(16.dp),
-                            lineHeight = 22.sp
-                        )
-                    }
-                }
-            }
-
-            // Progress / Loading HUD
             if (uiState is FileDetailsViewModel.DetailsUiState.Loading) {
-                val loadingMsg = (uiState as FileDetailsViewModel.DetailsUiState.Loading).message
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.75f))
-                        .clickable(enabled = false) {},
-                    contentAlignment = Alignment.Center
+                        .padding(16.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = loadingMsg, color = Color.White, fontWeight = FontWeight.Bold)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(shimmerBrush())
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
+                ) {
+                    if (isEditing) {
+                         OutlinedTextField(
+                            value = editedText,
+                            onValueChange = { editedText = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 300.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                autoCorrectEnabled = false
+                            ),
+                            visualTransformation = VisualTransformation.None,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                            )
+                        )
+                    } else {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Text(
+                                text = editedText,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(16.dp),
+                                lineHeight = 22.sp,
+                                textAlign = TextAlign.Justify,
+                                style = LocalTextStyle.current.copy(
+                                    lineBreak = LineBreak.Paragraph
+                                )
+                            )
+                        }
                     }
                 }
             }

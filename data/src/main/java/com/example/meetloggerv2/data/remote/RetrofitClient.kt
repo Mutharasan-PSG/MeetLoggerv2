@@ -1,5 +1,6 @@
 package com.example.meetloggerv2.data.remote
 
+import android.util.Log
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -8,8 +9,11 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     private const val BASE_URL = "https://meetloggerserver.onrender.com/"
+    private const val TAG = "MeetLoggerAPI"
 
-    private val loggingInterceptor = HttpLoggingInterceptor().apply {
+    private val loggingInterceptor = HttpLoggingInterceptor { message ->
+        Log.d(TAG, message)
+    }.apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 

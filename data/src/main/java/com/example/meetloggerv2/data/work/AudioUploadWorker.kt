@@ -8,7 +8,6 @@ import androidx.work.workDataOf
 import com.example.meetloggerv2.core.network.NetworkResult
 import com.example.meetloggerv2.data.repository.IAudioRepository
 import com.example.meetloggerv2.data.repository.IFileRepository
-import com.google.firebase.firestore.FieldValue
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -38,6 +37,9 @@ class AudioUploadWorker(
         const val KEY_FILE_NAME = "file_name"
         const val KEY_SPEAKER_NAMES = "speaker_names"
         const val KEY_FOLLOW_UP_FILE_NAME = "follow_up_file_name"
+        const val KEY_AUTO_SEND_EMAIL = "auto_send_email"
+        const val KEY_USER_EMAIL = "user_email"
+        const val KEY_USER_NAME = "user_name"
         const val KEY_ACTION = "action"
 
         const val ACTION_SAVE = "SAVE"
@@ -57,38 +59,71 @@ class AudioUploadWorker(
         val action = inputData.getString(KEY_ACTION) ?: ACTION_SAVE
         val speakerNames = inputData.getStringArray(KEY_SPEAKER_NAMES) ?: emptyArray()
         val followUpFileName = inputData.getString(KEY_FOLLOW_UP_FILE_NAME) ?: ""
+        val autoSendEmail = inputData.getBoolean(KEY_AUTO_SEND_EMAIL, false)
+        val userEmail = inputData.getString(KEY_USER_EMAIL) ?: ""
+        val userName = inputData.getString(KEY_USER_NAME) ?: "User"
 
         val localFile = File(filePath)
         if (!localFile.exists()) {
             return@withContext Result.failure(workDataOf("error" to "Local file does not exist"))
         }
-        val fileUri = Uri.fromFile(localFile)
 
         try {
-            // Stage 1: Uploading to Firebase Storage
-            setProgress(workDataOf(PROGRESS_STAGE to "Uploading to storage..."))
-            val downloadUrl = uploadToStorage(audioRepository, userId, fileName, fileUri)
+            // Stage 1: Uploading to Firebase Storage via Signed URL
+            setProgress(workDataOf(PROGRESS_STAGE to "Requesting upload permission..."))
+            val urlResult = audioRepository.getUploadUrl(userId, fileName)
+            if (urlResult is NetworkResult.Error) {
+                throw Exception(urlResult.message ?: "Failed to get upload URL")
+            }
+            val uploadUrl = (urlResult as NetworkResult.Success).data ?: throw Exception("Empty upload URL")
+
+            setProgress(workDataOf(PROGRESS_STAGE to "Uploading audio..."))
+            val uploadResult = audioRepository.uploadToSignedUrl(uploadUrl, localFile)
+            if (uploadResult is NetworkResult.Error) {
+                throw Exception(uploadResult.message ?: "Failed to upload to storage")
+            }
 
             // Stage 2: Saving metadata to Firestore
             setProgress(workDataOf(PROGRESS_STAGE to "Saving metadata..."))
             val status = if (action == ACTION_PROCESS) "processing" else "saved"
+            
+            // Use ISO timestamp for REST API
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.getDefault())
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val timestamp = sdf.format(java.util.Date())
+
             val fileData = hashMapOf(
                 "fileName" to fileName,
-                "audioUrl" to downloadUrl,
+                "audioUrl" to "AudioFiles/$userId/$fileName", // Store the path instead of public URL
                 "status" to status,
                 "OriginalLanguage" to "en",
-                "timestamp_clientUpload" to FieldValue.serverTimestamp()
+                "timestamp_clientUpload" to timestamp
             )
             if (action == ACTION_PROCESS) {
                 fileData["followUpFileName"] = followUpFileName
             }
-            saveMetadata(fileRepository, userId, fileName, fileData)
+            
+            val metaResult = fileRepository.saveAsNewCopyOnBackend(userId, fileName, fileData)
+            if (metaResult is NetworkResult.Error) {
+                throw Exception(metaResult.message ?: "Failed to save metadata via backend")
+            }
+
+            val serverFileName = if (metaResult is NetworkResult.Success) (metaResult.data ?: fileName) else fileName
 
             // Stage 3: Send to Backend if Processing
             if (action == ACTION_PROCESS) {
                 setProgress(workDataOf(PROGRESS_STAGE to "Backend processing..."))
                 val speakersJson = com.google.gson.Gson().toJson(speakerNames)
-                val result = audioRepository.uploadAudioToBackend(localFile, userId, fileName, speakersJson, followUpFileName)
+                val result = audioRepository.uploadAudioToBackend(
+                    localFile, 
+                    userId, 
+                    serverFileName, 
+                    speakersJson, 
+                    followUpFileName,
+                    autoSendEmail,
+                    userEmail,
+                    userName
+                )
                 when (result) {
                     is NetworkResult.Success -> {
                         // Success
@@ -100,7 +135,7 @@ class AudioUploadWorker(
                 }
             }
 
-            Result.success(workDataOf(KEY_ACTION to action, KEY_FILE_NAME to fileName))
+            Result.success(workDataOf(KEY_ACTION to action, KEY_FILE_NAME to serverFileName))
         } catch (e: Exception) {
             e.printStackTrace()
             if (runAttemptCount < 3) {
@@ -109,33 +144,5 @@ class AudioUploadWorker(
                 Result.failure(workDataOf("error" to (e.message ?: "Unknown error")))
             }
         }
-    }
-
-    private suspend fun uploadToStorage(
-        audioRepository: IAudioRepository,
-        userId: String,
-        fileName: String,
-        uri: Uri
-    ): String = suspendCancellableCoroutine { continuation ->
-        audioRepository.uploadAudioToStorage(userId, fileName, uri) { downloadUrl, exception ->
-            if (downloadUrl != null) {
-                continuation.resume(downloadUrl)
-            } else {
-                continuation.resumeWithException(exception ?: Exception("Firebase storage upload failed"))
-            }
-        }
-    }
-
-    private suspend fun saveMetadata(
-        fileRepository: IFileRepository,
-        userId: String,
-        fileName: String,
-        data: Map<String, Any>
-    ) = suspendCancellableCoroutine<Unit> { continuation ->
-        fileRepository.saveFileMetadata(userId, fileName, data, {
-            continuation.resume(Unit)
-        }, {
-            continuation.resumeWithException(it)
-        })
     }
 }

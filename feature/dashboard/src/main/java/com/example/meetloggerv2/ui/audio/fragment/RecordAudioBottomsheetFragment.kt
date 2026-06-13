@@ -106,6 +106,10 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NORMAL, com.example.meetloggerv2.core.R.style.CustomBottomSheetDialog)
+        val uid = authSession.currentUserId()
+        if (uid != null) {
+            viewModel.fetchUserFiles(uid)
+        }
     }
 
     override fun onCreateView(
@@ -408,6 +412,13 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     }
 
     private fun checkAndRequestPermissions() {
+        val subscription = authSession.currentUserSubscription()
+        if (subscription == "free" && viewModel.userFilesState.value.size >= 7) {
+            Toast.makeText(context, "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+            dismiss()
+            return
+        }
+
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED
         ) {

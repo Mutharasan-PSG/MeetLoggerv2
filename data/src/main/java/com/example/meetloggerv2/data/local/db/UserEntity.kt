@@ -9,16 +9,18 @@ data class UserEntity(
     @PrimaryKey val id: String,
     val name: String,
     val email: String,
-    val photoUrl: String?
+    val photoUrl: String?,
+    val subscription: String = "free"
 ) {
-    fun toUser(): User = User(id, name, email, photoUrl)
+    fun toUser(): User = User(id, name, email, photoUrl, subscription)
 
     companion object {
         fun fromUser(user: User): UserEntity = UserEntity(
             id = user.id,
             name = user.name,
             email = user.email,
-            photoUrl = user.photoUrl
+            photoUrl = user.photoUrl,
+            subscription = user.subscription
         )
     }
 }

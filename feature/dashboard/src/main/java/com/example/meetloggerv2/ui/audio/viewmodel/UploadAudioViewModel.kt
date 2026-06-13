@@ -19,11 +19,17 @@ import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
+import com.example.meetloggerv2.core.session.AuthSession
+import com.example.meetloggerv2.data.local.SettingsDataStore
+import kotlinx.coroutines.flow.first
+
 @HiltViewModel
 class UploadAudioViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val audioRepository: IAudioRepository,
-    private val fileRepository: IFileRepository
+    private val fileRepository: IFileRepository,
+    private val authSession: AuthSession,
+    private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<UploadUiState>(UploadUiState.Idle)
@@ -50,24 +56,31 @@ class UploadAudioViewModel @Inject constructor(
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val data = workDataOf(
-            AudioUploadWorker.KEY_USER_ID to userId,
-            AudioUploadWorker.KEY_FILE_PATH to file.absolutePath,
-            AudioUploadWorker.KEY_FILE_NAME to file.name,
-            AudioUploadWorker.KEY_SPEAKER_NAMES to speakerNames.toTypedArray(),
-            AudioUploadWorker.KEY_FOLLOW_UP_FILE_NAME to followUpFileName,
-            AudioUploadWorker.KEY_ACTION to AudioUploadWorker.ACTION_PROCESS
-        )
-
-        val workRequest = OneTimeWorkRequestBuilder<AudioUploadWorker>()
-            .setConstraints(constraints)
-            .setInputData(data)
-            .build()
-
-        WorkManager.getInstance(context)
-            .enqueueUniqueWork("upload_${file.name}", ExistingWorkPolicy.REPLACE, workRequest)
-
         viewModelScope.launch {
+            val autoSend = settingsDataStore.autoSendEmail.first()
+            val userEmail = authSession.currentUserEmail() ?: ""
+            val userName = authSession.currentUserName() ?: "User"
+
+            val data = workDataOf(
+                AudioUploadWorker.KEY_USER_ID to userId,
+                AudioUploadWorker.KEY_FILE_PATH to file.absolutePath,
+                AudioUploadWorker.KEY_FILE_NAME to file.name,
+                AudioUploadWorker.KEY_SPEAKER_NAMES to speakerNames.toTypedArray(),
+                AudioUploadWorker.KEY_FOLLOW_UP_FILE_NAME to followUpFileName,
+                AudioUploadWorker.KEY_AUTO_SEND_EMAIL to autoSend,
+                AudioUploadWorker.KEY_USER_EMAIL to userEmail,
+                AudioUploadWorker.KEY_USER_NAME to userName,
+                AudioUploadWorker.KEY_ACTION to AudioUploadWorker.ACTION_PROCESS
+            )
+
+            val workRequest = OneTimeWorkRequestBuilder<AudioUploadWorker>()
+                .setConstraints(constraints)
+                .setInputData(data)
+                .build()
+
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork("upload_${file.name}", ExistingWorkPolicy.REPLACE, workRequest)
+
             WorkManager.getInstance(context)
                 .getWorkInfoByIdFlow(workRequest.id)
                 .collect { workInfo ->

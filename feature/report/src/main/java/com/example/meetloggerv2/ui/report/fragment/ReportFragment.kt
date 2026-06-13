@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.TextFieldValue
@@ -71,6 +72,7 @@ import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
 import com.example.meetloggerv2.core.theme.pressScale
 import com.example.meetloggerv2.core.theme.pressScaleClick
+import com.example.meetloggerv2.core.theme.ShimmerItem
 import com.example.meetloggerv2.core.util.ShareHelper
 import com.example.meetloggerv2.ui.report.viewmodel.ReportViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -259,11 +261,37 @@ fun ReportScreenContent(
 
     val files by viewModel.filteredFiles.collectAsState(initial = emptyList())
     val uiState by viewModel.uiState.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoading = uiState is ReportViewModel.ReportUiState.Loading
 
     var searchQuery by remember { mutableStateOf("") }
     var isDeleteMode by remember { mutableStateOf(false) }
     val selectedFiles = remember { mutableStateListOf<String>() }
+
+    // Shimmer states to avoid flicker and support smooth updates
+    val previousFiles = remember { mutableStateOf<List<Triple<String, com.google.firebase.Timestamp, String>>?>(null) }
+    var showUpdateShimmer by remember { mutableStateOf(false) }
+
+    LaunchedEffect(files) {
+        if (searchQuery.isEmpty() && previousFiles.value != null && previousFiles.value != files) {
+            showUpdateShimmer = true
+            delay(300)
+            showUpdateShimmer = false
+        }
+        previousFiles.value = files
+    }
+
+    var forceShimmer by remember { mutableStateOf(files.isEmpty()) }
+    LaunchedEffect(Unit) {
+        if (files.isEmpty()) {
+            delay(300)
+            forceShimmer = false
+        } else {
+            forceShimmer = false
+        }
+    }
+
+    val showInitialShimmer = files.isEmpty() && (isLoading || isRefreshing)
 
     var renamingPosition by remember { mutableStateOf(-1) }
     var renameText by remember { mutableStateOf("") }
@@ -381,8 +409,7 @@ fun ReportScreenContent(
                                     )
                                 }
                             }
-                        }
-else {
+                        } else {
                             IconButton(
                                 onClick = onOpenAudioList,
                                 modifier = Modifier.pressScaleClick { onOpenAudioList() }.padding(end = 8.dp)
@@ -417,8 +444,8 @@ else {
                         .fillMaxSize()
                         .padding(horizontal = 16.dp)
                 ) {
-                    // Search Bar
-                    if (files.isNotEmpty() || searchQuery.isNotEmpty()) {
+                    // Search Bar - Hidden during initial premium shimmer
+                    if ((files.isNotEmpty() && !showInitialShimmer) || searchQuery.isNotEmpty()) {
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = {
@@ -502,7 +529,14 @@ else {
                         }
                     }
 
-                    if (files.isEmpty() && uiState !is ReportViewModel.ReportUiState.Loading) {
+                    if (showInitialShimmer || showUpdateShimmer) {
+                        Column {
+                            repeat(6) {
+                                ShimmerItem()
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    } else if (files.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -531,7 +565,7 @@ else {
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(bottom = 16.dp)
                         ) {
-                            itemsIndexed(files) { index, item ->
+                            itemsIndexed(files, key = { _, item -> item.first }) { index, item ->
                                 val name = item.first
                                 val timestamp = item.second
 
@@ -772,19 +806,25 @@ else {
 
                 if (uiState is ReportViewModel.ReportUiState.Loading) {
                     val msg = (uiState as ReportViewModel.ReportUiState.Loading).message
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.75f))
-                            .clickable(enabled = false) {},
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
+                    // Only show blocking overlay for specific heavy actions.
+                    // Initial "Loading reports..." or "Updating reports..." should not block the UI.
+                    val isBlockingAction = msg != "Loading reports..." && msg != "Updating reports..." && msg != "Loading..."
+                    
+                    if (isBlockingAction) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.75f))
+                                .clickable(enabled = false) {},
+                            contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(text = msg, color = Color.White, fontWeight = FontWeight.Bold)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(text = msg, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

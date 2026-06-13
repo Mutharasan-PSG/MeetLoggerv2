@@ -76,7 +76,14 @@ class SignUpActivity : AppCompatActivity() {
                             finish() // Return to Login Activity
                         }
                         is LoginViewModel.SignUpState.Error -> {
-                            Toast.makeText(this@SignUpActivity, (signUpState as LoginViewModel.SignUpState.Error).message, Toast.LENGTH_LONG).show()
+                            val msg = (signUpState as LoginViewModel.SignUpState.Error).message
+                            val msgLower = msg.lowercase()
+                            val displayMsg = if (msgLower.contains("exists") || msgLower.contains("registered") || msgLower.contains("already in use")) {
+                                msg
+                            } else {
+                                "Something went wrong, Try again later"
+                            }
+                            Toast.makeText(this@SignUpActivity, displayMsg, Toast.LENGTH_LONG).show()
                             viewModel.resetStates()
                         }
                         else -> {}

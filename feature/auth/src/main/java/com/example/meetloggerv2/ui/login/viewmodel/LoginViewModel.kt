@@ -11,6 +11,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.example.meetloggerv2.core.network.NetworkResult
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -54,42 +57,45 @@ class LoginViewModel @Inject constructor(
     fun signInWithEmail(email: String, password: String) {
         Log.d(TAG, "signInWithEmail: $email")
         _loginState.value = LoginState.Loading
-        authRepository.signInWithEmailAndPassword(email, password) { firebaseUser, exception ->
-            if (firebaseUser != null) {
-                Log.d(TAG, "signInWithEmail: Success")
-                // Check if user has verified their email
-                if (firebaseUser.isEmailVerified) {
-                    handleFirebaseUser(firebaseUser)
+        
+        // ALWAYS check backend first for account existence and methods
+        viewModelScope.launch {
+            val checkResult = authRepository.checkEmailOnBackend(email)
+            if (checkResult is NetworkResult.Success && checkResult.data != null) {
+                val response = checkResult.data!!
+                if (!response.exists) {
+                    // 1. User not found -> Navigate to SignUp
+                    _loginState.value = LoginState.UserNotFound("This email address is not registered. Would you like to create a new account?")
                 } else {
-                    _loginState.value = LoginState.EmailNotVerified("Your email address is not verified yet.\n\nWe sent a verification link to:\n${firebaseUser.email}\n\nPlease click the link in the email to activate your account.")
-                }
-            } else {
-                Log.e(TAG, "signInWithEmail: Error", exception)
-                // Check if the account exists and what methods are available
-                authRepository.fetchSignInMethodsForEmail(email) { methods, fetchException ->
-                    Log.d(TAG, "fetchSignInMethodsForEmail reponse: $methods")
-                    if (methods.isNullOrEmpty()) {
-                        _loginState.value = LoginState.UserNotFound("This email address is not registered. Would you like to create a new account?")
-                    } else {
-                        val hasPassword = methods.contains("password")
-                        val hasGoogle = methods.contains("google.com")
-                        
-                        when {
-                            hasPassword && hasGoogle -> {
-                                _loginState.value = LoginState.Error("Incorrect password")
-                            }
-                            hasPassword -> {
-                                _loginState.value = LoginState.Error("Incorrect password")
-                            }
-                            hasGoogle -> {
-                                _loginState.value = LoginState.Error("This account is registered with Google")
-                            }
-                            else -> {
-                                _loginState.value = LoginState.Error("Please sign in using your original registration method.")
+                    val methods = response.methods
+                    val hasPassword = methods.contains("password")
+                    val hasGoogle = methods.contains("google.com")
+                    
+                    if (hasPassword) {
+                        // 2. User exists with password -> Proceed to Firebase Login
+                        authRepository.signInWithEmailAndPassword(email, password) { firebaseUser, exception ->
+                            if (firebaseUser != null) {
+                                if (firebaseUser.isEmailVerified) {
+                                    handleFirebaseUser(firebaseUser)
+                                } else {
+                                    _loginState.value = LoginState.EmailNotVerified("Your email address is not verified yet.\n\nWe sent a verification link to:\n${firebaseUser.email}\n\nPlease click the link in the email to activate your account.")
+                                }
+                            } else {
+                                // Most common reason here is Incorrect Password
+                                _loginState.value = LoginState.Error(exception?.message ?: "Incorrect password")
                             }
                         }
+                    } else if (hasGoogle) {
+                        // 3. User exists but only with Google
+                        _loginState.value = LoginState.Error("This account is registered with Google. Please sign in using Google.")
+                    } else {
+                        // 4. Other registration method
+                        _loginState.value = LoginState.Error("Please sign in using your original registration method.")
                     }
                 }
+            } else {
+                // Backend API failed (Network or Server Error)
+                _loginState.value = LoginState.Error("Unable to verify account. Please check your connection.")
             }
         }
     }
@@ -98,10 +104,11 @@ class LoginViewModel @Inject constructor(
         Log.d(TAG, "signUpWithEmail: $email")
         _signUpState.value = SignUpState.Loading
         
-        // First check if email already exists
-        authRepository.fetchSignInMethodsForEmail(email) { methods, exception ->
-            Log.d(TAG, "signUp fetchMethods: $methods")
-            if (!methods.isNullOrEmpty()) {
+        // First check if email already exists using Backend API
+        viewModelScope.launch {
+            val checkResult = authRepository.checkEmailOnBackend(email)
+            if (checkResult is NetworkResult.Success && checkResult.data?.exists == true) {
+                val methods = checkResult.data!!.methods
                 val hasPassword = methods.contains("password")
                 val hasGoogle = methods.contains("google.com")
                 
@@ -124,11 +131,22 @@ class LoginViewModel @Inject constructor(
                                     email = firebaseUser.email.orEmpty(),
                                     photoUrl = null
                                 )
-                                fileRepository.saveUser(user, {
-                                    _signUpState.value = SignUpState.Success
-                                }, { dbException ->
-                                    _signUpState.value = SignUpState.Error(dbException.message ?: "Failed to save user profile")
-                                })
+                                viewModelScope.launch {
+                                    val updates = mapOf(
+                                        "name" to user.name,
+                                        "email" to user.email
+                                    )
+                                    val result = fileRepository.updateUserProfileOnBackend(user.id, updates)
+                                    when (result) {
+                                        is NetworkResult.Success -> {
+                                            _signUpState.value = SignUpState.Success
+                                        }
+                                        is NetworkResult.Error -> {
+                                            _signUpState.value = SignUpState.Error(result.message ?: "Failed to save user profile")
+                                        }
+                                        else -> {}
+                                    }
+                                }
                             } else {
                                 _signUpState.value = SignUpState.Error(verificationException?.message ?: "Failed to send verification email")
                             }
@@ -146,29 +164,36 @@ class LoginViewModel @Inject constructor(
         Log.d(TAG, "sendPasswordReset: $email")
         _resetPasswordState.value = ResetPasswordState.Loading
         
-        // First check if email exists and has password method
-        authRepository.fetchSignInMethodsForEmail(email) { methods, exception ->
-            Log.d(TAG, "resetPassword fetchMethods: $methods")
-            if (methods.isNullOrEmpty()) {
-                _resetPasswordState.value = ResetPasswordState.Error("This email address is not registered")
-            } else {
-                val hasPassword = methods.contains("password")
-                val hasGoogle = methods.contains("google.com")
-                
-                if (!hasPassword) {
-                    val method = if (hasGoogle) "Google" else "another method"
-                    _resetPasswordState.value = ResetPasswordState.Error("This account is registered with $method")
+        // First check if email exists and has password method using Backend API
+        viewModelScope.launch {
+            val checkResult = authRepository.checkEmailOnBackend(email)
+            if (checkResult is NetworkResult.Success && checkResult.data != null) {
+                val response = checkResult.data!!
+                if (!response.exists) {
+                    _resetPasswordState.value = ResetPasswordState.Error("This email address is not registered")
                 } else {
-                    authRepository.sendPasswordResetEmail(email) { success, resetException ->
-                        if (success) {
-                            Log.d(TAG, "resetPassword: Success")
-                            _resetPasswordState.value = ResetPasswordState.Success
-                        } else {
-                            Log.e(TAG, "resetPassword: Error", resetException)
-                            _resetPasswordState.value = ResetPasswordState.Error(resetException?.message ?: "Failed to send reset email")
+                    val methods = response.methods
+                    val hasPassword = methods.contains("password")
+                    val hasGoogle = methods.contains("google.com")
+                    
+                    if (!hasPassword) {
+                        val method = if (hasGoogle) "Google" else "another method"
+                        _resetPasswordState.value = ResetPasswordState.Error("This account is registered with $method")
+                    } else {
+                        authRepository.sendPasswordResetEmail(email) { success, resetException ->
+                            if (success) {
+                                Log.d(TAG, "resetPassword: Success")
+                                _resetPasswordState.value = ResetPasswordState.Success
+                            } else {
+                                Log.e(TAG, "resetPassword: Error", resetException)
+                                _resetPasswordState.value = ResetPasswordState.Error(resetException?.message ?: "Failed to send reset email")
+                            }
                         }
                     }
                 }
+            } else {
+                // Fallback or handle backend error
+                _resetPasswordState.value = ResetPasswordState.Error("Failed to verify email. Please try again.")
             }
         }
     }
@@ -197,24 +222,46 @@ class LoginViewModel @Inject constructor(
             photoUrl = firebaseUser.photoUrl?.toString()
         )
 
-        fileRepository.checkUserExists(user.id, { exists ->
-            if (!exists) {
-                fileRepository.saveUser(user, {
-                    _loginState.value = LoginState.Success(user)
-                }, {
-                    _loginState.value = LoginState.Error(it.message ?: "Failed to save user")
-                })
-            } else {
-                _loginState.value = LoginState.Success(user)
+        viewModelScope.launch {
+            val result = fileRepository.getUserProfileFromBackend(user.id)
+            when (result) {
+                is NetworkResult.Success -> {
+                    // User exists, proceed
+                    val profile = result.data
+                    val subscription = profile?.get("subscription") as? String ?: "free"
+                    val backendUser = user.copy(subscription = subscription)
+                    _loginState.value = LoginState.Success(backendUser)
+                }
+                is NetworkResult.Error -> {
+                    if (result.message?.contains("404") == true) {
+                        // User not found, create them
+                        _loginState.value = LoginState.CreatingUser
+                        val updates = mapOf(
+                            "name" to user.name,
+                            "email" to user.email,
+                            "photoUrl" to (user.photoUrl ?: "")
+                        )
+                        val createResult = fileRepository.updateUserProfileOnBackend(user.id, updates)
+                        if (createResult is NetworkResult.Success) {
+                            _loginState.value = LoginState.Success(user)
+                        } else {
+                            _loginState.value = LoginState.Error(
+                                (createResult as? NetworkResult.Error)?.message ?: "Failed to create user"
+                            )
+                        }
+                    } else {
+                        _loginState.value = LoginState.Error(result.message ?: "Failed to verify user")
+                    }
+                }
+                else -> {}
             }
-        }, {
-            _loginState.value = LoginState.Error(it.message ?: "Failed to check user")
-        })
+        }
     }
 
     sealed class LoginState {
         object Idle : LoginState()
         object Loading : LoginState()
+        object CreatingUser : LoginState()
         data class Success(val user: User) : LoginState()
         data class EmailNotVerified(val message: String) : LoginState()
         data class UserNotFound(val message: String) : LoginState()

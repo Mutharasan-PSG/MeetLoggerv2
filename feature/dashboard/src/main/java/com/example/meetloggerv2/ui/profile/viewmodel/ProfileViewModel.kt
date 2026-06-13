@@ -7,6 +7,7 @@ import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.session.AuthSession
 import com.example.meetloggerv2.core.session.SessionManager
 import com.example.meetloggerv2.data.local.ProfileDataStore
+import com.example.meetloggerv2.data.model.User
 import com.example.meetloggerv2.data.repository.IFileRepository
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -69,16 +70,41 @@ class ProfileViewModel @Inject constructor(
                 )
                 _userProfile.value = profileMap
             } else {
-                fileRepository.getUser(userId, { data ->
-                    if (data != null) {
+                // Use Backend API
+                val result = fileRepository.getUserProfileFromBackend(userId)
+                when (result) {
+                    is com.example.meetloggerv2.core.network.NetworkResult.Success -> {
+                        val data = result.data ?: emptyMap()
                         _userProfile.value = data
                         val name = data["name"] as? String ?: ""
                         val email = data["email"] as? String ?: ""
                         val photoUrl = data["photoUrl"] as? String ?: ""
+                        val subscription = data["subscription"] as? String ?: "free"
                         viewModelScope.launch {
                             profileDataStore.saveProfile(name, email, photoUrl, dateStr)
+                            
+                            val currentUser = sessionManager.getUserDetails()
+                            if (currentUser != null) {
+                                val updatedUser = currentUser.copy(
+                                    name = name,
+                                    email = email,
+                                    photoUrl = photoUrl,
+                                    subscription = subscription
+                                )
+                                sessionManager.saveUserDetails(updatedUser)
+                            } else {
+                                val newUser = User(
+                                    id = userId,
+                                    name = name,
+                                    email = email,
+                                    photoUrl = photoUrl,
+                                    subscription = subscription
+                                )
+                                sessionManager.saveUserDetails(newUser)
+                            }
                         }
-                    } else {
+                    }
+                    is com.example.meetloggerv2.core.network.NetworkResult.Error -> {
                         if (cached != null) {
                             val profileMap = mapOf(
                                 "name" to cached.name,
@@ -87,21 +113,29 @@ class ProfileViewModel @Inject constructor(
                             )
                             _userProfile.value = profileMap
                         } else {
-                            _userProfile.value = null
+                            _error.value = result.message ?: "Failed to load profile"
                         }
                     }
-                }, { error ->
-                    if (cached != null) {
-                        val profileMap = mapOf(
-                            "name" to cached.name,
-                            "email" to cached.email,
-                            "photoUrl" to cached.photoUrl
-                        )
-                        _userProfile.value = profileMap
-                    } else {
-                        _error.value = error.message ?: "Failed to load profile"
-                    }
-                })
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    fun updateProfile(userId: String, name: String, photoUrl: String) {
+        viewModelScope.launch {
+            val updates = mutableMapOf<String, Any>()
+            if (name.isNotEmpty()) updates["name"] = name
+            if (photoUrl.isNotEmpty()) updates["photoUrl"] = photoUrl
+            
+            if (updates.isEmpty()) return@launch
+
+            val result = fileRepository.updateUserProfileOnBackend(userId, updates)
+            if (result is com.example.meetloggerv2.core.network.NetworkResult.Success) {
+                // Reload profile after successful update
+                loadUserProfile(userId)
+            } else if (result is com.example.meetloggerv2.core.network.NetworkResult.Error) {
+                _error.value = result.message ?: "Update failed"
             }
         }
     }

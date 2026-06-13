@@ -51,7 +51,7 @@ class PdfDocumentExporter : DocumentExporter {
             for (word in words) {
                 val testLine = (wordBuffer + word).joinToString(" ")
                 if (paint.measureText(testLine) > maxLineWidth) {
-                    canvas.drawText(wordBuffer.joinToString(" "), marginLeft, currentY, paint)
+                    drawJustifiedLine(canvas, wordBuffer, marginLeft, maxLineWidth, currentY, paint)
                     currentY += lineHeight
                     wordBuffer.clear()
                 }
@@ -72,5 +72,30 @@ class PdfDocumentExporter : DocumentExporter {
         document.finishPage(page)
         document.writeTo(outputStream)
         document.close()
+    }
+
+    private fun drawJustifiedLine(
+        canvas: android.graphics.Canvas,
+        words: List<String>,
+        marginLeft: Float,
+        maxLineWidth: Float,
+        currentY: Float,
+        paint: Paint
+    ) {
+        if (words.isEmpty()) return
+        if (words.size == 1) {
+            canvas.drawText(words[0], marginLeft, currentY, paint)
+            return
+        }
+        
+        val totalWordsWidth = words.map { paint.measureText(it) }.sum()
+        val totalSpaceWidth = maxLineWidth - totalWordsWidth
+        val spaceWidth = totalSpaceWidth / (words.size - 1)
+        
+        var currentX = marginLeft
+        for (word in words) {
+            canvas.drawText(word, currentX, currentY, paint)
+            currentX += paint.measureText(word) + spaceWidth
+        }
     }
 }

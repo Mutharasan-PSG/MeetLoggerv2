@@ -1,13 +1,19 @@
 package com.example.meetloggerv2.data.repository
 
 import android.util.Log
-import com.example.meetloggerv2.data.model.User
+import com.example.meetloggerv2.core.model.CheckEmailResponse
+import com.example.meetloggerv2.core.network.NetworkResult
+import com.example.meetloggerv2.core.network.SafeApiCall
+import com.example.meetloggerv2.data.remote.ApiService
+import com.example.meetloggerv2.data.remote.RetrofitClient
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.AuthCredential
 
-class AuthRepository() : IAuthRepository {
+class AuthRepository(
+    private val apiService: ApiService = RetrofitClient.apiService
+) : IAuthRepository, SafeApiCall {
 
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
     private val TAG = "AuthRepository"
@@ -106,5 +112,11 @@ class AuthRepository() : IAuthRepository {
 
     override fun signOut() {
         auth.signOut()
+    }
+
+    override suspend fun checkEmailOnBackend(email: String): NetworkResult<CheckEmailResponse> {
+        return safeApiCall {
+            apiService.checkEmail(mapOf("email" to email))
+        }
     }
 }

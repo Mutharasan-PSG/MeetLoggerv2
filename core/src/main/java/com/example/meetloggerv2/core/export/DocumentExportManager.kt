@@ -11,6 +11,7 @@ class DocumentExportManager @JvmOverloads constructor(
     init {
         registerExporter("PDF", PdfDocumentExporter())
         registerExporter("DOCX", DocxDocumentExporter())
+        registerExporter("TXT", TxtDocumentExporter())
     }
 
     fun registerExporter(format: String, exporter: DocumentExporter) {

@@ -89,7 +89,14 @@ class ForgotPasswordActivity : AppCompatActivity() {
                             finish()
                         }
                         is LoginViewModel.ResetPasswordState.Error -> {
-                            Toast.makeText(this@ForgotPasswordActivity, state.message, Toast.LENGTH_LONG).show()
+                            val msg = state.message
+                            val msgLower = msg.lowercase()
+                            val displayMsg = if (msgLower.contains("registered")) {
+                                msg
+                            } else {
+                                "Something went wrong, Try again later"
+                            }
+                            Toast.makeText(this@ForgotPasswordActivity, displayMsg, Toast.LENGTH_LONG).show()
                         }
                         is LoginViewModel.ResetPasswordState.Idle -> {
                             // Do nothing
@@ -140,7 +147,13 @@ fun ForgotPasswordScreen(
     // Handle external errors (like Email not registered)
     LaunchedEffect(resetState) {
         if (resetState is LoginViewModel.ResetPasswordState.Error) {
-            emailError = resetState.message
+            val msg = resetState.message
+            val msgLower = msg.lowercase()
+            emailError = if (msgLower.contains("registered")) {
+                msg
+            } else {
+                "Something went wrong, Try again later"
+            }
         }
     }
 

@@ -44,10 +44,12 @@ import com.bumptech.glide.Glide
 import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.navigation.findNavigationRouter
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
+import com.example.meetloggerv2.core.theme.ShimmerProfile
 import com.example.meetloggerv2.core.theme.pressScale
 import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.ui.profile.viewmodel.ProfileViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
@@ -93,6 +95,7 @@ class ProfileFragment : Fragment() {
                             // Can show loading indicator if desired
                         }
                         is ProfileViewModel.SignOutState.Success -> {
+                            hasShimmered = false
                             findNavigationRouter()?.navigateToLogin()
                         }
                         is ProfileViewModel.SignOutState.Error -> {
@@ -105,6 +108,10 @@ class ProfileFragment : Fragment() {
                 }
             }
         }
+    }
+
+    companion object {
+        var hasShimmered = false
     }
 }
 
@@ -123,6 +130,16 @@ fun ProfileScreen(
     val signOutState by viewModel.signOutState.collectAsState()
     val isSigningOut = signOutState is ProfileViewModel.SignOutState.Loading
     val scrollState = rememberScrollState()
+
+    // Premium Loading: Show shimmer for 0.3 seconds on first entry only
+    var forceShimmer by remember { mutableStateOf(!ProfileFragment.hasShimmered) }
+    LaunchedEffect(Unit) {
+        if (!ProfileFragment.hasShimmered) {
+            delay(300)
+            ProfileFragment.hasShimmered = true
+            forceShimmer = false
+        }
+    }
 
     val appVersion = remember {
         try {
@@ -183,161 +200,167 @@ fun ProfileScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f) // Take up all available space
-                    .verticalScroll(scrollState),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                userProfile?.let { profile ->
-                    val name = profile["name"] as? String ?: "User"
-                    val email = profile["email"] as? String ?: ""
-                    val photoUrl = profile["photoUrl"] as? String
-
-                    // Minimized space between title and profile pic
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Profile Image wrapper with Glide
-                    val avatarDrawable = remember(name) {
-                        com.example.meetloggerv2.core.util.AvatarGenerator.getAvatar(context, name)
-                    }
-
-                    Card(
-                        shape = CircleShape,
-                        modifier = Modifier
-                            .size(110.dp)
-                            .clip(CircleShape),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                    ) {
-                        AndroidView(
-                            factory = { ctx ->
-                                ImageView(ctx).apply {
-                                    scaleType = ImageView.ScaleType.CENTER_CROP
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                            update = { imageView ->
-                                Glide.with(context)
-                                    .load(photoUrl)
-                                    .placeholder(avatarDrawable)
-                                    .error(avatarDrawable)
-                                    .fallback(avatarDrawable)
-                                    .circleCrop()
-                                    .into(imageView)
-                            }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = name,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    Text(
-                        text = email,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Profile Options
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        ProfileOptionItem(
-                            icon = Icons.Default.Settings,
-                            title = "Settings",
-                            onClick = { if (!isSigningOut) onNavigateToSettings() }
-                        )
-                        ProfileOptionItem(
-                            icon = Icons.Default.CardMembership,
-                            title = "Subscriptions",
-                            onClick = { if (!isSigningOut) onNavigateToSubscriptions() }
-                        )
-                        ProfileOptionItem(
-                            icon = Icons.Default.Security,
-                            title = "Privacy & security",
-                            onClick = { if (!isSigningOut) onNavigateToLegal("policy") }
-                        )
-                        ProfileOptionItem(
-                            icon = Icons.AutoMirrored.Filled.Help,
-                            title = "Help & support",
-                            onClick = { if (!isSigningOut) onNavigateToHelpSupport() }
-                        )
-                    }
-                } ?: run {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Premium Sign Out Button
-                Card(
+            if (forceShimmer) {
+                ShimmerProfile()
+            } else {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp)
-                        .pressScaleClick(enabled = !isSigningOut) {
-                            viewModel.signOut()
-                        },
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.5.dp, stopRed.copy(alpha = 0.2f)),
-                    colors = CardDefaults.cardColors(
-                        containerColor = stopRed.copy(alpha = 0.08f)
-                    )
+                        .weight(1f) // Take up all available space
+                        .verticalScroll(scrollState),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        if (isSigningOut) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = stopRed
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Logout,
-                                contentDescription = "Sign Out",
-                                tint = stopRed,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Sign Out",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = stopRed
+                    userProfile?.let { profile ->
+                        val name = profile["name"] as? String ?: "User"
+                        val email = profile["email"] as? String ?: ""
+                        val photoUrl = profile["photoUrl"] as? String
+
+                        // Minimized space between title and profile pic
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Profile Image wrapper with Glide
+                        val avatarDrawable = remember(name) {
+                            com.example.meetloggerv2.core.util.AvatarGenerator.getAvatar(context, name)
+                        }
+
+                        Card(
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .size(110.dp)
+                                .clip(CircleShape),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            AndroidView(
+                                factory = { ctx ->
+                                    ImageView(ctx).apply {
+                                        scaleType = ImageView.ScaleType.CENTER_CROP
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                                update = { imageView ->
+                                    Glide.with(context)
+                                        .load(photoUrl)
+                                        .placeholder(avatarDrawable)
+                                        .error(avatarDrawable)
+                                        .fallback(avatarDrawable)
+                                        .circleCrop()
+                                        .into(imageView)
+                                }
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = name,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = email,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Profile Options
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            ProfileOptionItem(
+                                icon = Icons.Default.Settings,
+                                title = "Settings",
+                                onClick = { if (!isSigningOut) onNavigateToSettings() }
+                            )
+                            ProfileOptionItem(
+                                icon = Icons.Default.CardMembership,
+                                title = "Subscriptions",
+                                onClick = { if (!isSigningOut) onNavigateToSubscriptions() }
+                            )
+                            ProfileOptionItem(
+                                icon = Icons.Default.Security,
+                                title = "Privacy & security",
+                                onClick = { if (!isSigningOut) onNavigateToLegal("policy") }
+                            )
+                            ProfileOptionItem(
+                                icon = Icons.AutoMirrored.Filled.Help,
+                                title = "Help & support",
+                                onClick = { if (!isSigningOut) onNavigateToHelpSupport() }
+                            )
+                        }
+                    } ?: run {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Premium Sign Out Button
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .pressScaleClick(enabled = !isSigningOut) {
+                                viewModel.signOut()
+                            },
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.5.dp, stopRed.copy(alpha = 0.2f)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = stopRed.copy(alpha = 0.08f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            if (isSigningOut) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = stopRed
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                                    contentDescription = "Sign Out",
+                                    tint = stopRed,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Sign Out",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = stopRed
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
-                
-                Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // Version text stuck to the absolute bottom
-            Text(
-                text = appVersion,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            // Version text stuck to the absolute bottom - Hidden during shimmer
+            if (!forceShimmer) {
+                Text(
+                    text = appVersion,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
         }
     }
 }

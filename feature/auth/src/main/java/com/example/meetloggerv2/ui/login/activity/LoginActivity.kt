@@ -83,6 +83,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var signInResultLauncher: ActivityResultLauncher<Intent>
     private val viewModel: LoginViewModel by viewModels()
     private val isGoogleLoading = mutableStateOf(false)
+    private val isEmailLoading = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,6 +102,7 @@ class LoginActivity : AppCompatActivity() {
                 val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
                 try {
                     val account = task.getResult(ApiException::class.java)
+                    isGoogleLoading.value = true
                     handleSignInResult(account)
                 } catch (e: ApiException) {
                     Log.e("LoginActivity", "Google sign-in failed: ${e.message}")
@@ -118,27 +120,45 @@ class LoginActivity : AppCompatActivity() {
                 var verificationMessage by remember { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(loginState) {
-                    if (loginState !is LoginViewModel.LoginState.Loading) {
-                        isGoogleLoading.value = false
-                    }
                     when (loginState) {
+                        is LoginViewModel.LoginState.Loading -> {
+                            // Loading state is set to true on click triggers
+                        }
+                        is LoginViewModel.LoginState.CreatingUser -> {
+                            Toast.makeText(this@LoginActivity, "Just a moment...", Toast.LENGTH_SHORT).show()
+                        }
                         is LoginViewModel.LoginState.Success -> {
+                            // Keep loaders true, do NOT reset them, because we are navigating to home.
                             navigateToHome((loginState as LoginViewModel.LoginState.Success).user)
                         }
                         is LoginViewModel.LoginState.EmailNotVerified -> {
+                            isGoogleLoading.value = false
+                            isEmailLoading.value = false
                             verificationMessage = (loginState as LoginViewModel.LoginState.EmailNotVerified).message
                         }
                         is LoginViewModel.LoginState.UserNotFound -> {
-                            // Automatically navigate to Sign Up
+                            isGoogleLoading.value = false
+                            isEmailLoading.value = false
                             Toast.makeText(this@LoginActivity, (loginState as LoginViewModel.LoginState.UserNotFound).message, Toast.LENGTH_LONG).show()
                             startActivity(Intent(this@LoginActivity, SignUpActivity::class.java))
                             viewModel.resetStates()
                         }
                         is LoginViewModel.LoginState.Error -> {
-                            Toast.makeText(this@LoginActivity, (loginState as LoginViewModel.LoginState.Error).message, Toast.LENGTH_LONG).show()
+                            val msg = (loginState as LoginViewModel.LoginState.Error).message
+                            val displayMsg = if (isGoogleLoading.value) {
+                                "Something went wrong, Try again later"
+                            } else {
+                                msg
+                            }
+                            isGoogleLoading.value = false
+                            isEmailLoading.value = false
+                            Toast.makeText(this@LoginActivity, displayMsg, Toast.LENGTH_LONG).show()
                             viewModel.resetStates()
                         }
-                        else -> {}
+                        else -> {
+                            isGoogleLoading.value = false
+                            isEmailLoading.value = false
+                        }
                     }
                 }
 
@@ -161,8 +181,10 @@ class LoginActivity : AppCompatActivity() {
 
                 LoginScreen(
                     loginState = loginState,
+                    isEmailLoading = isEmailLoading.value,
                     isGoogleLoading = isGoogleLoading.value,
                     onLogin = { email, password ->
+                        isEmailLoading.value = true
                         viewModel.signInWithEmail(email, password)
                     },
                     onGoogleLogin = {
@@ -335,8 +357,11 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        isGoogleLoading.value = false
-        viewModel.resetStates()
+        if (viewModel.loginState.value !is LoginViewModel.LoginState.Loading) {
+            isGoogleLoading.value = false
+            isEmailLoading.value = false
+            viewModel.resetStates()
+        }
     }
 
     private fun handleBackPressed() {
@@ -381,6 +406,7 @@ class LoginActivity : AppCompatActivity() {
 @Composable
 fun LoginScreen(
     loginState: LoginViewModel.LoginState,
+    isEmailLoading: Boolean,
     isGoogleLoading: Boolean,
     onLogin: (String, String) -> Unit,
     onGoogleLogin: () -> Unit,
@@ -422,18 +448,19 @@ fun LoginScreen(
         }
     }
 
-    val isEmailLoading = loginState is LoginViewModel.LoginState.Loading
     val isLoading = isEmailLoading || isGoogleLoading
 
     // Handle external errors (like Incorrect Password)
     LaunchedEffect(loginState) {
         if (loginState is LoginViewModel.LoginState.Error) {
             val msg = loginState.message.lowercase()
-            if (msg.contains("password")) {
-                passwordError = loginState.message
-            }
-            if (msg.contains("email") || msg.contains("registered")) {
+            if (msg.contains("credential") || msg.contains("incorrect") || msg.contains("invalid") || msg.contains("password")) {
+                passwordError = "Invalid password"
+            } else if (msg.contains("email") || msg.contains("registered")) {
                 emailError = loginState.message
+            } else {
+                emailError = " "
+                passwordError = "Invalid email or password credentials"
             }
         }
     }

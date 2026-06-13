@@ -2,12 +2,14 @@ package com.example.meetloggerv2.ui.home.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import com.example.meetloggerv2.core.network.NetworkResult
 import androidx.lifecycle.viewModelScope
 import com.example.meetloggerv2.core.session.AuthSession
+import com.example.meetloggerv2.core.session.SessionManager
 import com.example.meetloggerv2.data.local.ProfileDataStore
 import com.example.meetloggerv2.data.model.ProcessedFile
+import com.example.meetloggerv2.data.model.User
 import com.example.meetloggerv2.data.repository.IFileRepository
-import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +25,8 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     application: Application,
     private val fileRepository: IFileRepository,
-    private val authSession: AuthSession
+    private val authSession: AuthSession,
+    private val sessionManager: SessionManager
 ) : AndroidViewModel(application) {
 
     private val _files = MutableStateFlow<List<Triple<String, String, Timestamp>>>(emptyList())
@@ -35,26 +38,49 @@ class HomeViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private var listenerRegistration: ListenerRegistration? = null
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private val profileDataStore = ProfileDataStore(application)
+
+    init {
+        observeFiles()
+    }
+
+    private fun observeFiles() {
+        val userId = authSession.currentUserId() ?: return
+        viewModelScope.launch {
+            fileRepository.getFilesFlow(userId).collect { dataList ->
+                val tripleList = dataList.mapNotNull { data ->
+                    val file = ProcessedFile.fromMap(data) ?: return@mapNotNull null
+                    Triple(file.fileName, file.status, file.timestamp)
+                }
+                // Structural equality check to avoid unnecessary UI refreshes
+                if (_files.value != tripleList) {
+                    _files.value = tripleList
+                }
+            }
+        }
+    }
 
     fun fetchFiles() {
         val userId = authSession.currentUserId() ?: return
-        fetchFiles(userId)
+        refreshFilesFromServer(userId)
     }
 
     fun fetchFiles(userId: String) {
-        listenerRegistration?.remove()
-        listenerRegistration = fileRepository.getUserFiles(userId, { dataList ->
-            val tripleList = dataList.mapNotNull { data ->
-                val file = ProcessedFile.fromMap(data) ?: return@mapNotNull null
-                if (file.isCopy) return@mapNotNull null
-                Triple(file.fileName, file.status, file.timestamp)
+        refreshFilesFromServer(userId)
+    }
+
+    fun refreshFilesFromServer(userId: String) {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val result = fileRepository.listFilesFromBackend(userId)
+            if (result is NetworkResult.Error) {
+                _error.value = result.message ?: "Failed to fetch latest files"
             }
-            _files.value = tripleList
-        }, {
-            _error.value = it.message ?: "Failed to fetch files"
-        })
+            _isRefreshing.value = false
+        }
     }
 
     fun loadUserProfile() {
@@ -75,16 +101,40 @@ class HomeViewModel @Inject constructor(
                 )
                 _userProfile.value = profileMap
             } else {
-                fileRepository.getUser(userId, { data ->
-                    if (data != null) {
-                        _userProfile.value = data
-                        val name = data["name"] as? String ?: ""
-                        val email = data["email"] as? String ?: ""
-                        val photoUrl = data["photoUrl"] as? String ?: ""
-                        viewModelScope.launch {
+                val result = fileRepository.getUserProfileFromBackend(userId)
+                when (result) {
+                    is NetworkResult.Success -> {
+                        val data = result.data
+                        if (data != null) {
+                            _userProfile.value = data
+                            val name = data["name"] as? String ?: ""
+                            val email = data["email"] as? String ?: ""
+                            val photoUrl = data["photoUrl"] as? String ?: ""
+                            val subscription = data["subscription"] as? String ?: "free"
                             profileDataStore.saveProfile(name, email, photoUrl, dateStr)
+                            
+                            val currentUser = sessionManager.getUserDetails()
+                            if (currentUser != null) {
+                                val updatedUser = currentUser.copy(
+                                    name = name,
+                                    email = email,
+                                    photoUrl = photoUrl,
+                                    subscription = subscription
+                                )
+                                sessionManager.saveUserDetails(updatedUser)
+                            } else {
+                                val newUser = User(
+                                    id = userId,
+                                    name = name,
+                                    email = email,
+                                    photoUrl = photoUrl,
+                                    subscription = subscription
+                                )
+                                sessionManager.saveUserDetails(newUser)
+                            }
                         }
-                    } else {
+                    }
+                    is NetworkResult.Error -> {
                         if (cached != null) {
                             val profileMap = mapOf(
                                 "name" to cached.name,
@@ -93,21 +143,11 @@ class HomeViewModel @Inject constructor(
                             )
                             _userProfile.value = profileMap
                         } else {
-                            _userProfile.value = null
+                            _error.value = result.message ?: "Failed to load profile"
                         }
                     }
-                }, { error ->
-                    if (cached != null) {
-                        val profileMap = mapOf(
-                            "name" to cached.name,
-                            "email" to cached.email,
-                            "photoUrl" to cached.photoUrl
-                        )
-                        _userProfile.value = profileMap
-                    } else {
-                        _error.value = error.message ?: "Failed to load profile"
-                    }
-                })
+                    else -> {}
+                }
             }
         }
     }
@@ -119,6 +159,5 @@ class HomeViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        listenerRegistration?.remove()
     }
 }

@@ -5,19 +5,171 @@ import com.example.meetloggerv2.data.local.db.UserDao
 import com.example.meetloggerv2.data.local.db.LocalFileDao
 import com.example.meetloggerv2.data.local.db.UserEntity
 import com.example.meetloggerv2.data.local.db.LocalFileEntity
+import kotlinx.coroutines.flow.map
+import com.example.meetloggerv2.core.network.NetworkResult
+import com.example.meetloggerv2.core.network.SafeApiCall
+import com.example.meetloggerv2.data.remote.ApiService
+import com.example.meetloggerv2.data.remote.FileUpdateRequest
+import com.example.meetloggerv2.data.remote.RetrofitClient
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.*
 import javax.inject.Inject
 
 class FileRepository @Inject constructor(
     private val userDao: UserDao,
-    private val localFileDao: LocalFileDao
-) : IFileRepository {
+    private val localFileDao: LocalFileDao,
+    private val apiService: ApiService
+) : IFileRepository, SafeApiCall {
 
     private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
+    private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
+
+    private suspend fun getFirebaseIdToken(): String = suspendCancellableCoroutine { continuation ->
+        val user = auth.currentUser
+        if (user == null) {
+            continuation.resumeWithException(IllegalStateException("User is not authenticated"))
+            return@suspendCancellableCoroutine
+        }
+
+        user.getIdToken(false)
+            .addOnSuccessListener { result ->
+                val token = result.token
+                if (token.isNullOrBlank()) {
+                    continuation.resumeWithException(IllegalStateException("Firebase token is empty"))
+                } else {
+                    continuation.resume(token)
+                }
+            }
+            .addOnFailureListener { exception ->
+                continuation.resumeWithException(exception)
+            }
+    }
+
+    override suspend fun listFilesFromBackend(userId: String): NetworkResult<List<Map<String, Any>>> {
+        return safeApiCall { 
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.listFiles("Bearer $firebaseToken", userId)
+            if (response.isSuccessful && response.body() != null) {
+                val files = response.body()!!
+                // Sync with local database using a transaction to avoid UI flickering
+                try {
+                    val entities = files.map { LocalFileEntity.fromMap(userId, it) }
+                    localFileDao.syncUserFiles(userId, entities)
+                } catch (e: Exception) {
+                    // Log error but return success as we have the data
+                }
+            }
+            response
+        }
+    }
+
+    override fun getFilesFlow(userId: String): kotlinx.coroutines.flow.Flow<List<Map<String, Any>>> {
+        return localFileDao.getUserFilesFlow(userId).map { list ->
+            list.map { it.toMap() }
+        }
+    }
+
+    override suspend fun getCachedUserFiles(userId: String): List<Map<String, Any>> {
+        return try {
+            localFileDao.getUserFiles(userId).map { it.toMap() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getFileDetailsFromBackend(userId: String, fileName: String): NetworkResult<Map<String, Any>> {
+        return safeApiCall { 
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.getFileDetails("Bearer $firebaseToken", userId, fileName)
+            if (response.isSuccessful && response.body() != null) {
+                try {
+                    val data = response.body()!!.toMutableMap()
+                    data["fileName"] = fileName
+                    val entity = LocalFileEntity.fromMap(userId, data)
+                    localFileDao.insertFile(entity)
+                } catch (e: Exception) {
+                    // Log error
+                }
+            }
+            response
+        }
+    }
+
+    override suspend fun deleteFileOnBackend(userId: String, fileName: String): NetworkResult<Unit> {
+        return safeApiCall { 
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.deleteFile("Bearer $firebaseToken", mapOf("userId" to userId, "fileName" to fileName))
+            if (response.isSuccessful) retrofit2.Response.success(Unit)
+            else retrofit2.Response.error(response.code(), response.errorBody()!!)
+        }
+    }
+
+    override suspend fun renameFileOnBackend(userId: String, oldName: String, newName: String): NetworkResult<Unit> {
+        return safeApiCall {
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.renameFile("Bearer $firebaseToken", mapOf("userId" to userId, "oldName" to oldName, "newName" to newName))
+            if (response.isSuccessful) retrofit2.Response.success(Unit)
+            else retrofit2.Response.error(response.code(), response.errorBody()!!)
+        }
+    }
+
+    override suspend fun copyFileOnBackend(userId: String, oldName: String, newName: String): NetworkResult<String> {
+        return safeApiCall {
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.copyFile("Bearer $firebaseToken", mapOf("userId" to userId, "oldName" to oldName, "newName" to newName))
+            if (response.isSuccessful && response.body() != null) {
+                val serverName = response.body()!!["newName"] ?: newName
+                retrofit2.Response.success(serverName)
+            } else {
+                retrofit2.Response.error(response.code(), response.errorBody()!!)
+            }
+        }
+    }
+
+    override suspend fun saveAsNewCopyOnBackend(userId: String, fileName: String, data: Map<String, Any>): NetworkResult<String> {
+        return safeApiCall {
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.saveAsNewCopy("Bearer $firebaseToken", com.example.meetloggerv2.data.remote.SaveAsNewRequest(userId, fileName, data))
+            if (response.isSuccessful && response.body() != null) {
+                val serverName = response.body()!!["newName"] ?: fileName
+                retrofit2.Response.success(serverName)
+            } else {
+                retrofit2.Response.error(response.code(), response.errorBody()!!)
+            }
+        }
+    }
+
+    override suspend fun updateFileContentOnBackend(userId: String, fileName: String, updates: Map<String, Any>): NetworkResult<Unit> {
+        return safeApiCall {
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.updateFileContent("Bearer $firebaseToken", FileUpdateRequest(userId, fileName, updates))
+            if (response.isSuccessful) retrofit2.Response.success(Unit)
+            else retrofit2.Response.error(response.code(), response.errorBody()!!)
+        }
+    }
+
+    override suspend fun getUserProfileFromBackend(userId: String): NetworkResult<Map<String, Any>> {
+        return safeApiCall {
+            val firebaseToken = getFirebaseIdToken()
+            apiService.getUserProfile("Bearer $firebaseToken", userId)
+        }
+    }
+
+    override suspend fun updateUserProfileOnBackend(userId: String, updates: Map<String, Any>): NetworkResult<Unit> {
+        return safeApiCall {
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.updateUserProfile("Bearer $firebaseToken", com.example.meetloggerv2.data.remote.ProfileUpdateRequest(userId, updates))
+            if (response.isSuccessful) retrofit2.Response.success(Unit)
+            else retrofit2.Response.error(response.code(), response.errorBody()!!)
+        }
+    }
 
     override fun getUserFiles(userId: String, onUpdate: (List<Map<String, Any>>) -> Unit, onError: (Exception) -> Unit): ListenerRegistration {
         val scope = CoroutineScope(Dispatchers.IO)

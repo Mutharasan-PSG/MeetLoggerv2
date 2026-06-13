@@ -76,6 +76,30 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private val audioPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
+                val subscription = authSession.currentUserSubscription()
+                if (subscription == "free") {
+                    if (viewModel.userFilesState.value.size >= 7) {
+                        Toast.makeText(context, "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                        dismiss()
+                        return@registerForActivityResult
+                    }
+                    val retriever = android.media.MediaMetadataRetriever()
+                    try {
+                        retriever.setDataSource(requireContext(), uri)
+                        val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                        val durationMs = durationStr?.toLongOrNull() ?: 0L
+                        if (durationMs > 1800000L) { // 30 minutes
+                            Toast.makeText(context, "Free plan limit: Files must be under 30 minutes.", Toast.LENGTH_LONG).show()
+                            return@registerForActivityResult
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("UploadAudio", "Failed to retrieve audio duration: ${e.message}")
+                    } finally {
+                        try {
+                            retriever.release()
+                        } catch (ignored: Exception) {}
+                    }
+                }
                 selectedAudioUriState.value = uri
             }
         }
@@ -84,6 +108,10 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setStyle(STYLE_NORMAL, com.example.meetloggerv2.core.R.style.CustomBottomSheetDialog)
+        val uid = authSession.currentUserId()
+        if (uid != null) {
+            viewModel.fetchUserFiles(uid)
+        }
     }
 
     override fun onCreateView(
@@ -163,6 +191,13 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
     }
 
     private fun checkAndRequestPermissions() {
+        val subscription = authSession.currentUserSubscription()
+        if (subscription == "free" && viewModel.userFilesState.value.size >= 7) {
+            Toast.makeText(context, "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+            dismiss()
+            return
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {

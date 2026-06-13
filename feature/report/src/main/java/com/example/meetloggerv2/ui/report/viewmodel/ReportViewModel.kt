@@ -5,6 +5,7 @@ import com.example.meetloggerv2.data.model.ProcessedFile
 import com.example.meetloggerv2.data.repository.IFileRepository
 import com.example.meetloggerv2.core.util.Event
 import com.example.meetloggerv2.core.session.AuthSession
+import com.example.meetloggerv2.core.network.NetworkResult
 import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -37,90 +38,136 @@ class ReportViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    private val _uiState = MutableStateFlow<ReportUiState>(ReportUiState.Idle)
+    private val _uiState = MutableStateFlow<ReportUiState>(ReportUiState.Loading("Loading reports..."))
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
 
     private val _reportEvent = MutableSharedFlow<Event<ReportEvent>>()
     val reportEvent: SharedFlow<Event<ReportEvent>> = _reportEvent.asSharedFlow()
 
-    private var listenerRegistration: com.google.firebase.firestore.ListenerRegistration? = null
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     fun setQuery(q: String) {
         _query.value = q
     }
 
-    fun fetchFiles() {
+    init {
+        observeFiles()
+    }
+
+    private fun observeFiles() {
         val userId = authSession.currentUserId() ?: return
-        listenerRegistration?.remove()
-        listenerRegistration = fileRepository.getUserFiles(userId, { dataList ->
-            val list = dataList.mapNotNull { data ->
-                val file = ProcessedFile.fromMap(data) ?: return@mapNotNull null
-                Triple(file.fileName, file.timestamp, file.status)
+        viewModelScope.launch {
+            fileRepository.getFilesFlow(userId).collect { dataList ->
+                val list = dataList.mapNotNull { data ->
+                    val file = ProcessedFile.fromMap(data) ?: return@mapNotNull null
+                    Triple(file.fileName, file.timestamp, file.status)
+                }
+                // Structural equality check to avoid unnecessary UI refreshes
+                if (_rawFiles.value != list) {
+                    _rawFiles.value = list
+                }
             }
-            _rawFiles.value = list
-        }, {
-            _uiState.value = ReportUiState.Error(it.message ?: "Failed to fetch files")
-        })
+        }
+    }
+
+    fun fetchFiles(showLoading: Boolean = false) {
+        val userId = authSession.currentUserId() ?: return
+        
+        // Refresh from server API
+        viewModelScope.launch {
+            if (showLoading) _uiState.value = ReportUiState.Loading("Updating reports...")
+            _isRefreshing.value = true
+            val result = fileRepository.listFilesFromBackend(userId)
+            if (result is NetworkResult.Error) {
+                _uiState.value = ReportUiState.Error(result.message ?: "Failed to fetch files")
+            } else {
+                _uiState.value = ReportUiState.Idle
+            }
+            _isRefreshing.value = false
+        }
     }
 
     override fun onCleared() {
         super.onCleared()
-        listenerRegistration?.remove()
     }
 
     fun deleteFiles(fileNames: List<String>) {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = ReportUiState.Loading("Deleting...")
-        var count = 0
-        fileNames.forEach { name ->
-            fileRepository.deleteFile(userId, name, {
-                count++
-                if (count == fileNames.size) _uiState.value = ReportUiState.Idle
-            }, {
-                _uiState.value = ReportUiState.Error(it.message ?: "Failed to delete $name")
-            })
+        
+        viewModelScope.launch {
+            var successCount = 0
+            fileNames.forEach { name ->
+                val result = fileRepository.deleteFileOnBackend(userId, name)
+                if (result is NetworkResult.Success) {
+                    successCount++
+                }
+            }
+            if (successCount == fileNames.size) {
+                _uiState.value = ReportUiState.Idle
+                fetchFiles() // Refresh list
+            } else {
+                _uiState.value = ReportUiState.Error("Some files failed to delete")
+            }
         }
     }
 
     fun renameFile(oldName: String, newName: String) {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = ReportUiState.Loading("Renaming...")
-        fileRepository.renameFile(userId, oldName, newName, {
-            _uiState.value = ReportUiState.Idle
-        }, {
-            _uiState.value = ReportUiState.Error(it.message ?: "Rename failed")
-        })
+        
+        viewModelScope.launch {
+            val result = fileRepository.renameFileOnBackend(userId, oldName, newName)
+            when (result) {
+                is NetworkResult.Success -> {
+                    _uiState.value = ReportUiState.Idle
+                    fetchFiles() // Refresh list
+                }
+                is NetworkResult.Error -> _uiState.value = ReportUiState.Error(result.message ?: "Rename failed")
+                else -> {}
+            }
+        }
     }
 
     fun copyFile(oldName: String, newName: String) {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = ReportUiState.Loading("Copying...")
-        fileRepository.copyFile(userId, oldName, newName, {
-            fileRepository.updateFileContent(userId, newName, mapOf("isCopy" to true), {
-                _uiState.value = ReportUiState.Idle
-            }, {
-                _uiState.value = ReportUiState.Idle
-            })
-        }, {
-            _uiState.value = ReportUiState.Error(it.message ?: "Copy failed")
-        })
+        
+        viewModelScope.launch {
+            val result = fileRepository.copyFileOnBackend(userId, oldName, newName)
+            when (result) {
+                is NetworkResult.Success -> {
+                    _uiState.value = ReportUiState.Idle
+                    fetchFiles() // Refresh list
+                }
+                is NetworkResult.Error -> _uiState.value = ReportUiState.Error(result.message ?: "Copy failed")
+                else -> {}
+            }
+        }
     }
+
 
     fun fetchFileDetails(fileName: String) {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = ReportUiState.Loading("Fetching details...")
-        fileRepository.getFileDetails(userId, fileName, { data ->
-            val resp = data?.get("Response") as? String ?: "No response"
-            viewModelScope.launch {
-                _reportEvent.emit(Event(ReportEvent.FetchDetailsSuccess(resp.replace("*", "").trim())))
+        
+        viewModelScope.launch {
+            val result = fileRepository.getFileDetailsFromBackend(userId, fileName)
+            when (result) {
+                is NetworkResult.Success -> {
+                    val data = result.data
+                    val resp = data?.get("Response") as? String ?: "No response"
+                    _reportEvent.emit(Event(ReportEvent.FetchDetailsSuccess(resp.replace("*", "").trim())))
+                    _uiState.value = ReportUiState.Idle
+                }
+                is NetworkResult.Error -> {
+                    _reportEvent.emit(Event(ReportEvent.FetchDetailsError(result.message ?: "Failed to fetch details")))
+                    _uiState.value = ReportUiState.Idle
+                }
+                else -> {}
             }
-            _uiState.value = ReportUiState.Idle
-        }, {
-            viewModelScope.launch {
-                _reportEvent.emit(Event(ReportEvent.FetchDetailsError(it.message ?: "Failed to fetch details")))
-            }
-            _uiState.value = ReportUiState.Idle
-        })
+        }
     }
 
     fun getFullFileName(shortName: String): String? {

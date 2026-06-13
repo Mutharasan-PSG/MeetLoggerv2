@@ -215,11 +215,13 @@ fun SubscriptionScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    SubscriptionFeatureItem("Unlimited audio recordings")
+                    SubscriptionFeatureItem("Unlimited total recordings / uploads")
+                    SubscriptionFeatureItem("Unlimited duration per session")
+                    SubscriptionFeatureItem("Unlimited file processing & summarization")
                     SubscriptionFeatureItem("Priority cloud processing")
                     SubscriptionFeatureItem("AI-powered speaker identification")
                     SubscriptionFeatureItem("Auto-send summary to email (DOCX)")
-                    SubscriptionFeatureItem("Unlimited translations (60+ languages)")
+                    SubscriptionFeatureItem("Unlimited translations (30+ languages)")
                     SubscriptionFeatureItem("No ads & premium support")
 
                     Spacer(modifier = Modifier.height(32.dp))
@@ -251,40 +253,51 @@ fun SubscriptionScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Free Plan Card (Compact)
+            // Free Plan Card
             Card(
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(32.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier
-                        .padding(20.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Free Plan",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Current plan",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                         Text(
-                            text = "Free Plan",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "$0",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text(
-                            text = "Current plan",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium
-                        )
                     }
-                    Text(
-                        text = "$0",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    SubscriptionFeatureItem("Only 30 mins long file processing")
+                    SubscriptionFeatureItem("Upto 7 total recordings / uploads")
+                    SubscriptionFeatureItem("Basic translations")
+                    SubscriptionFeatureItem("Standard support")
                 }
             }
 

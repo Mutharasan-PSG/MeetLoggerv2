@@ -20,12 +20,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
+import com.example.meetloggerv2.core.session.AuthSession
+import com.example.meetloggerv2.data.local.SettingsDataStore
+import kotlinx.coroutines.flow.first
 
 @HiltViewModel
 class RecordAudioViewModel @Inject constructor(
     application: Application,
     private val audioRepository: IAudioRepository,
-    private val fileRepository: IFileRepository
+    private val fileRepository: IFileRepository,
+    private val authSession: AuthSession,
+    private val settingsDataStore: SettingsDataStore
 ) : AndroidViewModel(application) {
 
     enum class RecordState {
@@ -107,6 +112,11 @@ class RecordAudioViewModel @Inject constructor(
             while (true) {
                 delay(1000)
                 _elapsedTime.value += 1
+                if (authSession.currentUserSubscription() == "free" && _elapsedTime.value >= 1800) {
+                    stopRecording()
+                    _uiState.value = UiState.Error("Free plan limit reached: Recording stopped at 30 minutes")
+                    break
+                }
             }
         }
     }
@@ -148,24 +158,33 @@ class RecordAudioViewModel @Inject constructor(
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val data = workDataOf(
-            AudioUploadWorker.KEY_USER_ID to userId,
-            AudioUploadWorker.KEY_FILE_PATH to audioFile.absolutePath,
-            AudioUploadWorker.KEY_FILE_NAME to audioFile.name,
-            AudioUploadWorker.KEY_SPEAKER_NAMES to speakerNames.toTypedArray(),
-            AudioUploadWorker.KEY_FOLLOW_UP_FILE_NAME to followUpFileName,
-            AudioUploadWorker.KEY_ACTION to AudioUploadWorker.ACTION_PROCESS
-        )
+        viewModelScope.launch {
+            val autoSend = settingsDataStore.autoSendEmail.first()
+            val userEmail = authSession.currentUserEmail() ?: ""
+            val userName = authSession.currentUserName() ?: "User"
 
-        val workRequest = OneTimeWorkRequestBuilder<AudioUploadWorker>()
-            .setConstraints(constraints)
-            .setInputData(data)
-            .build()
+            val data = workDataOf(
+                AudioUploadWorker.KEY_USER_ID to userId,
+                AudioUploadWorker.KEY_FILE_PATH to audioFile.absolutePath,
+                AudioUploadWorker.KEY_FILE_NAME to audioFile.name,
+                AudioUploadWorker.KEY_SPEAKER_NAMES to speakerNames.toTypedArray(),
+                AudioUploadWorker.KEY_FOLLOW_UP_FILE_NAME to followUpFileName,
+                AudioUploadWorker.KEY_AUTO_SEND_EMAIL to autoSend,
+                AudioUploadWorker.KEY_USER_EMAIL to userEmail,
+                AudioUploadWorker.KEY_USER_NAME to userName,
+                AudioUploadWorker.KEY_ACTION to AudioUploadWorker.ACTION_PROCESS
+            )
 
-        WorkManager.getInstance(getApplication())
-            .enqueueUniqueWork("upload_${audioFile.name}", ExistingWorkPolicy.REPLACE, workRequest)
+            val workRequest = OneTimeWorkRequestBuilder<AudioUploadWorker>()
+                .setConstraints(constraints)
+                .setInputData(data)
+                .build()
 
-        observeWorkProgress(workRequest.id, audioFile.name)
+            WorkManager.getInstance(getApplication())
+                .enqueueUniqueWork("upload_${audioFile.name}", ExistingWorkPolicy.REPLACE, workRequest)
+
+            observeWorkProgress(workRequest.id, audioFile.name)
+        }
     }
 
     private fun observeWorkProgress(workId: java.util.UUID, fallbackFileName: String) {
@@ -200,7 +219,9 @@ class RecordAudioViewModel @Inject constructor(
     }
 
     fun deleteAudio(userId: String, fileName: String) {
-        audioRepository.deleteAudioFromStorage(userId, fileName) { _, _ -> }
+        viewModelScope.launch {
+            fileRepository.deleteFileOnBackend(userId, fileName)
+        }
     }
 
     override fun onCleared() {

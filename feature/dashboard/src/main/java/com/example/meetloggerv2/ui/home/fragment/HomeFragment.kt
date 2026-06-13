@@ -59,18 +59,23 @@ import com.example.meetloggerv2.core.network.NetworkMonitor
 import com.example.meetloggerv2.core.theme.GradientEnd
 import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
+import com.example.meetloggerv2.core.theme.ShimmerItem
 import com.example.meetloggerv2.core.theme.pressScale
 import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.ui.audio.fragment.RecordAudioBottomsheetFragment
+import com.example.meetloggerv2.core.session.AuthSession
 import com.example.meetloggerv2.ui.audio.fragment.UploadAudioBottomsheetFragment
 import com.example.meetloggerv2.ui.home.viewmodel.HomeViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 @AndroidEntryPoint
 class HomeFragment : Fragment() {
 
+    @Inject lateinit var authSession: AuthSession
     private val viewModel: HomeViewModel by viewModels()
     private lateinit var networkMonitor: NetworkMonitor
     private val isOnlineState = mutableStateOf(true)
@@ -94,11 +99,24 @@ class HomeFragment : Fragment() {
                         onNavigateToAudio = { findNavigationRouter()?.navigateToAudioList() },
                         onNavigateToReport = { findNavigationRouter()?.navigateToReportList() },
                         onOpenFileDetails = { name -> findNavigationRouter()?.navigateToFileDetails(name) },
+                        onRefresh = { viewModel.fetchFiles() },
                         onShowRecordSheet = {
-                            RecordAudioBottomsheetFragment().show(parentFragmentManager, "RecordAudioSheet")
+                            val subscription = authSession.currentUserSubscription()
+                            val fileCount = viewModel.files.value.size
+                            if (subscription == "free" && fileCount >= 7) {
+                                Toast.makeText(requireContext(), "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                            } else {
+                                RecordAudioBottomsheetFragment().show(parentFragmentManager, "RecordAudioSheet")
+                            }
                         },
                         onShowUploadSheet = {
-                            UploadAudioBottomsheetFragment().show(parentFragmentManager, "UploadAudioSheet")
+                            val subscription = authSession.currentUserSubscription()
+                            val fileCount = viewModel.files.value.size
+                            if (subscription == "free" && fileCount >= 7) {
+                                Toast.makeText(requireContext(), "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                            } else {
+                                UploadAudioBottomsheetFragment().show(parentFragmentManager, "UploadAudioSheet")
+                            }
                         }
                     )
                 }
@@ -152,15 +170,42 @@ fun HomeScreenContent(
     onNavigateToAudio: () -> Unit,
     onNavigateToReport: () -> Unit,
     onOpenFileDetails: (String) -> Unit,
+    onRefresh: () -> Unit,
     onShowRecordSheet: () -> Unit,
     onShowUploadSheet: () -> Unit
 ) {
     val context = LocalContext.current
     val files by viewModel.files.collectAsState(initial = emptyList())
     val userProfile by viewModel.userProfile.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var showAudioOptions by remember { mutableStateOf(false) }
+
+    // Shimmer states to avoid flicker and support smooth updates
+    val previousFiles = remember { mutableStateOf<List<Triple<String, String, com.google.firebase.Timestamp>>?>(null) }
+    var showUpdateShimmer by remember { mutableStateOf(false) }
+
+    LaunchedEffect(files) {
+        if (previousFiles.value != null && previousFiles.value != files) {
+            showUpdateShimmer = true
+            delay(300)
+            showUpdateShimmer = false
+        }
+        previousFiles.value = files
+    }
+
+    var forceShimmer by remember { mutableStateOf(files.isEmpty()) }
+    LaunchedEffect(Unit) {
+        if (files.isEmpty()) {
+            delay(300)
+            forceShimmer = false
+        } else {
+            forceShimmer = false
+        }
+    }
+
+    val showInitialShimmer = files.isEmpty() && (isRefreshing || forceShimmer)
 
     val filteredFiles = remember(files, searchQuery) {
         if (searchQuery.isEmpty()) files
@@ -222,41 +267,44 @@ fun HomeScreenContent(
                             )
                         }
 
-                        // Profile Pic
-                        val avatarDrawable = remember(username) {
-                            com.example.meetloggerv2.core.util.AvatarGenerator.getAvatar(context, username)
-                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
 
-                        Card(
-                            shape = CircleShape,
-                            modifier = Modifier
-                                .size(46.dp)
-                                .clip(CircleShape)
-                                .pressScaleClick { onProfileClick() },
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                        ) {
-                            AndroidView(
-                                factory = { ctx ->
-                                    ImageView(ctx).apply {
-                                        scaleType = ImageView.ScaleType.CENTER_CROP
+                            // Profile Pic
+                            val avatarDrawable = remember(username) {
+                                com.example.meetloggerv2.core.util.AvatarGenerator.getAvatar(context, username)
+                            }
+
+                            Card(
+                                shape = CircleShape,
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .pressScaleClick { onProfileClick() },
+                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            ) {
+                                AndroidView(
+                                    factory = { ctx ->
+                                        ImageView(ctx).apply {
+                                            scaleType = ImageView.ScaleType.CENTER_CROP
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxSize(),
+                                    update = { imageView ->
+                                        Glide.with(context)
+                                            .load(photoUrl)
+                                            .placeholder(avatarDrawable)
+                                            .error(avatarDrawable)
+                                            .fallback(avatarDrawable)
+                                            .circleCrop()
+                                            .into(imageView)
                                     }
-                                },
-                                modifier = Modifier.fillMaxSize(),
-                                update = { imageView ->
-                                    Glide.with(context)
-                                        .load(photoUrl)
-                                        .placeholder(avatarDrawable)
-                                        .error(avatarDrawable)
-                                        .fallback(avatarDrawable)
-                                        .circleCrop()
-                                        .into(imageView)
-                                }
-                            )
+                                )
+                            }
                         }
                     }
 
-                    // Search View with Active Outline Glow
-                    if (files.isNotEmpty()) {
+                    // Search View - Hidden during initial premium shimmer
+                    if (files.isNotEmpty() && !showInitialShimmer) {
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
@@ -290,8 +338,15 @@ fun HomeScreenContent(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // File List or Placeholder
-                    if (files.isEmpty()) {
+                    // File List or Placeholder - Use shimmer during updates to avoid flicker
+                    if (showInitialShimmer || showUpdateShimmer) {
+                        Column {
+                            repeat(6) {
+                                ShimmerItem()
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
+                    } else if (files.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -327,7 +382,7 @@ fun HomeScreenContent(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
                         ) {
-                            items(filteredFiles) { item ->
+                            items(filteredFiles, key = { it.first }) { item ->
                                 val name = item.first
                                 val status = item.second
 
@@ -367,6 +422,17 @@ fun HomeScreenContent(
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
+                                            val displayStatus = when (status.lowercase(Locale.ROOT)) {
+                                                "processed" -> "Processed"
+                                                "processing" -> "Processing..."
+                                                "saved" -> "File Uploaded"
+                                                else -> status.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                                            }
+                                            Text(
+                                                text = displayStatus,
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                            )
                                         }
 
                                         Spacer(modifier = Modifier.width(12.dp))
@@ -374,12 +440,14 @@ fun HomeScreenContent(
                                         val statusIcon = when (status.lowercase(Locale.ROOT)) {
                                             "processed" -> Icons.Default.CheckCircle
                                             "processing" -> Icons.Default.Autorenew
+                                            "saved" -> Icons.Default.CloudDone
                                             else -> Icons.Default.Cloud
                                         }
                                         val isDark = MaterialTheme.colorScheme.onSurface == Color.White
                                         val statusColor = when (status.lowercase(Locale.ROOT)) {
                                             "processed" -> MaterialTheme.colorScheme.secondary
                                             "processing" -> MaterialTheme.colorScheme.primary
+                                            "saved" -> MaterialTheme.colorScheme.tertiary
                                             else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                         }
 

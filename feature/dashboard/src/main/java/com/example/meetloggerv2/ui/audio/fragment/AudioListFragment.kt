@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.TextFieldValue
@@ -68,11 +69,14 @@ import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.media.AudioPlayerManager
 import com.example.meetloggerv2.core.network.NetworkMonitor
 import com.example.meetloggerv2.core.network.NetworkUtil
+import com.example.meetloggerv2.core.theme.ShimmerItem
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
 import com.example.meetloggerv2.core.theme.pressScale
 import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.core.ui.components.PremiumAudioPlayer
 import com.example.meetloggerv2.ui.audio.util.AudioProcessingDialog
+import com.example.meetloggerv2.core.session.AuthSession
+import javax.inject.Inject
 import com.example.meetloggerv2.ui.audio.viewmodel.AudioListViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -83,6 +87,7 @@ import kotlin.math.roundToInt
 @AndroidEntryPoint
 class AudioListFragment : Fragment() {
 
+    @Inject lateinit var authSession: AuthSession
     private val viewModel: AudioListViewModel by viewModels()
     private val audioPlayer = AudioPlayerManager()
     private lateinit var networkMonitor: NetworkMonitor
@@ -122,6 +127,11 @@ class AudioListFragment : Fragment() {
         }
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        viewModel.fetchUserFiles()
+    }
+
     private var autoPlayNextState = mutableStateOf(false)
 
     override fun onCreateView(
@@ -142,6 +152,7 @@ class AudioListFragment : Fragment() {
                             viewModel = viewModel,
                             isOnline = isOnlineState.value,
                             isProcessing = isProcessingState.value,
+                            isRefreshing = viewModel.isRefreshing.collectAsState().value,
                             progressMessage = progressMessageState.value,
                             showMiniPlayer = showMiniPlayerState.value,
                             isPlaying = isPlayingState.value,
@@ -189,7 +200,13 @@ class AudioListFragment : Fragment() {
                                 viewModel.downloadAudioFile("$name.mp3", temp)
                             },
                             onSummarizeItem = { name ->
-                                showSpeakerSelectionState.value = name
+                                val subscription = authSession.currentUserSubscription()
+                                val fileCount = viewModel.userFilesState.value.size
+                                if (subscription == "free" && fileCount >= 7) {
+                                    Toast.makeText(requireContext(), "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                                } else {
+                                    showSpeakerSelectionState.value = name
+                                }
                             }
                         )
 
@@ -425,6 +442,7 @@ fun AudioListScreen(
     viewModel: AudioListViewModel,
     isOnline: Boolean,
     isProcessing: Boolean,
+    isRefreshing: Boolean,
     progressMessage: String,
     showMiniPlayer: Boolean,
     isPlaying: Boolean,
@@ -457,6 +475,31 @@ fun AudioListScreen(
     var searchQuery by remember { mutableStateOf("") }
     var isDeleteMode by remember { mutableStateOf(false) }
     val selectedFiles = remember { mutableStateListOf<String>() }
+
+    // Shimmer states to avoid flicker and support smooth updates
+    val previousFiles = remember { mutableStateOf<List<String>?>(null) }
+    var showUpdateShimmer by remember { mutableStateOf(false) }
+
+    LaunchedEffect(files) {
+        if (searchQuery.isEmpty() && previousFiles.value != null && previousFiles.value != files) {
+            showUpdateShimmer = true
+            kotlinx.coroutines.delay(300)
+            showUpdateShimmer = false
+        }
+        previousFiles.value = files
+    }
+
+    var forceShimmer by remember { mutableStateOf(files.isEmpty()) }
+    LaunchedEffect(Unit) {
+        if (files.isEmpty()) {
+            kotlinx.coroutines.delay(300)
+            forceShimmer = false
+        } else {
+            forceShimmer = false
+        }
+    }
+
+    val showInitialShimmer = files.isEmpty() && (isLoading || isRefreshing)
 
     var renamingPosition by remember { mutableStateOf(-1) }
     var renameText by remember { mutableStateOf("") }
@@ -559,11 +602,16 @@ fun AudioListScreen(
                                         enabled = !isLoading,
                                         modifier = Modifier.pressScaleClick { showDeleteConfirmDialog = true }.padding(end = 8.dp)
                                     ) {
-                                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                                    }
+                                        Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
-                        },
+                        }
+
+                    },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.background,
                             titleContentColor = MaterialTheme.colorScheme.onBackground,
@@ -656,7 +704,14 @@ fun AudioListScreen(
                         }
                     }
 
-                    if (files.isEmpty() && !isProcessing) {
+                    if (showInitialShimmer || showUpdateShimmer) {
+                        Column {
+                            repeat(6) {
+                                ShimmerItem()
+                                Spacer(modifier = Modifier.height(10.dp))
+                            }
+                        }
+                    } else if (files.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -685,7 +740,7 @@ fun AudioListScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(bottom = 120.dp)
                         ) {
-                            itemsIndexed(files) { index, item ->
+                            itemsIndexed(files, key = { _, item -> item }) { index, item ->
                                 val isSelected = selectedFiles.contains(item)
                                 val isRenamingThis = renamingPosition == index
 
@@ -1022,24 +1077,33 @@ fun AudioListScreen(
             }
 
             if (isProcessing) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.75f))
-                        .clickable(enabled = false) {},
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                // Only show blocking overlay for specific heavy actions.
+                // General "Loading..." or "Downloading..." for playback should not block the main list if possible,
+                // but usually Downloading for playback IS a wait.
+                // However, we definitely don't want it to block if it's just the initial list fetch.
+                val msg = progressMessage
+                val isBlockingAction = msg == "Deleting..." || msg == "Renaming..." || msg == "Processing..." || msg == "Summarizing..." || msg == "Downloading..."
+                
+                if (isBlockingAction) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.75f))
+                            .clickable(enabled = false) {},
+                        contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = progressMessage,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = progressMessage,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 }
             }

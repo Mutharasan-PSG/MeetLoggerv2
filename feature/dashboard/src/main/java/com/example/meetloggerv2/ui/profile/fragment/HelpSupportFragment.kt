@@ -44,7 +44,14 @@ import com.example.meetloggerv2.core.session.SessionManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+import androidx.fragment.app.viewModels
+import com.example.meetloggerv2.ui.profile.viewmodel.SupportViewModel
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
 class HelpSupportFragment : Fragment() {
+
+    private val viewModel: SupportViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -58,8 +65,14 @@ class HelpSupportFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MeetLoggerTheme {
+                    val uiState by viewModel.uiState.collectAsState()
+                    
                     HelpSupportScreen(
                         userEmail = userEmail,
+                        uiState = uiState,
+                        onSendRequest = { subject, body ->
+                            viewModel.sendSupportRequest(subject, body)
+                        },
                         onBack = { parentFragmentManager.popBackStack() }
                     )
                 }
@@ -72,16 +85,36 @@ class HelpSupportFragment : Fragment() {
 @Composable
 fun HelpSupportScreen(
     userEmail: String,
+    uiState: SupportViewModel.SupportUiState,
+    onSendRequest: (String, String) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val scrollState = rememberScrollState()
 
     var subject by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
-    var isSending by remember { mutableStateOf(false) }
     var showSuccessDialog by remember { mutableStateOf(false) }
+
+    val isSending = uiState is SupportViewModel.SupportUiState.Loading
+
+    LaunchedEffect(isSending) {
+        if (isSending) {
+            kotlinx.coroutines.delay(2000)
+            if (isSending) {
+                Toast.makeText(context, "Just a moment...", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    LaunchedEffect(uiState) {
+        if (uiState is SupportViewModel.SupportUiState.Success) {
+            showSuccessDialog = true
+        } else if (uiState is SupportViewModel.SupportUiState.Error) {
+            Toast.makeText(context, uiState.message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     val subjectMaxLength = 100
     val bodyMaxLength = 1000
@@ -94,12 +127,8 @@ fun HelpSupportScreen(
         bodyError = body.isBlank()
 
         if (!subjectError && !bodyError) {
-            scope.launch {
-                isSending = true
-                delay(1500) // Simulate network delay
-                isSending = false
-                showSuccessDialog = true
-            }
+            focusManager.clearFocus()
+            onSendRequest(subject, body)
         } else {
             Toast.makeText(context, "Please fill all mandatory fields", Toast.LENGTH_SHORT).show()
         }
@@ -204,6 +233,7 @@ fun HelpSupportScreen(
                             }
                         },
                         label = { Text("Subject") },
+                        enabled = !isSending,
                         isError = subjectError,
                         placeholder = { Text("What is this regarding?") },
                         modifier = Modifier.fillMaxWidth(),
@@ -249,6 +279,7 @@ fun HelpSupportScreen(
                             }
                         },
                         label = { Text("Message") },
+                        enabled = !isSending,
                         isError = bodyError,
                         placeholder = { Text("Describe your issue or feedback here...") },
                         modifier = Modifier

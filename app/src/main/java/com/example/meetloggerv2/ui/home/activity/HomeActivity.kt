@@ -16,6 +16,7 @@ import com.example.meetloggerv2.ui.profile.fragment.ProfileFragment
 import com.example.meetloggerv2.ui.profile.fragment.SettingsFragment
 import com.example.meetloggerv2.ui.profile.fragment.SubscriptionFragment
 import com.example.meetloggerv2.ui.report.fragment.ReportFragment
+import com.example.meetloggerv2.MeetLoggerApp
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -24,6 +25,9 @@ class HomeActivity : AppCompatActivity(), NavigationRouter {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
+
+        // Register FCM token whenever HomeActivity opens (after login or app relaunch)
+        MeetLoggerApp.initFcmToken()
 
         // Load HomeFragment by default
         if (savedInstanceState == null) {

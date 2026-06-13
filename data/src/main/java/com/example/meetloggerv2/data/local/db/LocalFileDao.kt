@@ -28,4 +28,10 @@ interface LocalFileDao {
 
     @Query("DELETE FROM local_files WHERE userId = :userId")
     suspend fun clearUserFiles(userId: String)
+
+    @Transaction
+    suspend fun syncUserFiles(userId: String, files: List<LocalFileEntity>) {
+        clearUserFiles(userId)
+        insertFiles(files)
+    }
 }

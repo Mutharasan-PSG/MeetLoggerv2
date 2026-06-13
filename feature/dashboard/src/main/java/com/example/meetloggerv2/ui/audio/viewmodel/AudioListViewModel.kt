@@ -3,7 +3,6 @@ package com.example.meetloggerv2.ui.audio.viewmodel
 import androidx.lifecycle.*
 import com.example.meetloggerv2.data.repository.IAudioRepository
 import com.example.meetloggerv2.data.repository.IFileRepository
-import com.google.firebase.firestore.FieldValue
 import com.example.meetloggerv2.core.network.NetworkResult
 import com.example.meetloggerv2.core.util.Event
 import com.example.meetloggerv2.core.session.AuthSession
@@ -14,11 +13,14 @@ import java.io.File
 import java.util.*
 import javax.inject.Inject
 
+import com.example.meetloggerv2.data.local.SettingsDataStore
+
 @HiltViewModel
 class AudioListViewModel @Inject constructor(
     private val audioRepository: IAudioRepository,
     private val fileRepository: IFileRepository,
-    private val authSession: AuthSession
+    private val authSession: AuthSession,
+    private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
     sealed class AudioEvent {
@@ -40,7 +42,7 @@ class AudioListViewModel @Inject constructor(
         else files.filter { it.lowercase(Locale.getDefault()).contains(q.lowercase(Locale.getDefault())) }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    private val _uiState = MutableStateFlow<AudioUiState>(AudioUiState.Idle)
+    private val _uiState = MutableStateFlow<AudioUiState>(AudioUiState.Loading("Loading..."))
     val uiState: StateFlow<AudioUiState> = _uiState.asStateFlow()
 
     private val _userFiles = MutableStateFlow<List<String>>(emptyList())
@@ -51,23 +53,26 @@ class AudioListViewModel @Inject constructor(
     private val _audioEvent = MutableSharedFlow<Event<AudioEvent>>()
     val audioEvent: SharedFlow<Event<AudioEvent>> = _audioEvent.asSharedFlow()
 
-    private var listenerRegistration: com.google.firebase.firestore.ListenerRegistration? = null
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     fun setQuery(q: String) {
         _query.value = q
     }
 
-    fun fetchAudioFiles() {
+    fun fetchAudioFiles(showLoading: Boolean = false) {
         val userId = authSession.currentUserId() ?: return
-        listenerRegistration?.remove()
-        _uiState.value = AudioUiState.Loading("Loading...")
-        audioRepository.listAudioFiles(userId) { names, exception ->
-            if (names != null) {
-                _rawAudioFiles.value = names.map { it.substringBeforeLast(".") }.sorted()
+        if (showLoading) _uiState.value = AudioUiState.Loading("Loading...")
+        _isRefreshing.value = true
+        viewModelScope.launch {
+            val result = audioRepository.listRawFilesFromBackend(userId)
+            if (result is NetworkResult.Success) {
+                _rawAudioFiles.value = result.data?.map { it.substringBeforeLast(".") }?.sorted() ?: emptyList()
                 _uiState.value = AudioUiState.Idle
-            } else {
-                _uiState.value = AudioUiState.Error(exception?.message ?: "Failed to list audio files")
+            } else if (result is NetworkResult.Error) {
+                _uiState.value = AudioUiState.Error(result.message ?: "Failed to list audio files")
             }
+            _isRefreshing.value = false
         }
     }
 
@@ -86,13 +91,12 @@ class AudioListViewModel @Inject constructor(
 
     fun getAudioDownloadUrl(fileName: String) {
         val userId = authSession.currentUserId() ?: return
-        audioRepository.getAudioDownloadUrl(userId, fileName) { url, exception ->
-            viewModelScope.launch {
-                if (url != null) {
-                    _audioEvent.emit(Event(AudioEvent.DownloadUrlSuccess(fileName, url)))
-                } else {
-                    _audioEvent.emit(Event(AudioEvent.DownloadUrlError(fileName, exception?.message ?: "Failed to get download URL")))
-                }
+        viewModelScope.launch {
+            val result = audioRepository.getPlaybackUrl(userId, fileName)
+            if (result is NetworkResult.Success) {
+                _audioEvent.emit(Event(AudioEvent.DownloadUrlSuccess(fileName, result.data ?: "")))
+            } else if (result is NetworkResult.Error) {
+                _audioEvent.emit(Event(AudioEvent.DownloadUrlError(fileName, result.message ?: "Failed to get playback URL")))
             }
         }
     }
@@ -112,32 +116,46 @@ class AudioListViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        listenerRegistration?.remove()
     }
 
     fun fetchUserFiles() {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = AudioUiState.Loading("Fetching files...")
-        fileRepository.getUserFiles(userId, { dataList ->
-            val names = dataList.mapNotNull { it["fileName"] as? String }
-            _userFiles.value = names
-            _uiState.value = AudioUiState.Idle
-        }, {
-            _uiState.value = AudioUiState.Error(it.message ?: "Failed to fetch files")
-        })
+        
+        viewModelScope.launch {
+            fileRepository.getFilesFlow(userId).collect { dataList ->
+                val names = dataList.mapNotNull { it["fileName"] as? String }
+                _userFiles.value = names
+            }
+        }
+
+        viewModelScope.launch {
+            val result = audioRepository.listRawFilesFromBackend(userId)
+            if (result is NetworkResult.Success) {
+                _uiState.value = AudioUiState.Idle
+            } else if (result is NetworkResult.Error) {
+                _uiState.value = AudioUiState.Error(result.message ?: "Failed to fetch files")
+            }
+        }
     }
 
     fun deleteAudioFiles(names: List<String>) {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = AudioUiState.Loading("Deleting...")
-        var count = 0
-        names.forEach { name ->
-            audioRepository.deleteAudioFromStorage(userId, "$name.mp3") { _, _ ->
-                count++
-                if (count == names.size) {
-                    fetchAudioFiles()
-                    _uiState.value = AudioUiState.Idle
+        
+        viewModelScope.launch {
+            var successCount = 0
+            names.forEach { name ->
+                val result = fileRepository.deleteFileOnBackend(userId, name)
+                if (result is NetworkResult.Success) {
+                    successCount++
                 }
+            }
+            if (successCount == names.size) {
+                fetchAudioFiles()
+                _uiState.value = AudioUiState.Idle
+            } else {
+                _uiState.value = AudioUiState.Error("Some files failed to delete")
             }
         }
     }
@@ -145,55 +163,64 @@ class AudioListViewModel @Inject constructor(
     fun renameAudioFile(oldName: String, newName: String) {
         val userId = authSession.currentUserId() ?: return
         _uiState.value = AudioUiState.Loading("Renaming...")
-        val oldFullName = "$oldName.mp3"
-        val newFullName = "$newName.mp3"
-
-        audioRepository.downloadAudioBytes(userId, oldFullName) { bytes, exception ->
-            if (bytes != null) {
-                audioRepository.uploadAudioBytes(userId, newFullName, bytes) { success, uploadException ->
-                    if (success) {
-                        audioRepository.deleteAudioFromStorage(userId, oldFullName) { _, _ ->
-                            fileRepository.renameFile(userId, oldFullName, newFullName, {
-                                fetchAudioFiles()
-                                _uiState.value = AudioUiState.Idle
-                            }, {
-                                _uiState.value = AudioUiState.Error(it.message ?: "Firestore update failed")
-                            })
-                        }
-                    } else {
-                        _uiState.value = AudioUiState.Error(uploadException?.message ?: "Upload failed")
-                    }
+        
+        viewModelScope.launch {
+            val result = fileRepository.renameFileOnBackend(userId, oldName, newName)
+            when (result) {
+                is NetworkResult.Success -> {
+                    fetchAudioFiles()
+                    _uiState.value = AudioUiState.Idle
                 }
-            } else {
-                _uiState.value = AudioUiState.Error(exception?.message ?: "Download failed")
+                is NetworkResult.Error -> _uiState.value = AudioUiState.Error(result.message ?: "Rename failed")
+                else -> {}
             }
         }
     }
 
     fun processAudio(audioFile: File, speakerNames: List<String>, followUpFileName: String, finalFileName: String, audioUrl: String) {
         val userId = authSession.currentUserId() ?: return
+        val userEmail = authSession.currentUserEmail() ?: ""
+        val userName = authSession.currentUserName() ?: "User"
         _uiState.value = AudioUiState.Loading("Processing...")
+        
+        // Use a standard ISO timestamp instead of FieldValue.serverTimestamp() for REST
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
+        sdf.timeZone = TimeZone.getTimeZone("UTC")
+        val timestamp = sdf.format(Date())
+
         val fileData = hashMapOf(
             "fileName" to finalFileName,
             "audioUrl" to audioUrl,
             "status" to "processing",
-            "timestamp_clientUpload" to FieldValue.serverTimestamp(),
+            "timestamp_clientUpload" to timestamp,
             "followUpFileName" to followUpFileName
         )
 
-        fileRepository.saveFileMetadata(userId, finalFileName, fileData, {
-            val speakersJson = com.google.gson.Gson().toJson(speakerNames)
-            viewModelScope.launch {
-                val result = audioRepository.uploadAudioToBackend(audioFile, userId, finalFileName, speakersJson, followUpFileName)
+        viewModelScope.launch {
+            val metaResult = fileRepository.saveAsNewCopyOnBackend(userId, finalFileName, fileData)
+            if (metaResult is NetworkResult.Success) {
+                val serverName = metaResult.data ?: finalFileName
+                val speakersJson = com.google.gson.Gson().toJson(speakerNames)
+                val autoSend = settingsDataStore.autoSendEmail.first()
+                val result = audioRepository.uploadAudioToBackend(
+                    audioFile, 
+                    userId, 
+                    serverName, 
+                    speakersJson, 
+                    followUpFileName,
+                    autoSend,
+                    userEmail,
+                    userName
+                )
                 when (result) {
                     is NetworkResult.Success -> _uiState.value = AudioUiState.Processed
                     is NetworkResult.Error -> _uiState.value = AudioUiState.Error(result.message ?: "Backend processing failed")
                     else -> {}
                 }
+            } else if (metaResult is NetworkResult.Error) {
+                _uiState.value = AudioUiState.Error(metaResult.message ?: "Failed to save metadata")
             }
-        }, {
-            _uiState.value = AudioUiState.Error(it.message ?: "Failed to save metadata")
-        })
+        }
     }
 
     sealed class AudioUiState {
