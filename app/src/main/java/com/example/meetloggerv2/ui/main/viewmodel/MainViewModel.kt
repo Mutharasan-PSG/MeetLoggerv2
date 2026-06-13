@@ -5,11 +5,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.example.meetloggerv2.core.session.SessionManager
-import com.example.meetloggerv2.data.repository.AuthRepository
+import com.example.meetloggerv2.data.repository.IAuthRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class MainViewModel @JvmOverloads constructor(
+@HiltViewModel
+class MainViewModel @Inject constructor(
     application: Application,
-    private val authRepository: AuthRepository = AuthRepository()
+    private val authRepository: IAuthRepository
 ) : AndroidViewModel(application) {
 
     private val _isSessionValid = MutableLiveData<Boolean>()

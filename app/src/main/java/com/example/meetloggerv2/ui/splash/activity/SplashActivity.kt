@@ -7,11 +7,13 @@ import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.activity.viewModels
-import com.example.meetloggerv2.R
+import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.ui.home.activity.HomeActivity
 import com.example.meetloggerv2.ui.login.activity.IntroActivity
 import com.example.meetloggerv2.ui.main.viewmodel.MainViewModel
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class SplashActivity : AppCompatActivity() {
 
     private val viewModel: MainViewModel by viewModels()

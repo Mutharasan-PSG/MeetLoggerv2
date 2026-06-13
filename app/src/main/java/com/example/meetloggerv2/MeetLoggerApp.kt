@@ -1,92 +1,85 @@
 package com.example.meetloggerv2
 
-import com.example.meetloggerv2.data.repository.FileRepository
-import com.example.meetloggerv2.data.repository.AuthRepository
-import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.Timestamp
+import com.example.meetloggerv2.data.repository.IFileRepository
+import com.example.meetloggerv2.data.repository.IAuthRepository
+import com.example.meetloggerv2.data.local.SettingsDataStore
+import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.ThemeManager
 import android.app.Application
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
-import android.os.Build
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import androidx.appcompat.app.AppCompatDelegate
 import com.google.firebase.FirebaseApp
-import java.util.Calendar
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.messaging.FirebaseMessaging
+import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@HiltAndroidApp
 class MeetLoggerApp : Application() {
 
-    private lateinit var fileRepository: FileRepository
-    private lateinit var authRepository: AuthRepository
-    private var listenerRegistration: ListenerRegistration? = null
+    @Inject lateinit var fileRepository: IFileRepository
+    @Inject lateinit var authRepository: IAuthRepository
+    @Inject lateinit var settingsDataStore: SettingsDataStore
     private val TAG = "MeetLoggerApp"
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    companion object {
+        lateinit var appContext: Context
+            private set
+
+        /**
+         * Fetches the FCM token and registers it with the backend.
+         * Safe to call from anywhere — returns early if user is not logged in.
+         * Should be called:
+         *   - At app startup (Application.onCreate)
+         *   - After login completes (HomeActivity.onCreate)
+         */
+        fun initFcmToken() {
+            val user = FirebaseAuth.getInstance().currentUser
+            if (user == null) {
+                Log.d("MeetLoggerApp", "initFcmToken: No user logged in, skipping.")
+                return
+            }
+
+            Log.d("MeetLoggerApp", "initFcmToken: User ${user.uid} found, fetching FCM token...")
+            FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { token ->
+                    Log.d("MeetLoggerApp", "FCM token obtained: ${token.take(20)}...")
+                    MeetLoggerMessagingService.registerTokenWithServer(token)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("MeetLoggerApp", "Failed to get FCM token: ${e.message}", e)
+                }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        appContext = applicationContext
         FirebaseApp.initializeApp(this)
-        fileRepository = FileRepository()
-        authRepository = AuthRepository()
-        setupNotificationListener()
+        observeThemeSettings()
+        // Try to register FCM at startup (works if user is already signed in)
+        initFcmToken()
     }
 
-    private fun setupNotificationListener() {
-        val userId = authRepository.getCurrentUser()?.uid ?: return
-        
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_YEAR, -7)
-        val sevenDaysAgo = Timestamp(calendar.time)
-
-        listenerRegistration = fileRepository.getUserFiles(userId, { dataList ->
-            dataList.forEach { data ->
-                val fileName = data["fileName"] as? String ?: return@forEach
-                val status = data["status"] as? String ?: "processing"
-                val notificationStatus = data["Notification"] as? String ?: "Off"
-                val timestamp = data["timestamp_clientUpload"] as? Timestamp ?: return@forEach
-
-                if (timestamp.toDate().after(sevenDaysAgo.toDate()) || timestamp.toDate() == sevenDaysAgo.toDate()) {
-                    if (status.equals("processed", ignoreCase = true) && notificationStatus.equals("On", ignoreCase = true)) {
-                        triggerNotification(fileName)
-                        updateNotificationStatus(data["id"] as? String ?: fileName) // Assuming ID is fileName or from doc
-                    }
+    private fun observeThemeSettings() {
+        applicationScope.launch {
+            settingsDataStore.themeMode.collect { mode ->
+                ThemeManager.setThemeMode(mode)
+                
+                // Sync with XML if necessary, though we use Compose mostly
+                val nightMode = when (mode) {
+                    1 -> AppCompatDelegate.MODE_NIGHT_NO
+                    2 -> AppCompatDelegate.MODE_NIGHT_YES
+                    else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
                 }
+                AppCompatDelegate.setDefaultNightMode(nightMode)
             }
-        }, {
-            Log.e(TAG, "Snapshot listener error: ${it.message}", it)
-        })
-    }
-
-    private fun triggerNotification(fileName: String) {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "file_notification_channel"
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
-            notificationManager.createNotificationChannel(channel)
         }
-
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.launchlogo)
-            .setContentTitle(getString(R.string.notif_title_processed))
-            .setContentText(getString(R.string.notif_content_processed, fileName))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true)
-            .build()
-
-        val uniqueId = fileName.hashCode()
-        notificationManager.notify(uniqueId, notification)
-    }
-
-    private fun updateNotificationStatus(documentId: String) {
-        val userId = authRepository.getCurrentUser()?.uid ?: return
-        fileRepository.updateFileContent(userId, documentId, mapOf("Notification" to "Off"), {}, {
-            Log.e(TAG, "Failed to update notification status: ${it.message}", it)
-        })
-    }
-
-    override fun onTerminate() {
-        super.onTerminate()
-        listenerRegistration?.remove()
     }
 }

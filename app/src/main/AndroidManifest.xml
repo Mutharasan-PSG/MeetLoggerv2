@@ -73,6 +73,15 @@
             android:screenOrientation="portrait" />
 
         <activity android:name=".ui.home.activity.HomeActivity" android:exported="true"/>
+
+        <!-- FCM Messaging Service -->
+        <service
+            android:name=".MeetLoggerMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
     </application>
 
 
