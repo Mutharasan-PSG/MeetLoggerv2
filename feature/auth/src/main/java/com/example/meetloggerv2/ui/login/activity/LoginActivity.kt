@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.network.NetworkUtil
 import com.example.meetloggerv2.core.session.SessionManager
 import com.example.meetloggerv2.core.theme.GradientEnd
@@ -91,7 +92,7 @@ class LoginActivity : AppCompatActivity() {
         sessionManager = SessionManager(this)
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
+            .requestIdToken(AppStrings.DEFAULT_WEB_CLIENT_ID)
             .requestEmail()
             .build()
 

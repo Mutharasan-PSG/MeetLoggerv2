@@ -1,0 +1,6 @@
+package com.example.meetloggerv2.core.navigation
+
+object AppLayoutIds {
+    const val FRAGMENT_CONTAINER = 10001
+    const val LOCK_SCREEN_CONTAINER = 10002
+}

@@ -41,7 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.theme.GradientEnd
 import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
@@ -270,8 +270,8 @@ fun SignUpScreen(
         var isValid = true
 
         if (trimmedName.isEmpty()) {
-            nameError = context.getString(R.string.error_name_required)
-            Toast.makeText(context, context.getString(R.string.error_name_required), Toast.LENGTH_SHORT).show()
+            nameError = AppStrings.ERROR_NAME_REQUIRED
+            Toast.makeText(context, AppStrings.ERROR_NAME_REQUIRED, Toast.LENGTH_SHORT).show()
             isValid = false
         } else {
             nameError = null
@@ -295,8 +295,8 @@ fun SignUpScreen(
             if (isValid) Toast.makeText(context, "Please enter a password", Toast.LENGTH_SHORT).show()
             isValid = false
         } else if (!trimmedPassword.matches(passwordRegex)) {
-            passwordError = context.getString(R.string.error_password_rules)
-            if (isValid) Toast.makeText(context, context.getString(R.string.error_password_rules), Toast.LENGTH_LONG).show()
+            passwordError = AppStrings.ERROR_PASSWORD_RULES
+            if (isValid) Toast.makeText(context, AppStrings.ERROR_PASSWORD_RULES, Toast.LENGTH_LONG).show()
             isValid = false
         } else {
             passwordError = null
@@ -307,8 +307,8 @@ fun SignUpScreen(
             if (isValid) Toast.makeText(context, "Please confirm your password", Toast.LENGTH_SHORT).show()
             isValid = false
         } else if (trimmedPassword != trimmedConfirmPassword) {
-            confirmPasswordError = context.getString(R.string.error_passwords_do_not_match)
-            if (isValid) Toast.makeText(context, context.getString(R.string.error_passwords_do_not_match), Toast.LENGTH_SHORT).show()
+            confirmPasswordError = AppStrings.ERROR_PASSWORDS_DO_NOT_MATCH
+            if (isValid) Toast.makeText(context, AppStrings.ERROR_PASSWORDS_DO_NOT_MATCH, Toast.LENGTH_SHORT).show()
             isValid = false
         } else {
             confirmPasswordError = null

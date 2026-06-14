@@ -53,7 +53,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.bumptech.glide.Glide
-import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.navigation.findNavigationRouter
 import com.example.meetloggerv2.core.network.NetworkMonitor
 import com.example.meetloggerv2.core.theme.GradientEnd
@@ -380,7 +380,7 @@ fun HomeScreenContent(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = stringResource(id = R.string.empty_home_search_message),
+                                text = AppStrings.EMPTY_HOME_SEARCH_MESSAGE,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(horizontal = 32.dp),

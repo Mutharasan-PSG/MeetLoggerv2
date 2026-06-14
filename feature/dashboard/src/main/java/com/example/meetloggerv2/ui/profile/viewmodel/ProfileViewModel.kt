@@ -3,7 +3,7 @@ package com.example.meetloggerv2.ui.profile.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.session.AuthSession
 import com.example.meetloggerv2.core.session.SessionManager
 import com.example.meetloggerv2.data.local.ProfileDataStore
@@ -51,7 +51,7 @@ class ProfileViewModel @Inject constructor(
 
     init {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(application.getString(R.string.default_web_client_id))
+            .requestIdToken(AppStrings.DEFAULT_WEB_CLIENT_ID)
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(application, gso)

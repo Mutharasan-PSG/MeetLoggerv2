@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.network.NetworkUtil
 import com.example.meetloggerv2.core.theme.GradientEnd
 import com.example.meetloggerv2.core.theme.GradientStart
@@ -85,7 +85,7 @@ class ForgotPasswordActivity : AppCompatActivity() {
                             // Indicate process via UI loader instead of toast
                         }
                         is LoginViewModel.ResetPasswordState.Success -> {
-                            Toast.makeText(this@ForgotPasswordActivity, getString(R.string.toast_password_reset_sent), Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@ForgotPasswordActivity, AppStrings.TOAST_PASSWORD_RESET_SENT, Toast.LENGTH_LONG).show()
                             finish()
                         }
                         is LoginViewModel.ResetPasswordState.Error -> {

@@ -57,7 +57,8 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
+import com.example.meetloggerv2.core.navigation.AppLayoutIds
 import com.example.meetloggerv2.core.export.DocumentExportManager
 import com.example.meetloggerv2.core.theme.GradientEnd
 import com.example.meetloggerv2.core.theme.GradientStart
@@ -193,7 +194,7 @@ class FileDetailsFragment : Fragment() {
             requireContext().contentResolver.openOutputStream(uri)?.use { os ->
                 exportManager.export(content, format, os)
             }
-            Toast.makeText(requireContext(), R.string.msg_downloaded_success, Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), AppStrings.MSG_DOWNLOADED_SUCCESS, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Failed to save file", Toast.LENGTH_SHORT).show()
         } finally {
@@ -227,7 +228,7 @@ class FileDetailsFragment : Fragment() {
 
     private fun openNewFileDetailsFragment(name: String) {
         parentFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, FileDetailsFragment().apply {
+            .replace(AppLayoutIds.FRAGMENT_CONTAINER, FileDetailsFragment().apply {
                 arguments = Bundle().apply { putString("fileName", name) }
             })
             .addToBackStack(null)
@@ -396,7 +397,7 @@ fun FileDetailsScreenContent(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Color.White)
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text(text = stringResource(id = R.string.dialog_save), fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text(text = AppStrings.DIALOG_SAVE, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                 }
                             }
@@ -417,7 +418,7 @@ fun FileDetailsScreenContent(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text(text = stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(text = AppStrings.DIALOG_CANCEL, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                     }
                                 }
                             }
@@ -565,14 +566,14 @@ fun FileDetailsScreenContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = stringResource(id = R.string.dialog_title_choose_language),
+                        text = AppStrings.DIALOG_TITLE_CHOOSE_LANGUAGE,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 20.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = stringResource(id = R.string.dialog_language_switch_msg),
+                        text = AppStrings.DIALOG_LANGUAGE_SWITCH_MSG,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -623,7 +624,7 @@ fun FileDetailsScreenContent(
                         shape = RoundedCornerShape(24.dp),
                         border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
                     ) {
-                        Text(text = stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold)
+                        Text(text = AppStrings.DIALOG_CANCEL, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -687,7 +688,7 @@ fun FileDetailsScreenContent(
                             color = Color.Transparent
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(text = stringResource(id = R.string.dialog_new_copy), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = AppStrings.DIALOG_NEW_COPY, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
 
@@ -708,7 +709,7 @@ fun FileDetailsScreenContent(
                                     .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = stringResource(id = R.string.dialog_overwrite), fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(text = AppStrings.DIALOG_OVERWRITE, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
                     }
@@ -733,7 +734,7 @@ fun FileDetailsScreenContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = stringResource(id = R.string.dialog_title_warning),
+                        text = AppStrings.DIALOG_TITLE_WARNING,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 20.sp,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -763,7 +764,7 @@ fun FileDetailsScreenContent(
                             color = Color.Transparent
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(text = stringResource(id = R.string.dialog_no), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = AppStrings.DIALOG_NO, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
 
@@ -787,7 +788,7 @@ fun FileDetailsScreenContent(
                                     .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = stringResource(id = R.string.dialog_yes), fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(text = AppStrings.DIALOG_YES, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
                     }

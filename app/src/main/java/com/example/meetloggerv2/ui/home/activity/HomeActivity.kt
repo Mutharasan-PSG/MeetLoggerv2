@@ -11,8 +11,8 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.example.meetloggerv2.core.R
 import com.example.meetloggerv2.core.navigation.NavigationRouter
+import com.example.meetloggerv2.core.navigation.AppLayoutIds
 import com.example.meetloggerv2.ui.audio.fragment.AudioListFragment
 import com.example.meetloggerv2.ui.details.fragment.FileDetailsFragment
 import com.example.meetloggerv2.ui.home.fragment.HomeFragment
@@ -58,7 +58,39 @@ class HomeActivity : AppCompatActivity(), NavigationRouter {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_home)
+        
+        val rootView = android.widget.RelativeLayout(this).apply {
+            layoutParams = android.widget.RelativeLayout.LayoutParams(
+                android.widget.RelativeLayout.LayoutParams.MATCH_PARENT,
+                android.widget.RelativeLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        val fragmentContainer = FrameLayout(this).apply {
+            id = AppLayoutIds.FRAGMENT_CONTAINER
+            layoutParams = android.widget.RelativeLayout.LayoutParams(
+                android.widget.RelativeLayout.LayoutParams.MATCH_PARENT,
+                android.widget.RelativeLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        rootView.addView(fragmentContainer)
+
+        val lockScreenContainer = FrameLayout(this).apply {
+            id = AppLayoutIds.LOCK_SCREEN_CONTAINER
+            layoutParams = android.widget.RelativeLayout.LayoutParams(
+                android.widget.RelativeLayout.LayoutParams.MATCH_PARENT,
+                android.widget.RelativeLayout.LayoutParams.MATCH_PARENT
+            )
+            val typedValue = android.util.TypedValue()
+            theme.resolveAttribute(android.R.attr.colorBackground, typedValue, true)
+            setBackgroundColor(typedValue.data)
+            visibility = View.GONE
+            isClickable = true
+            isFocusable = true
+        }
+        rootView.addView(lockScreenContainer)
+
+        setContentView(rootView)
 
         // Register FCM token whenever HomeActivity opens (after login or app relaunch)
         MeetLoggerApp.initFcmToken()
@@ -79,7 +111,7 @@ class HomeActivity : AppCompatActivity(), NavigationRouter {
 
     private fun loadFragment(fragment: Fragment, addToBackStack: Boolean = false) {
         val transaction = supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
+            .replace(AppLayoutIds.FRAGMENT_CONTAINER, fragment)
         if (addToBackStack) {
             transaction.addToBackStack(null)
         }
@@ -136,7 +168,7 @@ class HomeActivity : AppCompatActivity(), NavigationRouter {
     }
 
     private fun showLockScreen() {
-        val lockContainer = findViewById<FrameLayout>(R.id.lock_screen_container)
+        val lockContainer = findViewById<FrameLayout>(AppLayoutIds.LOCK_SCREEN_CONTAINER)
         lockContainer.visibility = View.VISIBLE
 
         val composeView = ComposeView(this).apply {
@@ -197,7 +229,7 @@ class HomeActivity : AppCompatActivity(), NavigationRouter {
 
     private fun unlockApp() {
         isAppUnlocked = true
-        val lockContainer = findViewById<FrameLayout>(R.id.lock_screen_container)
+        val lockContainer = findViewById<FrameLayout>(AppLayoutIds.LOCK_SCREEN_CONTAINER)
         lockContainer.visibility = View.GONE
         navigateToHome()
     }
