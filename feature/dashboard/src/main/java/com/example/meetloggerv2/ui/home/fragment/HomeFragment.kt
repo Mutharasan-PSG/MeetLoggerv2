@@ -290,10 +290,10 @@ fun HomeScreenContent(
                             Card(
                                 shape = CircleShape,
                                 modifier = Modifier
-                                    .size(46.dp)
+                                    .size(38.dp)
                                     .clip(CircleShape)
                                     .pressScaleClick { onProfileClick() },
-                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 AndroidView(
                                     factory = { ctx ->

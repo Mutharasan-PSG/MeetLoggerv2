@@ -2,7 +2,9 @@
 <resources>
     <style name="Theme.MeetLoggerv2" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:statusBarColor">#09090B</item>
+        <item name="android:navigationBarColor">#09090B</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:windowBackground">#09090B</item>
         <item name="bottomSheetDialogTheme">@style/CustomBottomSheetDialog</item>
     </style>

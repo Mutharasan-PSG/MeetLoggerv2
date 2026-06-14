@@ -16,6 +16,19 @@ object ThemeManager {
         _themeMode.value = mode
     }
 
+    /** Non-composable variant for use in Activity.onCreate / non-Compose code */
+    fun isDarkTheme(context: android.content.Context): Boolean {
+        return when (_themeMode.value) {
+            1 -> false
+            2 -> true
+            else -> {
+                val uiMode = context.resources.configuration.uiMode and
+                        android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+    }
+
     @Composable
     fun isDarkTheme(): Boolean {
         val mode by themeMode.collectAsState()
