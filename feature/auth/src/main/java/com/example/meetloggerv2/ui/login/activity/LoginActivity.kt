@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.network.NetworkUtil
 import com.example.meetloggerv2.core.session.SessionManager
 import com.example.meetloggerv2.core.theme.GradientEnd
@@ -73,6 +74,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.GoogleAuthProvider
+import androidx.core.view.WindowCompat
+import com.example.meetloggerv2.core.theme.ThemeManager
+import androidx.compose.foundation.layout.systemBarsPadding
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -88,10 +92,22 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Set edge-to-edge and lock system bar colors early to prevent black flash
+        // when Google Sign-In overlay gains/loses focus
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val isDark = ThemeManager.isDarkTheme(this)
+        val bgColor = if (isDark) android.graphics.Color.parseColor("#09090B")
+                      else android.graphics.Color.parseColor("#F1F5F9")
+        window.statusBarColor = bgColor
+        window.navigationBarColor = bgColor
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        insetsController.isAppearanceLightStatusBars = !isDark
+        insetsController.isAppearanceLightNavigationBars = !isDark
+
         sessionManager = SessionManager(this)
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
+            .requestIdToken(AppStrings.DEFAULT_WEB_CLIENT_ID)
             .requestEmail()
             .build()
 
@@ -510,6 +526,7 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .systemBarsPadding()
     ) {
         Column(
             modifier = Modifier

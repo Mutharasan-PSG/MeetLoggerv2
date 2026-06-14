@@ -53,7 +53,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.bumptech.glide.Glide
-import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.navigation.findNavigationRouter
 import com.example.meetloggerv2.core.network.NetworkMonitor
 import com.example.meetloggerv2.core.theme.GradientEnd
@@ -65,6 +65,7 @@ import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.ui.audio.fragment.RecordAudioBottomsheetFragment
 import com.example.meetloggerv2.core.session.AuthSession
 import com.example.meetloggerv2.ui.audio.fragment.UploadAudioBottomsheetFragment
+import com.example.meetloggerv2.ui.audio.util.PlanLimitDialog
 import com.example.meetloggerv2.ui.home.viewmodel.HomeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -92,6 +93,8 @@ class HomeFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MeetLoggerTheme {
+                    var showLimitDialog by remember { mutableStateOf(false) }
+
                     HomeScreenContent(
                         viewModel = viewModel,
                         isOnline = isOnlineState.value,
@@ -104,7 +107,7 @@ class HomeFragment : Fragment() {
                             val subscription = authSession.currentUserSubscription()
                             val fileCount = viewModel.files.value.size
                             if (subscription == "free" && fileCount >= 7) {
-                                Toast.makeText(requireContext(), "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                                showLimitDialog = true
                             } else {
                                 RecordAudioBottomsheetFragment().show(parentFragmentManager, "RecordAudioSheet")
                             }
@@ -113,12 +116,22 @@ class HomeFragment : Fragment() {
                             val subscription = authSession.currentUserSubscription()
                             val fileCount = viewModel.files.value.size
                             if (subscription == "free" && fileCount >= 7) {
-                                Toast.makeText(requireContext(), "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                                showLimitDialog = true
                             } else {
                                 UploadAudioBottomsheetFragment().show(parentFragmentManager, "UploadAudioSheet")
                             }
                         }
                     )
+
+                    if (showLimitDialog) {
+                        PlanLimitDialog(
+                            onDismiss = { showLimitDialog = false },
+                            onUpgrade = {
+                                showLimitDialog = false
+                                findNavigationRouter()?.navigateToSubscriptions()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -277,10 +290,10 @@ fun HomeScreenContent(
                             Card(
                                 shape = CircleShape,
                                 modifier = Modifier
-                                    .size(46.dp)
+                                    .size(38.dp)
                                     .clip(CircleShape)
                                     .pressScaleClick { onProfileClick() },
-                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 AndroidView(
                                     factory = { ctx ->
@@ -367,7 +380,7 @@ fun HomeScreenContent(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = stringResource(id = R.string.empty_home_search_message),
+                                text = AppStrings.EMPTY_HOME_SEARCH_MESSAGE,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(horizontal = 32.dp),

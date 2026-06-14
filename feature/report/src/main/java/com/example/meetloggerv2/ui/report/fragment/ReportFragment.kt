@@ -63,7 +63,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.export.DocumentExportManager
 import com.example.meetloggerv2.core.navigation.findNavigationRouter
 import com.example.meetloggerv2.core.network.NetworkMonitor
@@ -225,7 +225,7 @@ class ReportFragment : Fragment() {
             requireContext().contentResolver.openOutputStream(uri)?.use { os ->
                 exportManager.export(content, format, os)
             }
-            Toast.makeText(requireContext(), R.string.msg_downloaded_success, Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), AppStrings.MSG_DOWNLOADED_SUCCESS, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Failed to save file", Toast.LENGTH_SHORT).show()
         }
@@ -333,7 +333,7 @@ fun ReportScreenContent(
                 TopAppBar(
                     title = {
                         Text(
-                            text = stringResource(id = R.string.summarized_files),
+                            text = AppStrings.SUMMARIZED_FILES,
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp,
                             modifier = Modifier.padding(start = 5.dp)
@@ -381,7 +381,7 @@ fun ReportScreenContent(
                                             val ext = oldFull.substringAfterLast(".")
                                             viewModel.renameFile(oldFull, "$newNameTrimmed.$ext")
                                         } else {
-                                            Toast.makeText(context, R.string.error_name_empty, Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, AppStrings.ERROR_NAME_EMPTY, Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                     renamingPosition = -1
@@ -522,7 +522,7 @@ fun ReportScreenContent(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = stringResource(id = R.string.select_all),
+                                text = AppStrings.SELECT_ALL,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
@@ -551,7 +551,7 @@ fun ReportScreenContent(
                                 )
                             } else {
                                 Text(
-                                    text = stringResource(id = R.string.empty_report_search_message),
+                                    text = AppStrings.EMPTY_REPORT_SEARCH_MESSAGE,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 14.sp
                                 )
@@ -665,7 +665,7 @@ fun ReportScreenContent(
                                                                 val ext = oldFull.substringAfterLast(".")
                                                                 viewModel.renameFile(oldFull, "$newNameTrimmed.$ext")
                                                             } else {
-                                                                Toast.makeText(context, R.string.error_name_empty, Toast.LENGTH_SHORT).show()
+                                                                Toast.makeText(context, AppStrings.ERROR_NAME_EMPTY, Toast.LENGTH_SHORT).show()
                                                             }
                                                             renamingPosition = -1
                                                         }
@@ -855,7 +855,7 @@ fun ReportScreenContent(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = stringResource(id = R.string.dialog_title_copy_report),
+                                text = AppStrings.DIALOG_TITLE_COPY_REPORT,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 20.sp,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -904,7 +904,7 @@ fun ReportScreenContent(
                                     color = Color.Transparent
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text(stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(AppStrings.DIALOG_CANCEL, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
 
@@ -919,7 +919,7 @@ fun ReportScreenContent(
                                                 viewModel.copyFile(full, "$trimmed.$ext")
                                                 showCopyDialogForPos = -1
                                             } else {
-                                                Toast.makeText(context, R.string.error_name_empty, Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, AppStrings.ERROR_NAME_EMPTY, Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                     shape = RoundedCornerShape(24.dp),
@@ -940,7 +940,7 @@ fun ReportScreenContent(
                                                 )
                                             }
                                         } else {
-                                            Text(stringResource(id = R.string.dialog_proceed), fontWeight = FontWeight.Bold, color = Color.White)
+                                            Text(AppStrings.DIALOG_PROCEED, fontWeight = FontWeight.Bold, color = Color.White)
                                         }
                                     }
                                 }
@@ -974,7 +974,7 @@ fun ReportScreenContent(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = stringResource(id = R.string.msg_delete_selected_reports),
+                        text = AppStrings.MSG_DELETE_SELECTED_REPORTS,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Start,
@@ -995,7 +995,7 @@ fun ReportScreenContent(
                             color = Color.Transparent
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(AppStrings.DIALOG_CANCEL, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
 
@@ -1021,7 +1021,7 @@ fun ReportScreenContent(
                                     .background(Brush.linearGradient(colors = listOf(Color(0xFFEF5350), Color(0xFFD32F2F)))),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(stringResource(id = R.string.dialog_delete), fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(AppStrings.DIALOG_DELETE, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
                     }

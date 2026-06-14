@@ -10,6 +10,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
@@ -130,6 +134,8 @@ fun ProfileScreen(
     val signOutState by viewModel.signOutState.collectAsState()
     val isSigningOut = signOutState is ProfileViewModel.SignOutState.Loading
     val scrollState = rememberScrollState()
+
+    var showSignOutConfirmDialog by remember { mutableStateOf(false) }
 
     // Premium Loading: Show shimmer for 0.3 seconds on first entry only
     var forceShimmer by remember { mutableStateOf(!ProfileFragment.hasShimmered) }
@@ -310,7 +316,7 @@ fun ProfileScreen(
                             .fillMaxWidth()
                             .height(54.dp)
                             .pressScaleClick(enabled = !isSigningOut) {
-                                viewModel.signOut()
+                                showSignOutConfirmDialog = true
                             },
                         shape = RoundedCornerShape(16.dp),
                         border = BorderStroke(1.5.dp, stopRed.copy(alpha = 0.2f)),
@@ -360,6 +366,83 @@ fun ProfileScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
+            }
+        }
+    }
+
+    if (showSignOutConfirmDialog) {
+        Dialog(onDismissRequest = { showSignOutConfirmDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier.fillMaxWidth(0.95f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Confirmation",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Start
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Are you sure you want to sign out? You will need to log back in to access your logs.",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        val cancelInteractionSource = remember { MutableInteractionSource() }
+                        OutlinedButton(
+                            onClick = { showSignOutConfirmDialog = false },
+                            interactionSource = cancelInteractionSource,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .pressScale(cancelInteractionSource),
+                            shape = RoundedCornerShape(24.dp),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                        ) {
+                            Text("Cancel", fontWeight = FontWeight.Bold)
+                        }
+
+                        val signOutInteractionSource = remember { MutableInteractionSource() }
+                        Surface(
+                            onClick = {
+                                showSignOutConfirmDialog = false
+                                viewModel.signOut()
+                            },
+                            interactionSource = signOutInteractionSource,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .pressScale(signOutInteractionSource),
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color.Transparent
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Brush.linearGradient(colors = listOf(Color(0xFFEF5350), Color(0xFFD32F2F)))),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Sign Out", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

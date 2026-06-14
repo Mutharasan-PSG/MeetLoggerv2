@@ -158,7 +158,7 @@ class ReportViewModel @Inject constructor(
                 is NetworkResult.Success -> {
                     val data = result.data
                     val resp = data?.get("Response") as? String ?: "No response"
-                    _reportEvent.emit(Event(ReportEvent.FetchDetailsSuccess(resp.replace("*", "").trim())))
+                    _reportEvent.emit(Event(ReportEvent.FetchDetailsSuccess(resp.trim())))
                     _uiState.value = ReportUiState.Idle
                 }
                 is NetworkResult.Error -> {

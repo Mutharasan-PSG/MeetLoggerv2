@@ -65,7 +65,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.media.AudioPlayerManager
 import com.example.meetloggerv2.core.network.NetworkMonitor
 import com.example.meetloggerv2.core.network.NetworkUtil
@@ -75,6 +75,8 @@ import com.example.meetloggerv2.core.theme.pressScale
 import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.core.ui.components.PremiumAudioPlayer
 import com.example.meetloggerv2.ui.audio.util.AudioProcessingDialog
+import com.example.meetloggerv2.ui.audio.util.PlanLimitDialog
+import com.example.meetloggerv2.core.navigation.findNavigationRouter
 import com.example.meetloggerv2.core.session.AuthSession
 import javax.inject.Inject
 import com.example.meetloggerv2.ui.audio.viewmodel.AudioListViewModel
@@ -147,6 +149,8 @@ class AudioListFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MeetLoggerTheme {
+                    var showLimitDialog by remember { mutableStateOf(false) }
+
                     Box(modifier = Modifier.fillMaxSize()) {
                         AudioListScreen(
                             viewModel = viewModel,
@@ -203,7 +207,7 @@ class AudioListFragment : Fragment() {
                                 val subscription = authSession.currentUserSubscription()
                                 val fileCount = viewModel.userFilesState.value.size
                                 if (subscription == "free" && fileCount >= 7) {
-                                    Toast.makeText(requireContext(), "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                                    showLimitDialog = true
                                 } else {
                                     showSpeakerSelectionState.value = name
                                 }
@@ -221,6 +225,16 @@ class AudioListFragment : Fragment() {
                                 onProcessingConfirmed = { speakers, followUp ->
                                     showSpeakerSelectionState.value = null
                                     startAudioProcessing(name, speakers, followUp)
+                                }
+                            )
+                        }
+
+                        if (showLimitDialog) {
+                            PlanLimitDialog(
+                                onDismiss = { showLimitDialog = false },
+                                onUpgrade = {
+                                    showLimitDialog = false
+                                    findNavigationRouter()?.navigateToSubscriptions()
                                 }
                             )
                         }
@@ -1023,7 +1037,7 @@ fun AudioListScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = stringResource(id = R.string.msg_delete_selected_audio),
+                                text = AppStrings.MSG_DELETE_SELECTED_AUDIO,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Start,
@@ -1044,7 +1058,7 @@ fun AudioListScreen(
                                     color = Color.Transparent
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text(stringResource(id = R.string.dialog_cancel), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(AppStrings.DIALOG_CANCEL, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
 
@@ -1067,7 +1081,7 @@ fun AudioListScreen(
                                             .background(Brush.linearGradient(colors = listOf(Color(0xFFEF5350), Color(0xFFD32F2F)))),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(stringResource(id = R.string.dialog_delete), fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text(AppStrings.DIALOG_DELETE, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                 }
                             }

@@ -25,6 +25,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.meetloggerv2.core.R
+import com.example.meetloggerv2.core.theme.AppStrings
 import com.example.meetloggerv2.core.theme.GradientEnd
 import com.example.meetloggerv2.core.theme.GradientStart
 import com.example.meetloggerv2.core.theme.MeetLoggerTheme
@@ -76,7 +77,7 @@ fun IntroScreen(
 
             // Slogan positioned just above the logo
             Text(
-                text = stringResource(id = R.string.app_slogan),
+                text = AppStrings.APP_SLOGAN,
                 fontSize = 26.sp,
                 textAlign = TextAlign.Start,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -98,7 +99,7 @@ fun IntroScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = stringResource(id = R.string.app_name),
+                    text = AppStrings.APP_NAME,
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -127,7 +128,7 @@ fun IntroScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = stringResource(id = R.string.btn_get_started),
+                        text = AppStrings.BTN_GET_STARTED,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
