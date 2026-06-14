@@ -220,7 +220,7 @@ fun SubscriptionScreen(
                     SubscriptionFeatureItem("Unlimited file processing & summarization")
                     SubscriptionFeatureItem("Priority cloud processing")
                     SubscriptionFeatureItem("AI-powered speaker identification")
-                    SubscriptionFeatureItem("Auto-send summary to email (DOCX)")
+                    SubscriptionFeatureItem("Auto-send summary to email (PDF)")
                     SubscriptionFeatureItem("Unlimited translations (30+ languages)")
                     SubscriptionFeatureItem("No ads & premium support")
 

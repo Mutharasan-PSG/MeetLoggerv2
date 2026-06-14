@@ -46,6 +46,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.biometric)
 
     // Glide Image Loading
     implementation("com.github.bumptech.glide:glide:4.16.0")

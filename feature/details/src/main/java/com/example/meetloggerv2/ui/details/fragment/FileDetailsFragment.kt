@@ -30,7 +30,11 @@ import com.example.meetloggerv2.core.theme.pressScale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -39,6 +43,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -261,7 +268,7 @@ fun FileDetailsScreenContent(
 
     LaunchedEffect(fileDetails) {
         fileDetails?.let { data ->
-            val responseText = (data["Response"] as? String)?.replace("*", "")?.trim() ?: ""
+            val responseText = (data["Response"] as? String)?.trim() ?: ""
             editedText = responseText
             val originalLang = data["OriginalLanguage"] as? String ?: "en"
             originalLanguageCode = originalLang
@@ -278,7 +285,7 @@ fun FileDetailsScreenContent(
 
     androidx.activity.compose.BackHandler(enabled = isEditing) {
         isEditing = false
-        editedText = (fileDetails?.get("Response") as? String)?.replace("*", "")?.trim() ?: ""
+        editedText = (fileDetails?.get("Response") as? String)?.trim() ?: ""
     }
 
     Scaffold(
@@ -302,7 +309,7 @@ fun FileDetailsScreenContent(
                             .pressScaleClick {
                                 if (isEditing) {
                                     isEditing = false
-                                    editedText = (fileDetails?.get("Response") as? String)?.replace("*", "")?.trim() ?: ""
+                                    editedText = (fileDetails?.get("Response") as? String)?.trim() ?: ""
                                 } else {
                                     onBack()
                                 }
@@ -400,7 +407,7 @@ fun FileDetailsScreenContent(
                                     .height(48.dp)
                                     .pressScaleClick {
                                         isEditing = false
-                                        editedText = (fileDetails?.get("Response") as? String)?.replace("*", "")?.trim() ?: ""
+                                        editedText = (fileDetails?.get("Response") as? String)?.trim() ?: ""
                                     },
                                 shape = RoundedCornerShape(24.dp),
                                 border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
@@ -457,7 +464,7 @@ fun FileDetailsScreenContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp)
+                        .padding(24.dp)
                 ) {
                     Box(
                         modifier = Modifier
@@ -472,7 +479,7 @@ fun FileDetailsScreenContent(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp)
+                        .padding(24.dp)
                 ) {
                     if (isEditing) {
                          OutlinedTextField(
@@ -495,25 +502,43 @@ fun FileDetailsScreenContent(
                             )
                         )
                     } else {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Text(
-                                text = editedText,
-                                fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(16.dp),
-                                lineHeight = 22.sp,
-                                textAlign = TextAlign.Justify,
-                                style = LocalTextStyle.current.copy(
-                                    lineBreak = LineBreak.Paragraph
-                                )
-                            )
-                        }
+                        var textLayoutResult by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+                        val annotatedText = parsePremiumDocument(
+                            text = editedText,
+                            primaryColor = MaterialTheme.colorScheme.primary,
+                            onSurfaceColor = MaterialTheme.colorScheme.onSurface,
+                            onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val highlightBgColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+
+                        Text(
+                            text = annotatedText,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 22.sp,
+                            textAlign = TextAlign.Justify,
+                            style = LocalTextStyle.current.copy(
+                                lineBreak = LineBreak.Paragraph
+                            ),
+                            onTextLayout = { textLayoutResult = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .drawBehind {
+                                    val layout = textLayoutResult ?: return@drawBehind
+                                    annotatedText.getStringAnnotations(tag = "highlight_tag", start = 0, end = annotatedText.length)
+                                        .forEach { annotation ->
+                                            if (annotation.start < annotation.end && annotation.end <= annotatedText.length) {
+                                                val path = layout.getPathForRange(annotation.start, annotation.end)
+                                                // Curvy corner effect: radius of 10.dp converted to pixels
+                                                val paint = Paint().apply {
+                                                    this.color = highlightBgColor
+                                                    this.pathEffect = PathEffect.cornerPathEffect(10.dp.toPx())
+                                                }
+                                                drawContext.canvas.drawPath(path, paint)
+                                            }
+                                        }
+                                }
+                        )
                     }
                 }
             }
@@ -821,5 +846,239 @@ fun BottomActionItem(
             color = MaterialTheme.colorScheme.primary,
             textAlign = TextAlign.Center
         )
+    }
+}
+
+fun parsePremiumDocument(
+    text: String,
+    primaryColor: Color,
+    onSurfaceColor: Color,
+    onSurfaceVariantColor: Color
+): AnnotatedString {
+    return buildAnnotatedString {
+        val lines = text.split("\n")
+        var isDecisionsSection = false
+        var isTranscriptionSection = false
+        var consecutiveNewlines = 2 // Start with 2 to prevent leading newlines at index 0
+        
+        lines.forEachIndexed { index, line ->
+            val currentLine = line.trim()
+            if (currentLine.isEmpty()) {
+                if (consecutiveNewlines < 2) {
+                    append("\n")
+                    consecutiveNewlines++
+                }
+                return@forEachIndexed
+            }
+            
+            // Check for Main uppercase titles
+            if ((currentLine == "SUMMARY OF THE CONTENT" || currentLine == "TRANSCRIPTION OF SPEAKERS") && !currentLine.contains("*")) {
+                // Ensure exactly one blank line before (which means 2 consecutive newlines)
+                while (consecutiveNewlines < 2) {
+                    append("\n")
+                    consecutiveNewlines++
+                }
+                pushStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = TextAlign.Start))
+                pushStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = primaryColor, letterSpacing = 1.2.sp))
+                append(currentLine)
+                pop() // SpanStyle
+                pop() // ParagraphStyle
+                append("\n")
+                consecutiveNewlines = 2
+                isDecisionsSection = false
+                isTranscriptionSection = currentLine == "TRANSCRIPTION OF SPEAKERS"
+                return@forEachIndexed
+            }
+            
+            // Heading matching
+            if (currentLine.startsWith("## ") || currentLine.startsWith("### ")) {
+                val cleanHeader = currentLine.substringAfter("##").substringAfter("#").trim()
+                val headerText = cleanHeader.replace(Regex("^[0-9]+\\.\\s*"), "").uppercase().trim() // strip numbering & convert to UPPERCASE
+                
+                isDecisionsSection = headerText.contains("DECISIONS", ignoreCase = true)
+                isTranscriptionSection = headerText.contains("TRANSCRIPTION", ignoreCase = true) || headerText.contains("SPEAKERS", ignoreCase = true) || isTranscriptionSection
+                
+                // Ensure exactly one blank line before (which means 2 consecutive newlines)
+                while (consecutiveNewlines < 2) {
+                    append("\n")
+                    consecutiveNewlines++
+                }
+                pushStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = TextAlign.Start))
+                
+                val icon = when {
+                    headerText.contains("SUMMARY", ignoreCase = true) -> "📝 "
+                    headerText.contains("DECISIONS", ignoreCase = true) -> "🤝 "
+                    headerText.contains("ACTIONS", ignoreCase = true) -> "⚡ "
+                    headerText.contains("POINTS", ignoreCase = true) || headerText.contains("TAKEAWAYS", ignoreCase = true) -> "🎯 "
+                    headerText.contains("TRANSCRIPTION", ignoreCase = true) || headerText.contains("SPEAKERS", ignoreCase = true) -> "🗣️ "
+                    else -> "💡 "
+                }
+                
+                pushStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, color = primaryColor, letterSpacing = 0.5.sp))
+                append(icon + headerText)
+                pop() // SpanStyle
+                pop() // ParagraphStyle
+                append("\n")
+                consecutiveNewlines = 1
+                return@forEachIndexed
+            }
+            
+            // List item matching
+            val isBullet = currentLine.startsWith("* ") || currentLine.startsWith("- ")
+            if (isBullet) {
+                // Ensure list items immediately follow the previous line (so exactly 1 newline before it)
+                while (consecutiveNewlines < 1) {
+                    append("\n")
+                    consecutiveNewlines++
+                }
+                val bulletIcon = if (isDecisionsSection) "✓" else "•"
+                append("\u00A0\u00A0$bulletIcon\u00A0")
+                consecutiveNewlines = 0 // we appended text, so consecutiveNewlines resets to 0
+                val content = currentLine.substring(2).trim()
+                appendMarkdownInline(content, primaryColor, onSurfaceColor, onSurfaceVariantColor, isTranscriptionSection)
+            } else {
+                // Detect if this line represents a speaker turn
+                val isSpeakerLine = if (isTranscriptionSection) {
+                    if (currentLine.startsWith("**")) {
+                        val boldEnd = currentLine.indexOf("**", 2)
+                        boldEnd != -1 && boldEnd < 80 && (currentLine.substring(2, boldEnd).trim().endsWith(":") || currentLine.startsWith(":", boldEnd + 2))
+                    } else {
+                        val colonIdx = currentLine.indexOf(":")
+                        colonIdx > 0 && colonIdx < 70 && !currentLine.substring(0, colonIdx).contains("[") && !currentLine.substring(0, colonIdx).contains("]") && !currentLine.substring(0, colonIdx).contains("*")
+                    }
+                } else {
+                    false
+                }
+                
+                // For speaker lines, ensure exactly a blank line before it (2 consecutive newlines)
+                val requiredNewlines = if (isSpeakerLine) 2 else 1
+                while (consecutiveNewlines < requiredNewlines) {
+                    append("\n")
+                    consecutiveNewlines++
+                }
+                appendMarkdownInline(currentLine, primaryColor, onSurfaceColor, onSurfaceVariantColor, isTranscriptionSection)
+                consecutiveNewlines = 0
+            }
+            
+            // At the end of a non-heading line, we append a newline if it's not the last line
+            if (index < lines.size - 1) {
+                append("\n")
+                consecutiveNewlines = 1
+            }
+        }
+    }
+}
+
+private fun AnnotatedString.Builder.appendMarkdownInline(
+    content: String,
+    primaryColor: Color,
+    onSurfaceColor: Color,
+    onSurfaceVariantColor: Color,
+    isTranscriptionSection: Boolean
+) {
+    var i = 0
+    while (i < content.length) {
+        // 0. Check for speaker prefixes at the very start of the line (i == 0) inside the transcription section
+        if (i == 0 && isTranscriptionSection) {
+            var labelText: String? = null
+            var prefixLength = 0
+            
+            // Format A: starts with bold, e.g., **Speaker Name:** or **Speaker Name**:
+            if (content.startsWith("**")) {
+                val boldEnd = content.indexOf("**", 2)
+                if (boldEnd != -1 && boldEnd < 80) {
+                    val inner = content.substring(2, boldEnd).trim()
+                    if (inner.endsWith(":")) {
+                        labelText = inner.trim()
+                        prefixLength = boldEnd + 2
+                    } else if (content.startsWith(":", boldEnd + 2)) {
+                        labelText = "$inner:"
+                        prefixLength = boldEnd + 3
+                    }
+                }
+            }
+            
+            // Format B: plain text prefix ending with a colon, e.g., Speaker Name:
+            if (labelText == null) {
+                val colonIdx = content.indexOf(":")
+                if (colonIdx > 0 && colonIdx < 70 && !content.substring(0, colonIdx).contains("\n")) {
+                    val potential = content.substring(0, colonIdx)
+                    // Ensure it doesn't contain bracket symbols or bold markdown characters
+                    if (!potential.contains("[") && !potential.contains("]") && !potential.contains("*")) {
+                        labelText = "${potential.trim()}:"
+                        prefixLength = colonIdx + 1
+                    }
+                }
+            }
+            
+            if (labelText != null) {
+                pushStringAnnotation(tag = "highlight_tag", annotation = "")
+                pushStyle(SpanStyle(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = primaryColor
+                ))
+                append("\u00A0$labelText\u00A0")
+                pop()
+                pop()
+                
+                // Advance pointer
+                i = prefixLength
+                // Prevent spacing stretching by appending a non-breaking space if the next char is a space
+                if (i < content.length && content[i] == ' ') {
+                    append("\u00A0")
+                    i++
+                } else {
+                    append("\u00A0")
+                }
+                continue
+            }
+        }
+
+        // 1. Check for square bracket tags, e.g. [Action Item]
+        if (content.startsWith("[", i)) {
+            val endIdx = content.indexOf("]", i + 1)
+            if (endIdx != -1) {
+                val tagText = content.substring(i, endIdx + 1)
+                pushStyle(SpanStyle(
+                    fontWeight = FontWeight.Bold,
+                    color = primaryColor
+                ))
+                append(tagText)
+                pop()
+                i = endIdx + 1
+                continue
+            }
+        }
+
+        // 2. Check for bold text, e.g. **Bold Text**
+        if (content.startsWith("**", i)) {
+            val endIdx = content.indexOf("**", i + 2)
+            if (endIdx != -1) {
+                val boldContent = content.substring(i + 2, endIdx)
+                // If it is **[Action Item]**, apply bold primary styling without highlight background
+                if (boldContent.startsWith("[") && boldContent.endsWith("]")) {
+                    pushStyle(SpanStyle(
+                        fontWeight = FontWeight.Bold,
+                        color = primaryColor
+                    ))
+                    append(boldContent)
+                    pop()
+                } else {
+                    pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = onSurfaceColor))
+                    append(boldContent)
+                    pop()
+                }
+                i = endIdx + 2
+                continue
+            }
+        }
+        
+        if (content[i] == '*') {
+            i++
+            continue
+        }
+        
+        append(content[i])
+        i++
     }
 }

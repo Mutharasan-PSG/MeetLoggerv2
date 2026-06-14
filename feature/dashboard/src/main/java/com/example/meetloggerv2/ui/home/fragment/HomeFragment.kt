@@ -65,6 +65,7 @@ import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.ui.audio.fragment.RecordAudioBottomsheetFragment
 import com.example.meetloggerv2.core.session.AuthSession
 import com.example.meetloggerv2.ui.audio.fragment.UploadAudioBottomsheetFragment
+import com.example.meetloggerv2.ui.audio.util.PlanLimitDialog
 import com.example.meetloggerv2.ui.home.viewmodel.HomeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -92,6 +93,8 @@ class HomeFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MeetLoggerTheme {
+                    var showLimitDialog by remember { mutableStateOf(false) }
+
                     HomeScreenContent(
                         viewModel = viewModel,
                         isOnline = isOnlineState.value,
@@ -104,7 +107,7 @@ class HomeFragment : Fragment() {
                             val subscription = authSession.currentUserSubscription()
                             val fileCount = viewModel.files.value.size
                             if (subscription == "free" && fileCount >= 7) {
-                                Toast.makeText(requireContext(), "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                                showLimitDialog = true
                             } else {
                                 RecordAudioBottomsheetFragment().show(parentFragmentManager, "RecordAudioSheet")
                             }
@@ -113,12 +116,22 @@ class HomeFragment : Fragment() {
                             val subscription = authSession.currentUserSubscription()
                             val fileCount = viewModel.files.value.size
                             if (subscription == "free" && fileCount >= 7) {
-                                Toast.makeText(requireContext(), "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                                showLimitDialog = true
                             } else {
                                 UploadAudioBottomsheetFragment().show(parentFragmentManager, "UploadAudioSheet")
                             }
                         }
                     )
+
+                    if (showLimitDialog) {
+                        PlanLimitDialog(
+                            onDismiss = { showLimitDialog = false },
+                            onUpgrade = {
+                                showLimitDialog = false
+                                findNavigationRouter()?.navigateToSubscriptions()
+                            }
+                        )
+                    }
                 }
             }
         }

@@ -8,4 +8,14 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- Lock Screen Container overlay -->
+    <FrameLayout
+        android:id="@+id/lock_screen_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?android:colorBackground"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true" />
+
 </RelativeLayout>

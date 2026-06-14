@@ -77,6 +77,7 @@ dependencies {
     implementation(libs.androidx.legacy.support.v4)
     implementation(libs.androidx.recyclerview)
     implementation("androidx.cardview:cardview:1.0.0")
+    implementation(libs.androidx.biometric)
 
     // Navigation
     implementation("androidx.navigation:navigation-fragment-ktx:2.9.8")

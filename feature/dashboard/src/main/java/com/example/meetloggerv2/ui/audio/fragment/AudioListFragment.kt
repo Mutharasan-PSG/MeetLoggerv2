@@ -75,6 +75,8 @@ import com.example.meetloggerv2.core.theme.pressScale
 import com.example.meetloggerv2.core.theme.pressScaleClick
 import com.example.meetloggerv2.core.ui.components.PremiumAudioPlayer
 import com.example.meetloggerv2.ui.audio.util.AudioProcessingDialog
+import com.example.meetloggerv2.ui.audio.util.PlanLimitDialog
+import com.example.meetloggerv2.core.navigation.findNavigationRouter
 import com.example.meetloggerv2.core.session.AuthSession
 import javax.inject.Inject
 import com.example.meetloggerv2.ui.audio.viewmodel.AudioListViewModel
@@ -147,6 +149,8 @@ class AudioListFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MeetLoggerTheme {
+                    var showLimitDialog by remember { mutableStateOf(false) }
+
                     Box(modifier = Modifier.fillMaxSize()) {
                         AudioListScreen(
                             viewModel = viewModel,
@@ -203,7 +207,7 @@ class AudioListFragment : Fragment() {
                                 val subscription = authSession.currentUserSubscription()
                                 val fileCount = viewModel.userFilesState.value.size
                                 if (subscription == "free" && fileCount >= 7) {
-                                    Toast.makeText(requireContext(), "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                                    showLimitDialog = true
                                 } else {
                                     showSpeakerSelectionState.value = name
                                 }
@@ -221,6 +225,16 @@ class AudioListFragment : Fragment() {
                                 onProcessingConfirmed = { speakers, followUp ->
                                     showSpeakerSelectionState.value = null
                                     startAudioProcessing(name, speakers, followUp)
+                                }
+                            )
+                        }
+
+                        if (showLimitDialog) {
+                            PlanLimitDialog(
+                                onDismiss = { showLimitDialog = false },
+                                onUpgrade = {
+                                    showLimitDialog = false
+                                    findNavigationRouter()?.navigateToSubscriptions()
                                 }
                             )
                         }

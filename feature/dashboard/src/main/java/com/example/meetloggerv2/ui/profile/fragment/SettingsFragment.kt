@@ -4,6 +4,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,11 +54,74 @@ class SettingsFragment : Fragment() {
                 MeetLoggerTheme {
                     SettingsScreen(
                         viewModel = viewModel,
-                        onBack = { parentFragmentManager.popBackStack() }
+                        onBack = { parentFragmentManager.popBackStack() },
+                        onToggleBiometric = { enabled ->
+                            checkAndVerifyBiometric(enabled)
+                        }
                     )
                 }
             }
         }
+    }
+
+    private fun checkAndVerifyBiometric(enable: Boolean) {
+        val context = requireContext()
+        val biometricManager = BiometricManager.from(context)
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG
+        
+        when (biometricManager.canAuthenticate(authenticators)) {
+            BiometricManager.BIOMETRIC_SUCCESS -> {
+                showBiometricPrompt(enable)
+            }
+            BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
+                Toast.makeText(context, "No biometric features available on this device.", Toast.LENGTH_LONG).show()
+            }
+            BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
+                Toast.makeText(context, "Biometric features are currently unavailable.", Toast.LENGTH_LONG).show()
+            }
+            BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                Toast.makeText(context, "Please set up fingerprint or screen lock in your system settings first.", Toast.LENGTH_LONG).show()
+            }
+            else -> {
+                Toast.makeText(context, "Biometric lock is not supported on this device.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun showBiometricPrompt(enable: Boolean) {
+        val executor = ContextCompat.getMainExecutor(requireContext())
+        val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                super.onAuthenticationError(errorCode, errString)
+                Toast.makeText(requireContext(), "Authentication error: $errString", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                super.onAuthenticationSucceeded(result)
+                viewModel.setBiometricLock(enable)
+                val statusText = if (enable) "App Lock enabled successfully!" else "App Lock disabled!"
+                Toast.makeText(requireContext(), statusText, Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onAuthenticationFailed() {
+                super.onAuthenticationFailed()
+                Toast.makeText(requireContext(), "Authentication failed.", Toast.LENGTH_SHORT).show()
+            }
+        })
+
+        val titleText = if (enable) "Enable App Lock" else "Disable App Lock"
+        val subtitleText = if (enable) 
+            "Scan your fingerprint to enable App Lock protection" 
+        else 
+            "Scan your fingerprint to confirm disabling App Lock"
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(titleText)
+            .setSubtitle(subtitleText)
+            .setNegativeButtonText("Cancel")
+            .build()
+
+        biometricPrompt.authenticate(promptInfo)
     }
 }
 
@@ -62,7 +129,8 @@ class SettingsFragment : Fragment() {
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onToggleBiometric: (Boolean) -> Unit
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
     val autoSend by viewModel.autoSendEmail.collectAsState()
@@ -130,8 +198,8 @@ fun SettingsScreen(
             SettingsGroup(title = "Automation") {
                 ToggleSettingRow(
                     icon = Icons.Default.Email,
-                    title = "Auto-send docx",
-                    subtitle = "Email summarized files automatically",
+                    title = "Auto-send PDF",
+                    subtitle = "Email PDF files automatically",
                     checked = autoSend,
                     onCheckedChange = { viewModel.setAutoSendEmail(it) }
                 )
@@ -162,7 +230,7 @@ fun SettingsScreen(
                     title = "App Lock",
                     subtitle = "Secure app with biometrics",
                     checked = biometric,
-                    onCheckedChange = { viewModel.setBiometricLock(it) }
+                    onCheckedChange = { onToggleBiometric(it) }
                 )
             }
 
