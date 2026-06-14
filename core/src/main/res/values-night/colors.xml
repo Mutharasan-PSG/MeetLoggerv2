@@ -6,22 +6,12 @@
     <color name="onBackgroundColor">#F4F4F5</color>
     <color name="onSurfaceColor">#F4F4F5</color>
     <color name="onSurfaceVariant">#A1A1AA</color>
-    <color name="cardBackgroundColor">#18181B</color>
-    <color name="dividerColor">#27272A</color>
 
     <!-- Specific overrides for automatic support -->
     <color name="white">#09090B</color>
     <color name="black">#F4F4F5</color>
-    <color name="Grey">#A1A1AA</color>
-    <color name="Pale_white">#18181B</color>
-    <color name="LightGrey">#27272A</color>
-    <color name="DarkGrey">#D4D4D8</color>
 
     <!-- Colors that should remain constant (like on buttons) -->
     <color name="fixed_white">#FFFFFF</color>
-    <color name="fixed_black">#000000</color>
 
-    <color name="sign_in_button_background_color">#18181B</color>
-    <color name="sign_in_button_text_color">#F4F4F5</color>
-    <color name="ripple_color">#1AFFFFFF</color>
 </resources>
