@@ -41,6 +41,12 @@ class HomeViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    // True only until the very first server fetch resolves (success or error).
+    // Drives the initial list shimmer; never flips back to true so later
+    // refreshes/actions can't re-trigger the shimmer.
+    private val _isInitialLoading = MutableStateFlow(true)
+    val isInitialLoading: StateFlow<Boolean> = _isInitialLoading.asStateFlow()
+
     private val profileDataStore = ProfileDataStore(application)
 
     init {
@@ -58,6 +64,12 @@ class HomeViewModel @Inject constructor(
                 // Structural equality check to avoid unnecessary UI refreshes
                 if (_files.value != tripleList) {
                     _files.value = tripleList
+                }
+                // The local cache flow has produced data: leave the initial
+                // shimmer now so we go straight to the list, never flashing the
+                // empty placeholder in between.
+                if (tripleList.isNotEmpty()) {
+                    _isInitialLoading.value = false
                 }
             }
         }
@@ -80,6 +92,7 @@ class HomeViewModel @Inject constructor(
                 _error.value = result.message ?: "Failed to fetch latest files"
             }
             _isRefreshing.value = false
+            _isInitialLoading.value = false
         }
     }
 

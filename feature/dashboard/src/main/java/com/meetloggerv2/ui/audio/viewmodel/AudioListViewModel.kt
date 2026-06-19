@@ -56,6 +56,12 @@ class AudioListViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    // True only until the first audio-list fetch resolves. Drives the initial
+    // list shimmer and never flips back, so action loading (download/delete/
+    // rename/process) on the shared uiState can't re-trigger the shimmer.
+    private val _isInitialLoading = MutableStateFlow(true)
+    val isInitialLoading: StateFlow<Boolean> = _isInitialLoading.asStateFlow()
+
     fun setQuery(q: String) {
         _query.value = q
     }
@@ -67,12 +73,15 @@ class AudioListViewModel @Inject constructor(
         viewModelScope.launch {
             val result = audioRepository.listRawFilesFromBackend(userId)
             if (result is NetworkResult.Success) {
+                // Set the list before leaving the shimmer so we never flash the
+                // empty placeholder between shimmer and list.
                 _rawAudioFiles.value = result.data?.map { it.substringBeforeLast(".") }?.sorted() ?: emptyList()
                 _uiState.value = AudioUiState.Idle
             } else if (result is NetworkResult.Error) {
                 _uiState.value = AudioUiState.Error(result.message ?: "Failed to list audio files")
             }
             _isRefreshing.value = false
+            _isInitialLoading.value = false
         }
     }
 
@@ -132,10 +141,12 @@ class AudioListViewModel @Inject constructor(
         viewModelScope.launch {
             val result = audioRepository.listRawFilesFromBackend(userId)
             if (result is NetworkResult.Success) {
+                _rawAudioFiles.value = result.data?.map { it.substringBeforeLast(".") }?.sorted() ?: emptyList()
                 _uiState.value = AudioUiState.Idle
             } else if (result is NetworkResult.Error) {
                 _uiState.value = AudioUiState.Error(result.message ?: "Failed to fetch files")
             }
+            _isInitialLoading.value = false
         }
     }
 
@@ -152,8 +163,11 @@ class AudioListViewModel @Inject constructor(
                 }
             }
             if (successCount == names.size) {
-                fetchAudioFiles()
+                // Update the in-memory list immediately so the change shows
+                // instantly; the fetch below just reconciles with the server.
+                _rawAudioFiles.value = _rawAudioFiles.value.filterNot { it in names }
                 _uiState.value = AudioUiState.Idle
+                fetchAudioFiles()
             } else {
                 _uiState.value = AudioUiState.Error("Some files failed to delete")
             }
@@ -168,8 +182,13 @@ class AudioListViewModel @Inject constructor(
             val result = fileRepository.renameFileOnBackend(userId, oldName, newName)
             when (result) {
                 is NetworkResult.Success -> {
-                    fetchAudioFiles()
+                    // Rename in the in-memory list immediately for an instant UI
+                    // update; the fetch below just reconciles with the server.
+                    _rawAudioFiles.value = _rawAudioFiles.value
+                        .map { if (it == oldName) newName else it }
+                        .sorted()
                     _uiState.value = AudioUiState.Idle
+                    fetchAudioFiles()
                 }
                 is NetworkResult.Error -> _uiState.value = AudioUiState.Error(result.message ?: "Rename failed")
                 else -> {}

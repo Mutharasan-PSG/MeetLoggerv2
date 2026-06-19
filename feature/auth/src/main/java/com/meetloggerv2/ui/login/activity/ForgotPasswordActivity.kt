@@ -240,6 +240,9 @@ fun ForgotPasswordScreen(
                 label = { Text("Email Address") },
                 isError = emailError != null,
                 supportingText = emailError?.let { { Text(text = it) } },
+                // Lock the field while the reset request is in flight to prevent
+                // accidental retyping until success/failure is reached.
+                enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 keyboardOptions = KeyboardOptions(

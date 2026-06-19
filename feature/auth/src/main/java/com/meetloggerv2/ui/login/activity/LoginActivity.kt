@@ -574,6 +574,9 @@ fun LoginScreen(
                     label = { Text("Email Address") },
                     isError = emailError != null,
                     supportingText = emailError?.let { { Text(text = it) } },
+                    // Lock the field while a login is in flight to prevent
+                    // accidental retyping until success/failure is reached.
+                    enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     keyboardOptions = KeyboardOptions(
@@ -617,6 +620,9 @@ fun LoginScreen(
                     label = { Text("Password") },
                     isError = passwordError != null,
                     supportingText = passwordError?.let { { Text(text = it) } },
+                    // Lock the field while a login is in flight to prevent
+                    // accidental retyping until success/failure is reached.
+                    enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),

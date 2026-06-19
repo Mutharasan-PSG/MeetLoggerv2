@@ -9,7 +9,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -166,7 +165,7 @@ class AudioListFragment : Fragment() {
                             currentTimeStr = currentTimeStrState.value,
                             totalTimeStr = totalTimeStrState.value,
                             autoPlayNext = autoPlayNextState.value,
-                            onBack = { parentFragmentManager.popBackStack() },
+                            onBack = { requireActivity().onBackPressedDispatcher.onBackPressed() },
                             onToggleAutoPlay = { autoPlayNextState.value = !autoPlayNextState.value },
                             onPlayItem = { name, index ->
                                 currentAudioIndex = index
@@ -482,38 +481,26 @@ fun AudioListScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    // Used only to disable interactions during actions; not for the list shimmer.
     val isLoading = uiState is AudioListViewModel.AudioUiState.Loading
+    val isInitialLoading by viewModel.isInitialLoading.collectAsState()
 
-    val files by viewModel.filteredAudioFiles.collectAsState(initial = emptyList())
+    // No `initial` override: filteredAudioFiles is a StateFlow that already holds
+    // its current value, so on back-press the cached list shows immediately
+    // instead of flashing empty and replaying the shimmer/crossfade.
+    val files by viewModel.filteredAudioFiles.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var isDeleteMode by remember { mutableStateOf(false) }
     val selectedFiles = remember { mutableStateListOf<String>() }
 
-    // Shimmer states to avoid flicker and support smooth updates
-    val previousFiles = remember { mutableStateOf<List<String>?>(null) }
-    var showUpdateShimmer by remember { mutableStateOf(false) }
-
-    LaunchedEffect(files) {
-        if (searchQuery.isEmpty() && previousFiles.value != null && previousFiles.value != files) {
-            showUpdateShimmer = true
-            kotlinx.coroutines.delay(300)
-            showUpdateShimmer = false
-        }
-        previousFiles.value = files
-    }
-
-    var forceShimmer by remember { mutableStateOf(files.isEmpty()) }
-    LaunchedEffect(Unit) {
-        if (files.isEmpty()) {
-            kotlinx.coroutines.delay(300)
-            forceShimmer = false
-        } else {
-            forceShimmer = false
-        }
-    }
-
-    val showInitialShimmer = files.isEmpty() && (isLoading || isRefreshing)
+    // Show the shimmer whenever the list is empty AND an update is in flight
+    // (first load or refresh — which also covers the re-fetch after delete/
+    // rename). This guarantees the empty placeholder never flashes during an
+    // update; it appears only when the list is *confirmed* empty.
+    val isUpdating = isInitialLoading || isRefreshing
+    val showShimmer = files.isEmpty() && isUpdating
+    val showEmptyState = files.isEmpty() && !isUpdating
 
     var renamingPosition by remember { mutableStateOf(-1) }
     var renameText by remember { mutableStateOf("") }
@@ -718,14 +705,14 @@ fun AudioListScreen(
                         }
                     }
 
-                    if (showInitialShimmer || showUpdateShimmer) {
+                    if (showShimmer) {
                         Column {
                             repeat(6) {
                                 ShimmerItem()
                                 Spacer(modifier = Modifier.height(10.dp))
                             }
                         }
-                    } else if (files.isEmpty()) {
+                    } else if (showEmptyState) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -769,6 +756,7 @@ fun AudioListScreen(
                                     ),
                                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                                     modifier = Modifier
+                                        .animateItem()
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(16.dp))
                                         .combinedClickable(

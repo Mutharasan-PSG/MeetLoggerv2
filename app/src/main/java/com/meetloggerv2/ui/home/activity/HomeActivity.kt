@@ -110,10 +110,20 @@ class HomeActivity : AppCompatActivity(), NavigationRouter {
     }
 
     private fun loadFragment(fragment: Fragment, addToBackStack: Boolean = false) {
-        val transaction = supportFragmentManager.beginTransaction()
-            .replace(AppLayoutIds.FRAGMENT_CONTAINER, fragment)
+        val fm = supportFragmentManager
+        val transaction = fm.beginTransaction()
         if (addToBackStack) {
+            // Forward navigation: hide (don't destroy) the currently visible
+            // fragment and add the new one on top. On back-pop the added fragment
+            // is removed and the hidden one is shown again with its view fully
+            // intact — so screens like Home never get recreated and never
+            // re-settle their window insets (no "slide down from the top").
+            fm.fragments.lastOrNull { it.isVisible }?.let { transaction.hide(it) }
+            transaction.add(AppLayoutIds.FRAGMENT_CONTAINER, fragment)
             transaction.addToBackStack(null)
+        } else {
+            // Root navigation (e.g. Home): replace everything in the container.
+            transaction.replace(AppLayoutIds.FRAGMENT_CONTAINER, fragment)
         }
         transaction.commit()
     }

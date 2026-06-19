@@ -103,10 +103,15 @@ class FileRepository @Inject constructor(
     }
 
     override suspend fun deleteFileOnBackend(userId: String, fileName: String): NetworkResult<Unit> {
-        return safeApiCall { 
+        return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
             val response = apiService.deleteFile("Bearer $firebaseToken", mapOf("userId" to userId, "fileName" to fileName))
-            if (response.isSuccessful) retrofit2.Response.success(Unit)
+            if (response.isSuccessful) {
+                // Optimistically update the local cache so the list Flow reflects
+                // the change instantly, without waiting for a follow-up list fetch.
+                try { localFileDao.deleteFile(userId, fileName) } catch (_: Exception) {}
+                retrofit2.Response.success(Unit)
+            }
             else retrofit2.Response.error(response.code(), response.errorBody()!!)
         }
     }
@@ -115,7 +120,17 @@ class FileRepository @Inject constructor(
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
             val response = apiService.renameFile("Bearer $firebaseToken", mapOf("userId" to userId, "oldName" to oldName, "newName" to newName))
-            if (response.isSuccessful) retrofit2.Response.success(Unit)
+            if (response.isSuccessful) {
+                // Optimistically rename in the local cache for an instant UI update.
+                try {
+                    val existing = localFileDao.getFileDetails(userId, oldName)
+                    if (existing != null) {
+                        localFileDao.deleteFile(userId, oldName)
+                        localFileDao.insertFile(existing.copy(fileName = newName))
+                    }
+                } catch (_: Exception) {}
+                retrofit2.Response.success(Unit)
+            }
             else retrofit2.Response.error(response.code(), response.errorBody()!!)
         }
     }
@@ -126,6 +141,13 @@ class FileRepository @Inject constructor(
             val response = apiService.copyFile("Bearer $firebaseToken", mapOf("userId" to userId, "oldName" to oldName, "newName" to newName))
             if (response.isSuccessful && response.body() != null) {
                 val serverName = response.body()!!["newName"] ?: newName
+                // Optimistically add the copy to the local cache for an instant UI update.
+                try {
+                    val existing = localFileDao.getFileDetails(userId, oldName)
+                    if (existing != null) {
+                        localFileDao.insertFile(existing.copy(fileName = serverName, audioUrl = null, isCopy = true))
+                    }
+                } catch (_: Exception) {}
                 retrofit2.Response.success(serverName)
             } else {
                 retrofit2.Response.error(response.code(), response.errorBody()!!)

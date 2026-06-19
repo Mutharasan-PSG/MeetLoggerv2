@@ -388,6 +388,9 @@ fun SignUpScreen(
                 label = { Text("Full Name") },
                 isError = nameError != null,
                 supportingText = nameError?.let { { Text(text = it) } },
+                // Lock the field while sign-up is in flight to prevent accidental
+                // retyping until success/failure is reached.
+                enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 keyboardOptions = KeyboardOptions(
@@ -431,6 +434,7 @@ fun SignUpScreen(
                 label = { Text("Email Address") },
                 isError = emailError != null,
                 supportingText = emailError?.let { { Text(text = it) } },
+                enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 keyboardOptions = KeyboardOptions(
@@ -474,6 +478,7 @@ fun SignUpScreen(
                 label = { Text("Password") },
                 isError = passwordError != null,
                 supportingText = passwordError?.let { { Text(text = it) } },
+                enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -525,6 +530,7 @@ fun SignUpScreen(
                 label = { Text("Confirm Password") },
                 isError = confirmPasswordError != null,
                 supportingText = confirmPasswordError?.let { { Text(text = it) } },
+                enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),

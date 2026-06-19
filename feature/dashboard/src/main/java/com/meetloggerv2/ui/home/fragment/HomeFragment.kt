@@ -69,7 +69,6 @@ import com.meetloggerv2.ui.audio.util.PlanLimitDialog
 import com.meetloggerv2.ui.home.viewmodel.HomeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -188,37 +187,24 @@ fun HomeScreenContent(
     onShowUploadSheet: () -> Unit
 ) {
     val context = LocalContext.current
-    val files by viewModel.files.collectAsState(initial = emptyList())
+    // No `initial` override: files is a StateFlow that already holds its current
+    // value, so on back-press the cached list shows on the first frame instead of
+    // flashing empty (which would replay the shimmer/crossfade — the "hit" feel).
+    val files by viewModel.files.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
+    val isInitialLoading by viewModel.isInitialLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var showAudioOptions by remember { mutableStateOf(false) }
 
-    // Shimmer states to avoid flicker and support smooth updates
-    val previousFiles = remember { mutableStateOf<List<Triple<String, String, com.google.firebase.Timestamp>>?>(null) }
-    var showUpdateShimmer by remember { mutableStateOf(false) }
-
-    LaunchedEffect(files) {
-        if (previousFiles.value != null && previousFiles.value != files) {
-            showUpdateShimmer = true
-            delay(300)
-            showUpdateShimmer = false
-        }
-        previousFiles.value = files
-    }
-
-    var forceShimmer by remember { mutableStateOf(files.isEmpty()) }
-    LaunchedEffect(Unit) {
-        if (files.isEmpty()) {
-            delay(300)
-            forceShimmer = false
-        } else {
-            forceShimmer = false
-        }
-    }
-
-    val showInitialShimmer = files.isEmpty() && (isRefreshing || forceShimmer)
+    // Show the shimmer whenever the list is empty AND an update is in flight
+    // (first load or refresh). This guarantees we never flash the empty-state
+    // placeholder during an update — the empty state is shown only once it's
+    // *confirmed* empty, i.e. nothing is loading.
+    val isUpdating = isInitialLoading || isRefreshing
+    val showShimmer = files.isEmpty() && isUpdating
+    val showEmptyState = files.isEmpty() && !isUpdating
 
     val filteredFiles = remember(files, searchQuery) {
         if (searchQuery.isEmpty()) files
@@ -317,7 +303,7 @@ fun HomeScreenContent(
                     }
 
                     // Search View - Hidden during initial premium shimmer
-                    if (files.isNotEmpty() && !showInitialShimmer) {
+                    if (files.isNotEmpty() && !showShimmer) {
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
@@ -351,19 +337,24 @@ fun HomeScreenContent(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // File List or Placeholder - Use shimmer during updates to avoid flicker
-                    if (showInitialShimmer || showUpdateShimmer) {
+                    // File List or Placeholder - crossfade so content fades in
+                    // smoothly instead of snapping when the list resolves.
+                    Crossfade(
+                        targetState = showShimmer,
+                        animationSpec = tween(durationMillis = 350),
+                        modifier = Modifier.weight(1f),
+                        label = "homeContent"
+                    ) { shimmering ->
+                    if (shimmering) {
                         Column {
                             repeat(6) {
                                 ShimmerItem()
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
                         }
-                    } else if (files.isEmpty()) {
+                    } else if (showEmptyState) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
+                            modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             EmptyStatePlaceholder(
@@ -374,9 +365,7 @@ fun HomeScreenContent(
                         }
                     } else if (filteredFiles.isEmpty()) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
+                            modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -389,9 +378,7 @@ fun HomeScreenContent(
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
+                            modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
                         ) {
@@ -407,6 +394,7 @@ fun HomeScreenContent(
                                     ),
                                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                                     modifier = Modifier
+                                        .animateItem()
                                         .fillMaxWidth()
                                         .pressScaleClick { /* No action, status indication only */ }
                                         .clip(RoundedCornerShape(16.dp))
@@ -504,14 +492,14 @@ fun HomeScreenContent(
                             }
                         }
                     }
+                    }
                 }
             }
 
-            // Sleek Custom Floating Bottom Navigation Bar
+            // Legacy bottom navigation bar stuck to the bottom edge with a top
+            // highlighter line indicating the active section.
             CustomFloatingBottomBar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 16.dp),
+                modifier = Modifier.align(Alignment.BottomCenter),
                 onNavigateToReport = onNavigateToReport,
                 onNavigateToAudio = onNavigateToAudio
             )
@@ -757,37 +745,43 @@ fun CustomFloatingBottomBar(
     onNavigateToAudio: () -> Unit
 ) {
     Surface(
-        modifier = modifier
-            .fillMaxWidth(0.9f)
-            .height(56.dp),
-        shape = RoundedCornerShape(28.dp),
+        modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
-        shadowElevation = 8.dp
+        shadowElevation = 12.dp
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BottomNavItem(
-                icon = Icons.Default.Home,
-                label = "Home",
-                selected = true,
-                onClick = {}
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Subtle divider separating the bar from the content above it.
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
             )
-            BottomNavItem(
-                icon = Icons.Default.Description,
-                label = "Files",
-                selected = false,
-                onClick = onNavigateToReport
-            )
-            BottomNavItem(
-                icon = Icons.Default.GraphicEq,
-                label = "Audio",
-                selected = false,
-                onClick = onNavigateToAudio
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(68.dp)
+                    .navigationBarsPadding(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BottomNavItem(
+                    icon = Icons.Default.Home,
+                    label = "Home",
+                    selected = true,
+                    onClick = {}
+                )
+                BottomNavItem(
+                    icon = Icons.Default.Description,
+                    label = "Files",
+                    selected = false,
+                    onClick = onNavigateToReport
+                )
+                BottomNavItem(
+                    icon = Icons.Default.GraphicEq,
+                    label = "Audio",
+                    selected = false,
+                    onClick = onNavigateToAudio
+                )
+            }
         }
     }
 }
@@ -803,53 +797,49 @@ fun RowScope.BottomNavItem(
         targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         label = "color"
     )
-    val scale by animateFloatAsState(
-        targetValue = if (selected) 1.15f else 1.0f,
+    // Animated fraction of the item width covered by the top highlighter line.
+    val indicatorFraction by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
         animationSpec = tween(durationMillis = 250),
-        label = "scale"
+        label = "indicatorFraction"
     )
 
     Column(
         modifier = Modifier
             .weight(1f)
-            .fillMaxHeight() // Fill full height for vertical centering
+            .fillMaxHeight()
             .pressScaleClick(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
-        // Extra top spacing as requested
-        Spacer(modifier = Modifier.height(6.dp))
-        
+        // Top highlighter line spanning the section width (modern style).
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(indicatorFraction)
+                .height(4.dp)
+                .clip(RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
+                .background(MaterialTheme.colorScheme.primary)
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = color,
-            modifier = Modifier
-                .size(20.dp)
-                .graphicsLayer(scaleX = scale, scaleY = scale)
+            modifier = Modifier.size(28.dp)
         )
-        
-        Spacer(modifier = Modifier.height(4.dp))
-        
+
+        Spacer(modifier = Modifier.height(5.dp))
+
         Text(
             text = label,
-            fontSize = 10.sp,
+            fontSize = 13.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             color = color,
             maxLines = 1
         )
-        
-        Spacer(modifier = Modifier.height(2.dp))
-        
-        // Smooth scaling indicator dot
-        Box(
-            modifier = Modifier
-                .size(if (selected) 4.dp else 0.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
-        )
-        
-        // Bottom spacer to ensure the dot isn't touching the edge
-        Spacer(modifier = Modifier.height(4.dp))
+
+        Spacer(modifier = Modifier.weight(1f))
     }
 }

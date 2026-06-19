@@ -47,6 +47,12 @@ class ReportViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    // True only until the first list fetch resolves. Drives the initial list
+    // shimmer and never flips back, so action loading (delete/rename/copy/
+    // fetch-details) on the shared uiState can't re-trigger the shimmer.
+    private val _isInitialLoading = MutableStateFlow(true)
+    val isInitialLoading: StateFlow<Boolean> = _isInitialLoading.asStateFlow()
+
     fun setQuery(q: String) {
         _query.value = q
     }
@@ -67,6 +73,12 @@ class ReportViewModel @Inject constructor(
                 if (_rawFiles.value != list) {
                     _rawFiles.value = list
                 }
+                // The local cache flow has produced data: leave the initial
+                // shimmer now so we go straight to the list, never flashing the
+                // empty placeholder in between.
+                if (list.isNotEmpty()) {
+                    _isInitialLoading.value = false
+                }
             }
         }
     }
@@ -85,6 +97,7 @@ class ReportViewModel @Inject constructor(
                 _uiState.value = ReportUiState.Idle
             }
             _isRefreshing.value = false
+            _isInitialLoading.value = false
         }
     }
 

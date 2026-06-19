@@ -6,7 +6,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -53,7 +57,6 @@ import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
 import com.meetloggerv2.ui.profile.viewmodel.ProfileViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
@@ -79,7 +82,7 @@ class ProfileFragment : Fragment() {
                 MeetLoggerTheme {
                     ProfileScreen(
                         viewModel = viewModel,
-                        onBack = { parentFragmentManager.popBackStack() },
+                        onBack = { requireActivity().onBackPressedDispatcher.onBackPressed() },
                         onNavigateToLegal = { type -> findNavigationRouter()?.navigateToLegal(type) },
                         onNavigateToHelpSupport = { findNavigationRouter()?.navigateToHelpSupport() },
                         onNavigateToSettings = { findNavigationRouter()?.navigateToSettings() },
@@ -99,7 +102,6 @@ class ProfileFragment : Fragment() {
                             // Can show loading indicator if desired
                         }
                         is ProfileViewModel.SignOutState.Success -> {
-                            hasShimmered = false
                             findNavigationRouter()?.navigateToLogin()
                         }
                         is ProfileViewModel.SignOutState.Error -> {
@@ -114,9 +116,6 @@ class ProfileFragment : Fragment() {
         }
     }
 
-    companion object {
-        var hasShimmered = false
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -137,15 +136,11 @@ fun ProfileScreen(
 
     var showSignOutConfirmDialog by remember { mutableStateOf(false) }
 
-    // Premium Loading: Show shimmer for 0.3 seconds on first entry only
-    var forceShimmer by remember { mutableStateOf(!ProfileFragment.hasShimmered) }
-    LaunchedEffect(Unit) {
-        if (!ProfileFragment.hasShimmered) {
-            delay(300)
-            ProfileFragment.hasShimmered = true
-            forceShimmer = false
-        }
-    }
+    // Show the shimmer until the profile data is actually loaded. This is tied
+    // to real load state (not a fixed timer), so it behaves the same on every
+    // visit and never reveals a half-rendered screen (e.g. the Sign Out button
+    // floating at the top) before the profile content is ready.
+    val showShimmer = userProfile == null
 
     val appVersion = remember {
         try {
@@ -206,12 +201,18 @@ fun ProfileScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (forceShimmer) {
+            Crossfade(
+                targetState = showShimmer,
+                animationSpec = tween(durationMillis = 350),
+                modifier = Modifier.weight(1f),
+                label = "profileContent"
+            ) { shimmering ->
+            if (shimmering) {
                 ShimmerProfile()
             } else {
                 Column(
                     modifier = Modifier
-                        .weight(1f) // Take up all available space
+                        .fillMaxSize()
                         .verticalScroll(scrollState),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -299,13 +300,6 @@ fun ProfileScreen(
                                 onClick = { if (!isSigningOut) onNavigateToHelpSupport() }
                             )
                         }
-                    } ?: run {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))
@@ -356,9 +350,14 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             }
+            }
 
-            // Version text stuck to the absolute bottom - Hidden during shimmer
-            if (!forceShimmer) {
+            // Version text stuck to the absolute bottom - fades in with the content
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !showShimmer,
+                enter = fadeIn(animationSpec = tween(350)),
+                exit = fadeOut(animationSpec = tween(150))
+            ) {
                 Text(
                     text = appVersion,
                     fontSize = 14.sp,

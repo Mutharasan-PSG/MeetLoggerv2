@@ -8,8 +8,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -241,7 +241,10 @@ class ReportFragment : Fragment() {
     }
 
     private fun handleBackPressed() {
-        parentFragmentManager.popBackStack()
+        // Route through the back dispatcher (same path as the system/gesture back)
+        // so the toolbar back arrow produces the identical animated transition
+        // instead of an un-animated pop that makes Home snap in from the top.
+        requireActivity().onBackPressedDispatcher.onBackPressed()
     }
 }
 
@@ -259,39 +262,27 @@ fun ReportScreenContent(
 ) {
     val context = LocalContext.current
 
-    val files by viewModel.filteredFiles.collectAsState(initial = emptyList())
+    // No `initial` override: filteredFiles is a StateFlow that already holds its
+    // current value, so on back-press the cached list shows immediately instead
+    // of flashing empty and replaying the shimmer/crossfade.
+    val files by viewModel.filteredFiles.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val isInitialLoading by viewModel.isInitialLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    // Used only to disable buttons during actions; not for the list shimmer.
     val isLoading = uiState is ReportViewModel.ReportUiState.Loading
 
     var searchQuery by remember { mutableStateOf("") }
     var isDeleteMode by remember { mutableStateOf(false) }
     val selectedFiles = remember { mutableStateListOf<String>() }
 
-    // Shimmer states to avoid flicker and support smooth updates
-    val previousFiles = remember { mutableStateOf<List<Triple<String, com.google.firebase.Timestamp, String>>?>(null) }
-    var showUpdateShimmer by remember { mutableStateOf(false) }
-
-    LaunchedEffect(files) {
-        if (searchQuery.isEmpty() && previousFiles.value != null && previousFiles.value != files) {
-            showUpdateShimmer = true
-            delay(300)
-            showUpdateShimmer = false
-        }
-        previousFiles.value = files
-    }
-
-    var forceShimmer by remember { mutableStateOf(files.isEmpty()) }
-    LaunchedEffect(Unit) {
-        if (files.isEmpty()) {
-            delay(300)
-            forceShimmer = false
-        } else {
-            forceShimmer = false
-        }
-    }
-
-    val showInitialShimmer = files.isEmpty() && (isLoading || isRefreshing)
+    // Show the shimmer whenever the list is empty AND an update is in flight
+    // (first load or refresh — which also covers the re-fetch after rename/
+    // delete/copy). This guarantees the empty placeholder never flashes during
+    // an update; it appears only when the list is *confirmed* empty.
+    val isUpdating = isInitialLoading || isRefreshing
+    val showShimmer = files.isEmpty() && isUpdating
+    val showEmptyState = files.isEmpty() && !isUpdating
 
     var renamingPosition by remember { mutableStateOf(-1) }
     var renameText by remember { mutableStateOf("") }
@@ -442,10 +433,29 @@ fun ReportScreenContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = 24.dp)
                 ) {
-                    // Search Bar - Hidden during initial premium shimmer
-                    if ((files.isNotEmpty() && !showInitialShimmer) || searchQuery.isNotEmpty()) {
+                  // Minimal shimmer (like Profile): while the first load is in
+                  // flight show only the shimmer for the whole content area, then
+                  // crossfade the real content (search + list) in together — so
+                  // nothing pops in staged from the top.
+                  Crossfade(
+                      targetState = showShimmer,
+                      animationSpec = tween(durationMillis = 350),
+                      modifier = Modifier.fillMaxSize(),
+                      label = "reportContent"
+                  ) { shimmering ->
+                   if (shimmering) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            repeat(6) {
+                                ShimmerItem()
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                   } else {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                    // Search Bar
+                    if (files.isNotEmpty() || searchQuery.isNotEmpty()) {
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = {
@@ -529,14 +539,7 @@ fun ReportScreenContent(
                         }
                     }
 
-                    if (showInitialShimmer || showUpdateShimmer) {
-                        Column {
-                            repeat(6) {
-                                ShimmerItem()
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                    } else if (files.isEmpty()) {
+                    if (showEmptyState) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -576,6 +579,7 @@ fun ReportScreenContent(
 
                                 Card(
                                     modifier = Modifier
+                                        .animateItem()
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(16.dp))
                                         .combinedClickable(
@@ -802,6 +806,9 @@ fun ReportScreenContent(
                             }
                         }
                     }
+                    } // end inner content Column
+                   } // end Crossfade else branch
+                  } // end Crossfade
                 }
 
                 if (uiState is ReportViewModel.ReportUiState.Loading) {
