@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.meetloggerv2.core"
+    namespace = "com.meetloggerv2.core"
     compileSdk = 37
 
     defaultConfig {
