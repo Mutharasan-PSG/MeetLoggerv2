@@ -37,10 +37,10 @@ class SupportViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val token = getFirebaseIdToken()
-                val request = SupportRequest(userId, email, name, subject, body, token)
+                val request = SupportRequest(email, name, subject, body, token)
                 
                 val result = safeApiCall {
-                    apiService.submitSupport("Bearer $token", request)
+                    apiService.submitSupport("Bearer $token", userId, request)
                 }
                 
                 when (result) {

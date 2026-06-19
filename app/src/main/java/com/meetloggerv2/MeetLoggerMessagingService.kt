@@ -53,7 +53,8 @@ class MeetLoggerMessagingService : FirebaseMessagingService() {
                     )
                     val response = RetrofitClient.apiService.registerFcmToken(
                         "Bearer $idToken",
-                        FcmTokenRequest(userId, token, deviceId)
+                        userId,
+                        FcmTokenRequest(token, deviceId)
                     )
                     if (response.isSuccessful) {
                         Log.d("FCMService", "FCM token registered with server successfully.")

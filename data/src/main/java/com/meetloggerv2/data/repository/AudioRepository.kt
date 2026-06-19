@@ -60,7 +60,6 @@ class AudioRepository(
         val fileRequestBody = file.asRequestBody("audio/mpeg".toMediaTypeOrNull())
         val filePart = MultipartBody.Part.createFormData("file", file.name, fileRequestBody)
         
-        val userIdBody = userId.toRequestBody("text/plain".toMediaTypeOrNull())
         val fileNameBody = fileName.toRequestBody("text/plain".toMediaTypeOrNull())
         val speakersBody = speakersJson.toRequestBody("text/plain".toMediaTypeOrNull())
         val followUpFileNameBody = followUpFileName.toRequestBody("text/plain".toMediaTypeOrNull())
@@ -72,8 +71,8 @@ class AudioRepository(
             val firebaseToken = getFirebaseIdToken()
             apiService.uploadAudio(
                 "Bearer $firebaseToken",
+                userId,
                 filePart,
-                userIdBody,
                 fileNameBody,
                 speakersBody,
                 followUpFileNameBody,
@@ -153,7 +152,7 @@ class AudioRepository(
     override suspend fun getUploadUrl(userId: String, fileName: String): NetworkResult<String> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
-            val response = apiService.getUploadUrl("Bearer $firebaseToken", mapOf("userId" to userId, "fileName" to fileName))
+            val response = apiService.getUploadUrl("Bearer $firebaseToken", userId, mapOf("fileName" to fileName))
             if (response.isSuccessful && response.body() != null) {
                 val url = response.body()!!["uploadUrl"] ?: ""
                 retrofit2.Response.success(url)

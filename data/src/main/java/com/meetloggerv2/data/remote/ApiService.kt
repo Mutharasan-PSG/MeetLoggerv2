@@ -10,11 +10,11 @@ import com.meetloggerv2.core.model.CheckEmailResponse
 
 interface ApiService {
     @Multipart
-    @POST("upload")
+    @POST("users/{userId}/files")
     suspend fun uploadAudio(
         @Header("Authorization") authorization: String,
+        @Path("userId") userId: String,
         @Part file: MultipartBody.Part,
-        @Part("userId") userId: RequestBody,
         @Part("fileName") fileName: RequestBody,
         @Part("speakers") speakers: RequestBody,
         @Part("followUpFileName") followUpFileName: RequestBody,
@@ -23,83 +23,94 @@ interface ApiService {
         @Part("userName") userName: RequestBody
     ): Response<ResponseBody>
 
-    @POST("support")
+    @POST("users/{userId}/support")
     suspend fun submitSupport(
         @Header("Authorization") authorization: String,
+        @Path("userId") userId: String,
         @Body request: SupportRequest
     ): Response<ResponseBody>
 
-    @POST("check-email")
+    @POST("auth/check-email")
     suspend fun checkEmail(
         @Body request: Map<String, String>
     ): Response<CheckEmailResponse>
 
     // --- File Operations ---
 
-    @GET("files/{userId}")
+    @GET("users/{userId}/files")
     suspend fun listFiles(
         @Header("Authorization") authorization: String,
         @Path("userId") userId: String
     ): Response<List<Map<String, Any>>>
 
-    @GET("files/{userId}/{fileName}")
+    @GET("users/{userId}/files/{fileName}")
     suspend fun getFileDetails(
         @Header("Authorization") authorization: String,
         @Path("userId") userId: String,
         @Path("fileName") fileName: String
     ): Response<Map<String, Any>>
 
-    @POST("files/rename")
+    @PATCH("users/{userId}/files/{fileName}/rename")
     suspend fun renameFile(
         @Header("Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("fileName") fileName: String,
         @Body request: Map<String, String>
     ): Response<Map<String, String>>
 
-    @POST("files/delete")
+    @DELETE("users/{userId}/files/{fileName}")
     suspend fun deleteFile(
         @Header("Authorization") authorization: String,
-        @Body request: Map<String, String>
+        @Path("userId") userId: String,
+        @Path("fileName") fileName: String
     ): Response<Map<String, String>>
 
-    @POST("files/copy")
+    @POST("users/{userId}/files/{fileName}/copy")
     suspend fun copyFile(
         @Header("Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("fileName") fileName: String,
         @Body request: Map<String, String>
     ): Response<Map<String, String>>
 
-    @POST("files/save-as-new")
+    @POST("users/{userId}/files/{fileName}/save-as-new")
     suspend fun saveAsNewCopy(
         @Header("Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("fileName") fileName: String,
         @Body request: SaveAsNewRequest
     ): Response<Map<String, String>>
 
-    @POST("files/update")
+    @PATCH("users/{userId}/files/{fileName}")
     suspend fun updateFileContent(
         @Header("Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("fileName") fileName: String,
         @Body request: FileUpdateRequest
     ): Response<Map<String, String>>
 
-    @POST("files/upload-url")
+    @POST("users/{userId}/files/presigned-upload-url")
     suspend fun getUploadUrl(
         @Header("Authorization") authorization: String,
+        @Path("userId") userId: String,
         @Body request: Map<String, String>
     ): Response<Map<String, String>>
 
-    @GET("files/playback-url/{userId}/{fileName}")
+    @GET("users/{userId}/files/{fileName}/playback-url")
     suspend fun getPlaybackUrl(
         @Header("Authorization") authorization: String,
         @Path("userId") userId: String,
         @Path("fileName") fileName: String
     ): Response<Map<String, String>>
 
-    @GET("files/download/{userId}/{fileName}")
+    @GET("users/{userId}/files/{fileName}/download")
     suspend fun downloadAudioFile(
         @Header("Authorization") authorization: String,
         @Path("userId") userId: String,
         @Path("fileName") fileName: String
     ): Response<ResponseBody>
 
-    @GET("files/raw/{userId}")
+    @GET("users/{userId}/files/raw")
     suspend fun listRawFiles(
         @Header("Authorization") authorization: String,
         @Path("userId") userId: String
@@ -114,46 +125,42 @@ interface ApiService {
 
     // --- User Profile ---
 
-    @GET("user/{userId}")
+    @GET("users/{userId}")
     suspend fun getUserProfile(
         @Header("Authorization") authorization: String,
         @Path("userId") userId: String
     ): Response<Map<String, Any>>
 
-    @POST("user/update")
+    @PATCH("users/{userId}")
     suspend fun updateUserProfile(
         @Header("Authorization") authorization: String,
+        @Path("userId") userId: String,
         @Body request: ProfileUpdateRequest
     ): Response<Map<String, String>>
 
     // --- FCM Token ---
 
-    @POST("user/fcm-token")
+    @POST("users/{userId}/fcm-tokens")
     suspend fun registerFcmToken(
         @Header("Authorization") authorization: String,
+        @Path("userId") userId: String,
         @Body request: FcmTokenRequest
     ): Response<Map<String, String>>
 }
 
 data class FileUpdateRequest(
-    val userId: String,
-    val fileName: String,
     val updates: Map<String, Any>
 )
 
 data class SaveAsNewRequest(
-    val userId: String,
-    val fileName: String,
     val data: Map<String, Any>
 )
 
 data class ProfileUpdateRequest(
-    val userId: String,
     val updates: Map<String, Any>
 )
 
 data class SupportRequest(
-    val userId: String,
     val email: String,
     val name: String,
     val subject: String,
@@ -162,7 +169,6 @@ data class SupportRequest(
 )
 
 data class FcmTokenRequest(
-    val userId: String,
     val token: String,
     val deviceId: String
 )

@@ -105,7 +105,7 @@ class FileRepository @Inject constructor(
     override suspend fun deleteFileOnBackend(userId: String, fileName: String): NetworkResult<Unit> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
-            val response = apiService.deleteFile("Bearer $firebaseToken", mapOf("userId" to userId, "fileName" to fileName))
+            val response = apiService.deleteFile("Bearer $firebaseToken", userId, fileName)
             if (response.isSuccessful) {
                 // Optimistically update the local cache so the list Flow reflects
                 // the change instantly, without waiting for a follow-up list fetch.
@@ -119,7 +119,7 @@ class FileRepository @Inject constructor(
     override suspend fun renameFileOnBackend(userId: String, oldName: String, newName: String): NetworkResult<Unit> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
-            val response = apiService.renameFile("Bearer $firebaseToken", mapOf("userId" to userId, "oldName" to oldName, "newName" to newName))
+            val response = apiService.renameFile("Bearer $firebaseToken", userId, oldName, mapOf("newName" to newName))
             if (response.isSuccessful) {
                 // Optimistically rename in the local cache for an instant UI update.
                 try {
@@ -138,7 +138,7 @@ class FileRepository @Inject constructor(
     override suspend fun copyFileOnBackend(userId: String, oldName: String, newName: String): NetworkResult<String> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
-            val response = apiService.copyFile("Bearer $firebaseToken", mapOf("userId" to userId, "oldName" to oldName, "newName" to newName))
+            val response = apiService.copyFile("Bearer $firebaseToken", userId, oldName, mapOf("newName" to newName))
             if (response.isSuccessful && response.body() != null) {
                 val serverName = response.body()!!["newName"] ?: newName
                 // Optimistically add the copy to the local cache for an instant UI update.
@@ -158,7 +158,7 @@ class FileRepository @Inject constructor(
     override suspend fun saveAsNewCopyOnBackend(userId: String, fileName: String, data: Map<String, Any>): NetworkResult<String> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
-            val response = apiService.saveAsNewCopy("Bearer $firebaseToken", com.meetloggerv2.data.remote.SaveAsNewRequest(userId, fileName, data))
+            val response = apiService.saveAsNewCopy("Bearer $firebaseToken", userId, fileName, com.meetloggerv2.data.remote.SaveAsNewRequest(data))
             if (response.isSuccessful && response.body() != null) {
                 val serverName = response.body()!!["newName"] ?: fileName
                 retrofit2.Response.success(serverName)
@@ -171,7 +171,7 @@ class FileRepository @Inject constructor(
     override suspend fun updateFileContentOnBackend(userId: String, fileName: String, updates: Map<String, Any>): NetworkResult<Unit> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
-            val response = apiService.updateFileContent("Bearer $firebaseToken", FileUpdateRequest(userId, fileName, updates))
+            val response = apiService.updateFileContent("Bearer $firebaseToken", userId, fileName, FileUpdateRequest(updates))
             if (response.isSuccessful) retrofit2.Response.success(Unit)
             else retrofit2.Response.error(response.code(), response.errorBody()!!)
         }
@@ -187,7 +187,7 @@ class FileRepository @Inject constructor(
     override suspend fun updateUserProfileOnBackend(userId: String, updates: Map<String, Any>): NetworkResult<Unit> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
-            val response = apiService.updateUserProfile("Bearer $firebaseToken", com.meetloggerv2.data.remote.ProfileUpdateRequest(userId, updates))
+            val response = apiService.updateUserProfile("Bearer $firebaseToken", userId, com.meetloggerv2.data.remote.ProfileUpdateRequest(updates))
             if (response.isSuccessful) retrofit2.Response.success(Unit)
             else retrofit2.Response.error(response.code(), response.errorBody()!!)
         }
