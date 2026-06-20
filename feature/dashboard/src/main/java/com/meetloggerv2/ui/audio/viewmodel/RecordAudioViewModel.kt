@@ -196,7 +196,10 @@ class RecordAudioViewModel @Inject constructor(
                 AudioUploadWorker.KEY_AUTO_SEND_EMAIL to autoSend,
                 AudioUploadWorker.KEY_USER_EMAIL to userEmail,
                 AudioUploadWorker.KEY_USER_NAME to userName,
-                AudioUploadWorker.KEY_ACTION to AudioUploadWorker.ACTION_PROCESS
+                AudioUploadWorker.KEY_ACTION to AudioUploadWorker.ACTION_PROCESS,
+                // The recording was already saved before this Process step, so
+                // update that existing file in place instead of creating a copy.
+                AudioUploadWorker.KEY_ALREADY_SAVED to true
             )
 
             val workRequest = OneTimeWorkRequestBuilder<AudioUploadWorker>()

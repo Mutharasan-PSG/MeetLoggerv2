@@ -19,6 +19,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,17 +38,16 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.ui.window.Dialog
 import com.meetloggerv2.core.theme.AppStrings
 import com.meetloggerv2.core.network.NetworkUtil
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScale
+import com.meetloggerv2.core.theme.pressScaleClick
 import com.meetloggerv2.ui.login.viewmodel.LoginViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class ForgotPasswordActivity : AppCompatActivity() {
@@ -56,15 +56,30 @@ class ForgotPasswordActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setupObservers()
 
         setContent {
             MeetLoggerTheme {
                 val resetState by viewModel.resetPasswordState.collectAsState()
+                var submittedEmail by remember { mutableStateOf("") }
+                var showSuccessDialog by remember { mutableStateOf(false) }
+
+                LaunchedEffect(resetState) {
+                    when (resetState) {
+                        is LoginViewModel.ResetPasswordState.Success -> {
+                            showSuccessDialog = true
+                        }
+                        is LoginViewModel.ResetPasswordState.Error -> {
+                            // Error is handled inside ForgotPasswordScreen via emailError
+                        }
+                        else -> {}
+                    }
+                }
+
                 ForgotPasswordScreen(
                     resetState = resetState,
                     onSendReset = { email ->
                         if (NetworkUtil.isNetworkAvailable(this)) {
+                            submittedEmail = email
                             viewModel.sendPasswordReset(email)
                         } else {
                             Toast.makeText(this, "No internet connection", Toast.LENGTH_SHORT).show()
@@ -72,34 +87,113 @@ class ForgotPasswordActivity : AppCompatActivity() {
                     },
                     onBack = { finish() }
                 )
-            }
-        }
-    }
 
-    private fun setupObservers() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.resetPasswordState.collect { state ->
-                    when (state) {
-                        is LoginViewModel.ResetPasswordState.Loading -> {
-                            // Indicate process via UI loader instead of toast
-                        }
-                        is LoginViewModel.ResetPasswordState.Success -> {
-                            Toast.makeText(this@ForgotPasswordActivity, AppStrings.TOAST_PASSWORD_RESET_SENT, Toast.LENGTH_LONG).show()
-                            finish()
-                        }
-                        is LoginViewModel.ResetPasswordState.Error -> {
-                            val msg = state.message
-                            val msgLower = msg.lowercase()
-                            val displayMsg = if (msgLower.contains("registered")) {
-                                msg
-                            } else {
-                                "Something went wrong, Try again later"
+                // Password Reset Success Dialog
+                if (showSuccessDialog) {
+                    Dialog(onDismissRequest = {
+                        showSuccessDialog = false
+                        viewModel.resetStates()
+                        finish()
+                    }) {
+                        Card(
+                            shape = RoundedCornerShape(28.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                            modifier = Modifier.fillMaxWidth(0.95f)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(28.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                val isDark = MaterialTheme.colorScheme.onSurface == Color.White
+                                Surface(
+                                    modifier = Modifier.size(80.dp),
+                                    shape = CircleShape,
+                                    color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.MarkEmailRead,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                Text(
+                                    text = "Reset Link Sent",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 21.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text(
+                                    text = "A password reset link has been sent to",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 20.sp
+                                )
+
+                                if (submittedEmail.contains("@")) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                        modifier = Modifier.wrapContentWidth()
+                                    ) {
+                                        Text(
+                                            text = submittedEmail,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = "Check your inbox (and spam folder) and follow the link to reset your password.",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 20.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(28.dp))
+
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp)
+                                        .pressScaleClick {
+                                            showSuccessDialog = false
+                                            viewModel.resetStates()
+                                            finish()
+                                        },
+                                    shape = RoundedCornerShape(25.dp),
+                                    color = Color.Transparent
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("Back to Login", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                                    }
+                                }
                             }
-                            Toast.makeText(this@ForgotPasswordActivity, displayMsg, Toast.LENGTH_LONG).show()
-                        }
-                        is LoginViewModel.ResetPasswordState.Idle -> {
-                            // Do nothing
                         }
                     }
                 }

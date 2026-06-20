@@ -535,7 +535,17 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
                             }
                             is RecordAudioViewModel.UiState.Processed -> {
                                 isProcessingState.value = false
-                                Toast.makeText(context, "Ready! You will be notified.", Toast.LENGTH_LONG).show()
+                                // Hand off to the host screen so it shows the styled
+                                // "Processing Started" pop-up once this sheet dismisses.
+                                parentFragmentManager.setFragmentResult(
+                                    UploadAudioBottomsheetFragment.RESULT_KEY,
+                                    Bundle().apply {
+                                        putString(
+                                            UploadAudioBottomsheetFragment.RESULT_STATUS,
+                                            UploadAudioBottomsheetFragment.STATUS_PROCESSING_STARTED
+                                        )
+                                    }
+                                )
                                 dismiss()
                             }
                             is RecordAudioViewModel.UiState.Error -> {

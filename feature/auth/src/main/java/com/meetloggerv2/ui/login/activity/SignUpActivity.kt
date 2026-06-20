@@ -64,6 +64,7 @@ class SignUpActivity : AppCompatActivity() {
                 val signUpState by viewModel.signUpState.collectAsState()
                 var registeredEmail by remember { mutableStateOf("") }
                 var showSuccessDialog by remember { mutableStateOf(false) }
+                var userExistsMessage by remember { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(signUpState) {
                     when (signUpState) {
@@ -71,9 +72,7 @@ class SignUpActivity : AppCompatActivity() {
                             showSuccessDialog = true
                         }
                         is LoginViewModel.SignUpState.UserAlreadyExists -> {
-                            // Automatically navigate to Login
-                            Toast.makeText(this@SignUpActivity, (signUpState as LoginViewModel.SignUpState.UserAlreadyExists).message, Toast.LENGTH_LONG).show()
-                            finish() // Return to Login Activity
+                            userExistsMessage = (signUpState as LoginViewModel.SignUpState.UserAlreadyExists).message
                         }
                         is LoginViewModel.SignUpState.Error -> {
                             val msg = (signUpState as LoginViewModel.SignUpState.Error).message
@@ -99,74 +98,75 @@ class SignUpActivity : AppCompatActivity() {
                     onBack = { finish() }
                 )
 
+                // Verify Email Success Dialog
                 if (showSuccessDialog) {
                     Dialog(onDismissRequest = { }) {
                         Card(
-                            shape = RoundedCornerShape(32.dp),
+                            shape = RoundedCornerShape(28.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
                             modifier = Modifier.fillMaxWidth(0.95f)
                         ) {
                             Column(
-                                modifier = Modifier.padding(24.dp),
+                                modifier = Modifier.padding(28.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                // 1. Icon with square-round background
+                                val isDark = MaterialTheme.colorScheme.onSurface == Color.White
                                 Surface(
-                                    modifier = Modifier.size(100.dp),
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                    modifier = Modifier.size(80.dp),
+                                    shape = CircleShape,
+                                    color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
-                                            imageVector = Icons.Default.Email,
+                                            imageVector = Icons.Default.MarkEmailRead,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(52.dp)
+                                            modifier = Modifier.size(40.dp)
                                         )
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(20.dp))
 
-                                // 2. Title
                                 Text(
-                                    text = "Verify your email",
+                                    text = "Verify Your Email",
                                     fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 22.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    fontSize = 21.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
                                 )
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                                // 3. Subtitle
                                 Text(
                                     text = "A verification link has been sent to",
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 20.sp
                                 )
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                                // 4. Email with background
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                    color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
                                     modifier = Modifier.wrapContentWidth()
                                 ) {
                                     Text(
                                         text = registeredEmail,
-                                        fontSize = 16.sp,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
+                                        color = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                                     )
                                 }
 
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                // 5. Context text
                                 Text(
                                     text = "Check your inbox (and spam folder) and follow the link to activate your account.",
                                     fontSize = 14.sp,
@@ -175,19 +175,18 @@ class SignUpActivity : AppCompatActivity() {
                                     lineHeight = 20.sp
                                 )
 
-                                Spacer(modifier = Modifier.height(32.dp))
+                                Spacer(modifier = Modifier.height(28.dp))
 
-                                // 6. Ok Button
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(54.dp)
+                                        .height(50.dp)
                                         .pressScaleClick {
                                             showSuccessDialog = false
                                             viewModel.resetStates()
                                             finish()
                                         },
-                                    shape = RoundedCornerShape(27.dp),
+                                    shape = RoundedCornerShape(25.dp),
                                     color = Color.Transparent
                                 ) {
                                     Box(
@@ -196,7 +195,89 @@ class SignUpActivity : AppCompatActivity() {
                                             .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text("Ok", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                                        Text("Got It", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // User Already Exists Dialog
+                if (userExistsMessage != null) {
+                    Dialog(onDismissRequest = {
+                        userExistsMessage = null
+                        viewModel.resetStates()
+                        finish()
+                    }) {
+                        Card(
+                            shape = RoundedCornerShape(28.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                            modifier = Modifier.fillMaxWidth(0.95f)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(28.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                val isDark = MaterialTheme.colorScheme.onSurface == Color.White
+                                Surface(
+                                    modifier = Modifier.size(80.dp),
+                                    shape = CircleShape,
+                                    color = if (isDark) Color(0xFFFF9800).copy(alpha = 0.2f)
+                                            else Color(0xFFFF9800).copy(alpha = 0.08f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.PersonSearch,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFF9800),
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                Text(
+                                    text = "Account Already Exists",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 21.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text(
+                                    text = userExistsMessage ?: "",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 20.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(28.dp))
+
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp)
+                                        .pressScaleClick {
+                                            userExistsMessage = null
+                                            viewModel.resetStates()
+                                            finish()
+                                        },
+                                    shape = RoundedCornerShape(25.dp),
+                                    color = Color.Transparent
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("Go to Login", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
                                     }
                                 }
                             }

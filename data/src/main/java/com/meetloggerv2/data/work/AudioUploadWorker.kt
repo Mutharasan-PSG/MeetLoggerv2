@@ -41,6 +41,10 @@ class AudioUploadWorker(
         const val KEY_USER_EMAIL = "user_email"
         const val KEY_USER_NAME = "user_name"
         const val KEY_ACTION = "action"
+        // True when processing a recording that was already saved (and whose
+        // audio/doc already exist on the backend). Lets PROCESS update the
+        // existing file in place instead of creating a duplicate.
+        const val KEY_ALREADY_SAVED = "already_saved"
 
         const val ACTION_SAVE = "SAVE"
         const val ACTION_PROCESS = "PROCESS"
@@ -62,6 +66,7 @@ class AudioUploadWorker(
         val autoSendEmail = inputData.getBoolean(KEY_AUTO_SEND_EMAIL, false)
         val userEmail = inputData.getString(KEY_USER_EMAIL) ?: ""
         val userName = inputData.getString(KEY_USER_NAME) ?: "User"
+        val alreadySaved = inputData.getBoolean(KEY_ALREADY_SAVED, false)
 
         val localFile = File(filePath)
         if (!localFile.exists()) {
@@ -76,6 +81,44 @@ class AudioUploadWorker(
         var metadataSaved = false
 
         try {
+            // Already-saved recording being processed: the audio blob and the
+            // file document already exist under `fileName`. Do NOT re-upload or
+            // create a new document (which would duplicate the entry). Instead
+            // flip the existing document to "processing" and hand it to the
+            // backend, so the SAME entry transitions saved -> processing -> processed.
+            if (alreadySaved && action == ACTION_PROCESS) {
+                setProgress(workDataOf(PROGRESS_STAGE to "Preparing..."))
+                val updates = hashMapOf<String, Any>("status" to "processing")
+                if (followUpFileName.isNotBlank()) {
+                    updates["followUpFileName"] = followUpFileName
+                }
+                val updateResult = fileRepository.updateFileContentOnBackend(userId, fileName, updates)
+                if (updateResult is NetworkResult.Error) {
+                    throw Exception(updateResult.message ?: "Failed to update file status")
+                }
+                // Backend now owns the entry; keep the optimistic "processing"
+                // history row (do not re-sync here, which would momentarily show
+                // the stale "saved" status until the server mirrors "processing").
+                metadataSaved = true
+
+                setProgress(workDataOf(PROGRESS_STAGE to "Backend processing..."))
+                val speakersJson = com.google.gson.Gson().toJson(speakerNames)
+                val result = audioRepository.uploadAudioToBackend(
+                    localFile,
+                    userId,
+                    fileName,
+                    speakersJson,
+                    followUpFileName,
+                    autoSendEmail,
+                    userEmail,
+                    userName
+                )
+                return@withContext when (result) {
+                    is NetworkResult.Error -> Result.retry()
+                    else -> Result.success(workDataOf(KEY_ACTION to action, KEY_FILE_NAME to fileName))
+                }
+            }
+
             // Stage 1: Uploading to Firebase Storage via Signed URL
             setProgress(workDataOf(PROGRESS_STAGE to "Requesting upload permission..."))
             val urlResult = audioRepository.getUploadUrl(userId, fileName)

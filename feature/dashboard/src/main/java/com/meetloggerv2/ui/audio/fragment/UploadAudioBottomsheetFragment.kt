@@ -65,6 +65,15 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
 
+    companion object {
+        // Fragment Result contract used to tell the host screen that backend
+        // processing has started, so it can show the confirmation pop-up after
+        // this sheet has dismissed (the sheet's own view is gone by then).
+        const val RESULT_KEY = "audio_upload_result"
+        const val RESULT_STATUS = "status"
+        const val STATUS_PROCESSING_STARTED = "processing_started"
+    }
+
     private val viewModel: UploadAudioViewModel by viewModels()
     @Inject lateinit var authSession: AuthSession
     private lateinit var networkMonitor: NetworkMonitor
@@ -252,7 +261,12 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
                             processingStageState.value = state.stage
                         }
                         is UploadAudioViewModel.UploadUiState.Processed -> {
-                            Toast.makeText(context, "Processing started", Toast.LENGTH_LONG).show()
+                            // Hand off to the host screen so it can show the styled
+                            // "Processing Started" pop-up once this sheet is dismissed.
+                            parentFragmentManager.setFragmentResult(
+                                RESULT_KEY,
+                                Bundle().apply { putString(RESULT_STATUS, STATUS_PROCESSING_STARTED) }
+                            )
                             dismiss()
                         }
                         is UploadAudioViewModel.UploadUiState.Error -> {

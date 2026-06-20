@@ -1,17 +1,14 @@
 package com.meetloggerv2.ui.audio.util
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -23,13 +20,21 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
-import com.meetloggerv2.core.theme.pressScale
-import com.meetloggerv2.core.config.AppConfig
+import com.meetloggerv2.core.theme.pressScaleClick
 
+/**
+ * Confirmation popup shown once an upload/recording kicks off backend
+ * processing. Matches the app's richer dialog language (account deletion,
+ * email verification, account-exists): circle icon badge, title, a short
+ * intro, a single time-expectation chip, and one primary action — so the user
+ * understands work is happening in the background, rather than a vague toast.
+ *
+ * Hosted by the screen behind the (now dismissed) bottom sheet so it persists
+ * after the sheet closes.
+ */
 @Composable
-fun PlanLimitDialog(
-    onDismiss: () -> Unit,
-    onUpgrade: () -> Unit
+fun ProcessingStartedDialog(
+    onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -53,7 +58,7 @@ fun PlanLimitDialog(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Default.Lock,
+                            imageVector = Icons.Default.Autorenew,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(40.dp)
@@ -65,7 +70,7 @@ fun PlanLimitDialog(
 
                 // 2. Title
                 Text(
-                    text = "Plan Limit Reached",
+                    text = "Processing Started",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 21.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -75,9 +80,8 @@ fun PlanLimitDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // 3. Intro line
-                val limit = AppConfig.freePlanLimit
                 Text(
-                    text = "You've reached the free plan limit of $limit recordings.",
+                    text = "Your audio was uploaded successfully and is now being processed. We'll notify you the moment your meeting minutes are ready.",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -86,7 +90,7 @@ fun PlanLimitDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 4. Upgrade-benefit chip
+                // 4. Time-expectation chip
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
@@ -98,14 +102,14 @@ fun PlanLimitDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.WorkspacePremium,
+                            imageVector = Icons.Default.Schedule,
                             contentDescription = null,
                             tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Go Pro for unlimited sessions, automated emails and extended file lengths.",
+                            text = "This usually takes a few minutes — you can safely close the app.",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
@@ -116,45 +120,22 @@ fun PlanLimitDialog(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // 5. Action buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                // 5. Primary action
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .pressScaleClick { onDismiss() },
+                    shape = RoundedCornerShape(25.dp),
+                    color = Color.Transparent
                 ) {
-                    val dismissInteractionSource = remember { MutableInteractionSource() }
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        interactionSource = dismissInteractionSource,
+                    Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                            .pressScale(dismissInteractionSource),
-                        shape = RoundedCornerShape(24.dp),
-                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                            .fillMaxSize()
+                            .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("Not Now", fontWeight = FontWeight.Bold)
-                    }
-
-                    val upgradeInteractionSource = remember { MutableInteractionSource() }
-                    Surface(
-                        onClick = onUpgrade,
-                        interactionSource = upgradeInteractionSource,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                            .pressScale(upgradeInteractionSource),
-                        shape = RoundedCornerShape(24.dp),
-                        color = Color.Transparent
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("Upgrade", fontWeight = FontWeight.Bold, color = Color.White)
-                        }
+                        Text("Got It", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
                     }
                 }
             }

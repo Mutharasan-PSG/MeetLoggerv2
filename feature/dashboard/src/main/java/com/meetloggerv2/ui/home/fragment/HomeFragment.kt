@@ -66,6 +66,7 @@ import com.meetloggerv2.ui.audio.fragment.RecordAudioBottomsheetFragment
 import com.meetloggerv2.core.session.AuthSession
 import com.meetloggerv2.ui.audio.fragment.UploadAudioBottomsheetFragment
 import com.meetloggerv2.ui.audio.util.PlanLimitDialog
+import com.meetloggerv2.ui.audio.util.ProcessingStartedDialog
 import com.meetloggerv2.ui.home.viewmodel.HomeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -81,6 +82,9 @@ class HomeFragment : Fragment() {
     private val viewModel: HomeViewModel by viewModels()
     private lateinit var networkMonitor: NetworkMonitor
     private val isOnlineState = mutableStateOf(true)
+    // Flipped by the upload sheet's fragment result so the "Processing Started"
+    // pop-up shows here, after that sheet has dismissed.
+    private val showProcessingStartedDialog = mutableStateOf(false)
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -144,12 +148,31 @@ class HomeFragment : Fragment() {
                             }
                         )
                     }
+
+                    if (showProcessingStartedDialog.value) {
+                        ProcessingStartedDialog(
+                            onDismiss = { showProcessingStartedDialog.value = false }
+                        )
+                    }
                 }
             }
         }
     }
 
     private fun setupObservers() {
+        // Listen for the upload sheet reporting that processing has started, then
+        // show the confirmation pop-up here (the sheet is gone by this point).
+        parentFragmentManager.setFragmentResultListener(
+            UploadAudioBottomsheetFragment.RESULT_KEY,
+            viewLifecycleOwner
+        ) { _, bundle ->
+            if (bundle.getString(UploadAudioBottomsheetFragment.RESULT_STATUS)
+                == UploadAudioBottomsheetFragment.STATUS_PROCESSING_STARTED
+            ) {
+                showProcessingStartedDialog.value = true
+            }
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
