@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.meetloggerv2"
+    namespace = "com.meetloggerv2"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.example.meetloggerv2"
+        applicationId = "com.meetloggerv2"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

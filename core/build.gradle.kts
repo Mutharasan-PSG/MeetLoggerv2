@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.meetloggerv2.core"
+    namespace = "com.meetloggerv2.core"
     compileSdk = 37
 
     defaultConfig {
@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore)
     implementation("com.google.firebase:firebase-storage:22.0.1")
+    implementation(libs.firebase.config)
 
     // Hilt DI
     implementation(libs.hilt.android)
