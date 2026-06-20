@@ -39,8 +39,24 @@ import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
 import com.meetloggerv2.ui.profile.viewmodel.SettingsViewModel
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import com.meetloggerv2.core.session.AuthSession
+import com.meetloggerv2.core.navigation.findNavigationRouter
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class SettingsFragment : Fragment() {
+
+    @Inject
+    lateinit var authSession: AuthSession
 
     private val viewModel: SettingsViewModel by viewModels()
 
@@ -49,17 +65,46 @@ class SettingsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
+        setupObservers()
+
+        val userId = authSession.currentUserId() ?: ""
+
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MeetLoggerTheme {
                     SettingsScreen(
                         viewModel = viewModel,
+                        userId = userId,
                         onBack = { parentFragmentManager.popBackStack() },
                         onToggleBiometric = { enabled ->
                             checkAndVerifyBiometric(enabled)
                         }
                     )
+                }
+            }
+        }
+    }
+
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.deleteAccountState.collect { state ->
+                    when (state) {
+                        is SettingsViewModel.DeleteAccountState.Loading -> {
+                            // Handled in Compose loader
+                        }
+                        is SettingsViewModel.DeleteAccountState.Success -> {
+                            ToastHelper.showShort(requireContext(), "Account permanently deleted.")
+                            findNavigationRouter()?.navigateToLogin()
+                        }
+                        is SettingsViewModel.DeleteAccountState.Error -> {
+                            ToastHelper.showLong(requireContext(), state.message)
+                        }
+                        is SettingsViewModel.DeleteAccountState.Idle -> {
+                            // Do nothing
+                        }
+                    }
                 }
             }
         }
@@ -130,6 +175,7 @@ class SettingsFragment : Fragment() {
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    userId: String,
     onBack: () -> Unit,
     onToggleBiometric: (Boolean) -> Unit
 ) {
@@ -137,6 +183,9 @@ fun SettingsScreen(
     val autoSend by viewModel.autoSendEmail.collectAsState()
     val quality by viewModel.recordingQuality.collectAsState()
     val biometric by viewModel.biometricLock.collectAsState()
+    val deleteState by viewModel.deleteAccountState.collectAsState()
+
+    var showDeleteAccountConfirmDialog by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
@@ -202,7 +251,7 @@ fun SettingsScreen(
                     title = "Auto-send PDF",
                     subtitle = "Email PDF files automatically",
                     checked = autoSend,
-                    onCheckedChange = { viewModel.setAutoSendEmail(it) }
+                    onCheckedChange = { viewModel.setAutoSendEmail(enabled = it) }
                 )
                 SelectionSettingRow(
                     icon = Icons.Default.Language,
@@ -235,16 +284,194 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup(title = "Storage") {
+            Column {
+                Text(
+                    text = "Account Actions",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                )
                 ActionSettingRow(
                     icon = Icons.Default.Delete,
-                    title = "Clear Cache",
-                    subtitle = "Remove temporary processing files",
-                    onClick = { /* TODO */ }
+                    title = "Delete Account",
+                    subtitle = "Permanently delete all data",
+                    isDestructive = true,
+                    onClick = { showDeleteAccountConfirmDialog = true }
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+
+    if (showDeleteAccountConfirmDialog) {
+        Dialog(onDismissRequest = { showDeleteAccountConfirmDialog = false }) {
+            Card(
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                modifier = Modifier.fillMaxWidth(0.95f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 1. Icon Badge
+                    val isDark = MaterialTheme.colorScheme.onSurface == Color.White
+                    Surface(
+                        modifier = Modifier.size(80.dp),
+                        shape = CircleShape,
+                        color = if (isDark) MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+                                else MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.PersonOff,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // 2. Title
+                    Text(
+                        text = "Delete Your Account?",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 21.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 3. Intro sentence
+                    Text(
+                        text = "Your account and all associated data will be permanently removed from our servers.",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 4. Warning chip
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isDark) MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+                                else MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "This action is irreversible and cannot be undone.",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 5. Data list card
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "The following will be deleted:",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            DeleteDataItem(icon = Icons.Default.CloudOff, text = "Audio recordings & cloud files")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            DeleteDataItem(icon = Icons.Default.SpeakerNotesOff, text = "Transcripts, summaries & AI insights")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            DeleteDataItem(icon = Icons.Default.PersonRemove, text = "Profile, settings & activity history")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    // 6. Action buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        val cancelInteractionSource = remember { MutableInteractionSource() }
+                        OutlinedButton(
+                            onClick = { showDeleteAccountConfirmDialog = false },
+                            interactionSource = cancelInteractionSource,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                                .pressScale(cancelInteractionSource),
+                            shape = RoundedCornerShape(24.dp),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                        ) {
+                            Text("Cancel", fontWeight = FontWeight.Bold)
+                        }
+
+                        val deleteInteractionSource = remember { MutableInteractionSource() }
+                        Surface(
+                            onClick = {
+                                showDeleteAccountConfirmDialog = false
+                                viewModel.deleteAccount(userId)
+                            },
+                            interactionSource = deleteInteractionSource,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                                .pressScale(deleteInteractionSource),
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color.Transparent
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Brush.linearGradient(colors = listOf(Color(0xFFEF5350), Color(0xFFD32F2F)))),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Delete", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (deleteState is SettingsViewModel.DeleteAccountState.Loading) {
+        Dialog(onDismissRequest = {}) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp))
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
         }
     }
 }
@@ -362,32 +589,117 @@ fun SelectionSettingRow(icon: ImageVector, title: String, value: String, onClick
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .pressScaleClick(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
         Spacer(modifier = Modifier.width(16.dp))
         Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(text = value, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-        Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-fun ActionSettingRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .pressScaleClick(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-        Spacer(modifier = Modifier.width(16.dp))
-        Column {
-            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(text = subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun ActionSettingRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    isDestructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    if (isDestructive) {
+        val errorBgColor = MaterialTheme.colorScheme.error.copy(alpha = 0.05f)
+        val errorBorderColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
+        val errorTintColor = MaterialTheme.colorScheme.error
+        
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .pressScaleClick(onClick = onClick),
+            shape = RoundedCornerShape(24.dp),
+            color = errorBgColor,
+            border = BorderStroke(1.dp, errorBorderColor)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = errorTintColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = errorTintColor
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = errorTintColor.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    } else {
+        val tintColor = MaterialTheme.colorScheme.primary
+        val titleColor = MaterialTheme.colorScheme.onSurface
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .pressScaleClick(onClick = onClick)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = tintColor, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = titleColor)
+                Text(text = subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
+            }
         }
     }
 }
+
+@Composable
+private fun DeleteDataItem(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 18.sp
+        )
+    }
+}
+

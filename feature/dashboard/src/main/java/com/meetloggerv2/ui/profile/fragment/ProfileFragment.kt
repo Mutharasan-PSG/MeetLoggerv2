@@ -372,32 +372,58 @@ fun ProfileScreen(
     if (showSignOutConfirmDialog) {
         Dialog(onDismissRequest = { showSignOutConfirmDialog = false }) {
             Card(
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
                 modifier = Modifier.fillMaxWidth(0.95f)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // 1. Icon Badge
+                    val isDark = MaterialTheme.colorScheme.onSurface == Color.White
+                    Surface(
+                        modifier = Modifier.size(80.dp),
+                        shape = CircleShape,
+                        color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.ExitToApp,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // 2. Title
                     Text(
-                        text = "Confirmation",
+                        text = "Sign Out?",
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp,
+                        fontSize = 21.sp,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Start
+                        textAlign = TextAlign.Center
                     )
+
                     Spacer(modifier = Modifier.height(12.dp))
+
+                    // 3. Subtitle
                     Text(
                         text = "Are you sure you want to sign out? You will need to log back in to access your logs.",
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Start,
-                        modifier = Modifier.fillMaxWidth()
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
                     )
-                    Spacer(modifier = Modifier.height(32.dp))
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    // 4. Action Buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -408,7 +434,7 @@ fun ProfileScreen(
                             interactionSource = cancelInteractionSource,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .height(50.dp)
                                 .pressScale(cancelInteractionSource),
                             shape = RoundedCornerShape(24.dp),
                             border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
@@ -426,7 +452,7 @@ fun ProfileScreen(
                             interactionSource = signOutInteractionSource,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .height(50.dp)
                                 .pressScale(signOutInteractionSource),
                             shape = RoundedCornerShape(24.dp),
                             color = Color.Transparent

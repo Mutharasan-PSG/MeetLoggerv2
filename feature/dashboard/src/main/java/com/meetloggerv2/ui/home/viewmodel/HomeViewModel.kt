@@ -99,7 +99,10 @@ class HomeViewModel @Inject constructor(
             _isRefreshing.value = true
             val result = fileRepository.listHistoryFromBackend(userId)
             if (result is NetworkResult.Error) {
-                _error.value = result.message ?: "Failed to fetch latest files"
+                val msg = result.message
+                if (msg != "User is not authenticated" && msg != "User not authenticated") {
+                    _error.value = msg ?: "Failed to fetch latest files"
+                }
             }
             _isRefreshing.value = false
             _isInitialLoading.value = false
@@ -120,10 +123,17 @@ class HomeViewModel @Inject constructor(
     suspend fun autoRefreshLoop() {
         val userId = authSession.currentUserId() ?: return
         while (true) {
+            val currentId = authSession.currentUserId()
+            if (currentId == null || currentId != userId) {
+                break
+            }
             val result = fileRepository.listHistoryFromBackend(userId)
             when (result) {
                 is NetworkResult.Error -> if (_files.value.isEmpty()) {
-                    _error.value = result.message ?: "Failed to fetch latest files"
+                    val msg = result.message
+                    if (msg != "User is not authenticated" && msg != "User not authenticated") {
+                        _error.value = msg ?: "Failed to fetch latest files"
+                    }
                 }
                 else -> _error.value = null
             }
@@ -197,7 +207,10 @@ class HomeViewModel @Inject constructor(
                             )
                             _userProfile.value = profileMap
                         } else {
-                            _error.value = result.message ?: "Failed to load profile"
+                            val msg = result.message
+                            if (msg != "User is not authenticated" && msg != "User not authenticated") {
+                                _error.value = msg ?: "Failed to load profile"
+                            }
                         }
                     }
                     else -> {}

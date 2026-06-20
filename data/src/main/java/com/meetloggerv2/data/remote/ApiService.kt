@@ -154,6 +154,12 @@ interface ApiService {
         @Path("userId") userId: String,
         @Body request: FcmTokenRequest
     ): Response<Map<String, String>>
+
+    @DELETE("users/{userId}")
+    suspend fun deleteUserAccount(
+        @Header("Authorization") authorization: String,
+        @Path("userId") userId: String
+    ): Response<Map<String, String>>
 }
 
 data class FileUpdateRequest(

@@ -235,4 +235,13 @@ class FileRepository @Inject constructor(
             else retrofit2.Response.error(response.code(), response.errorBody()!!)
         }
     }
+
+    override suspend fun deleteUserAccountFromBackend(userId: String): NetworkResult<Unit> {
+        return safeApiCall {
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.deleteUserAccount("Bearer $firebaseToken", userId)
+            if (response.isSuccessful) retrofit2.Response.success(Unit)
+            else retrofit2.Response.error(response.code(), response.errorBody()!!)
+        }
+    }
 }

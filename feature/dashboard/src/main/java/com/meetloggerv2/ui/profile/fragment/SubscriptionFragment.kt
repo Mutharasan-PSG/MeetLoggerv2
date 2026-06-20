@@ -85,11 +85,11 @@ fun SubscriptionScreen(
     // Base price is $9.99 USD. Simple conversion for UI mockup purposes.
     val localPrice = remember(currency.currencyCode) {
         when (currency.currencyCode) {
-            "INR" -> "849"
-            "EUR" -> "9.49"
-            "GBP" -> "7.99"
-            "JPY" -> "1490"
-            else -> "9.99"
+            "INR" -> AppConfig.priceInr
+            "EUR" -> AppConfig.priceEur
+            "GBP" -> AppConfig.priceGbp
+            "JPY" -> AppConfig.priceJpy
+            else -> AppConfig.priceUsd
         }
     }
 

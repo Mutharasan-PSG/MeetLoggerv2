@@ -22,4 +22,5 @@ interface IFileRepository {
     suspend fun updateFileContentOnBackend(userId: String, fileName: String, updates: Map<String, Any>): NetworkResult<Unit>
     suspend fun getUserProfileFromBackend(userId: String): NetworkResult<Map<String, Any>>
     suspend fun updateUserProfileOnBackend(userId: String, updates: Map<String, Any>): NetworkResult<Unit>
+    suspend fun deleteUserAccountFromBackend(userId: String): NetworkResult<Unit>
 }
