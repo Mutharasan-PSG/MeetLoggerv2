@@ -12,9 +12,14 @@ import androidx.core.app.NotificationCompat
 import com.meetloggerv2.core.R
 import com.meetloggerv2.data.remote.FcmTokenRequest
 import com.meetloggerv2.data.remote.RetrofitClient
+import com.meetloggerv2.data.repository.IFileRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +36,12 @@ class MeetLoggerMessagingService : FirebaseMessagingService() {
 
     private val TAG = "FCMService"
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface MessagingEntryPoint {
+        fun fileRepository(): IFileRepository
+    }
 
     companion object {
         const val CHANNEL_ID = "meetlogger_processing"
@@ -91,6 +102,30 @@ class MeetLoggerMessagingService : FirebaseMessagingService() {
         val type = message.data["type"] ?: "processing_complete"
 
         showNotification(title, body, fileName, type)
+        syncFilesCache()
+    }
+
+    /**
+     * Re-syncs local caches from the backend when a processing update arrives,
+     * so the Home history and Report lists reflect the new status immediately if
+     * the app is in the foreground, and are already fresh on next open.
+     */
+    private fun syncFilesCache() {
+        val user = FirebaseAuth.getInstance().currentUser ?: return
+        serviceScope.launch {
+            try {
+                val entryPoint = EntryPointAccessors.fromApplication(
+                    applicationContext,
+                    MessagingEntryPoint::class.java
+                )
+                val repo = entryPoint.fileRepository()
+                // Home reads the history track; Report reads the file list.
+                repo.listHistoryFromBackend(user.uid)
+                repo.listFilesFromBackend(user.uid)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to sync caches after push: ${e.message}", e)
+            }
+        }
     }
 
     private fun showNotification(title: String, body: String, fileName: String, type: String) {

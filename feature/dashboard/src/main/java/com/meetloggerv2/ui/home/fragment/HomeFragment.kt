@@ -72,6 +72,8 @@ import javax.inject.Inject
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+import com.meetloggerv2.core.config.AppConfig
+
 @AndroidEntryPoint
 class HomeFragment : Fragment() {
 
@@ -92,7 +94,12 @@ class HomeFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MeetLoggerTheme {
+                    val coroutineScope = rememberCoroutineScope()
                     var showLimitDialog by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(Unit) {
+                        AppConfig.ensureLimitValidated()
+                    }
 
                     HomeScreenContent(
                         viewModel = viewModel,
@@ -103,21 +110,27 @@ class HomeFragment : Fragment() {
                         onOpenFileDetails = { name -> findNavigationRouter()?.navigateToFileDetails(name) },
                         onRefresh = { viewModel.fetchFiles() },
                         onShowRecordSheet = {
-                            val subscription = authSession.currentUserSubscription()
-                            val fileCount = viewModel.files.value.size
-                            if (subscription == "free" && fileCount >= 7) {
-                                showLimitDialog = true
-                            } else {
-                                RecordAudioBottomsheetFragment().show(parentFragmentManager, "RecordAudioSheet")
+                            coroutineScope.launch {
+                                AppConfig.ensureLimitValidated()
+                                val subscription = authSession.currentUserSubscription()
+                                val fileCount = viewModel.files.value.size
+                                if (subscription == "free" && fileCount >= AppConfig.freePlanLimit) {
+                                    showLimitDialog = true
+                                } else {
+                                    RecordAudioBottomsheetFragment().show(parentFragmentManager, "RecordAudioSheet")
+                                }
                             }
                         },
                         onShowUploadSheet = {
-                            val subscription = authSession.currentUserSubscription()
-                            val fileCount = viewModel.files.value.size
-                            if (subscription == "free" && fileCount >= 7) {
-                                showLimitDialog = true
-                            } else {
-                                UploadAudioBottomsheetFragment().show(parentFragmentManager, "UploadAudioSheet")
+                            coroutineScope.launch {
+                                AppConfig.ensureLimitValidated()
+                                val subscription = authSession.currentUserSubscription()
+                                val fileCount = viewModel.files.value.size
+                                if (subscription == "free" && fileCount >= AppConfig.freePlanLimit) {
+                                    showLimitDialog = true
+                                } else {
+                                    UploadAudioBottomsheetFragment().show(parentFragmentManager, "UploadAudioSheet")
+                                }
                             }
                         }
                     )
@@ -139,10 +152,18 @@ class HomeFragment : Fragment() {
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.error.collect { err ->
-                    err?.let {
-                        Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                launch {
+                    viewModel.error.collect { err ->
+                        err?.let {
+                            Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                        }
                     }
+                }
+                // Keep Home in sync while it is on screen so newly uploaded files
+                // and their processing -> processed status update live, without
+                // having to reopen the screen. Cancelled automatically on STOP.
+                launch {
+                    viewModel.autoRefreshLoop()
                 }
             }
         }
@@ -427,6 +448,7 @@ fun HomeScreenContent(
                                                 "processed" -> "Processed"
                                                 "processing" -> "Processing..."
                                                 "saved" -> "File Uploaded"
+                                                "failed" -> "Failed"
                                                 else -> status.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
                                             }
                                             Text(
@@ -442,6 +464,7 @@ fun HomeScreenContent(
                                             "processed" -> Icons.Default.CheckCircle
                                             "processing" -> Icons.Default.Autorenew
                                             "saved" -> Icons.Default.CloudDone
+                                            "failed" -> Icons.Default.ErrorOutline
                                             else -> Icons.Default.Cloud
                                         }
                                         val isDark = MaterialTheme.colorScheme.onSurface == Color.White
@@ -449,6 +472,7 @@ fun HomeScreenContent(
                                             "processed" -> MaterialTheme.colorScheme.secondary
                                             "processing" -> MaterialTheme.colorScheme.primary
                                             "saved" -> MaterialTheme.colorScheme.tertiary
+                                            "failed" -> MaterialTheme.colorScheme.error
                                             else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                         }
 

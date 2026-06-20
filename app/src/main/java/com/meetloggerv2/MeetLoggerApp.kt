@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
+import com.meetloggerv2.core.config.AppConfig
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +63,7 @@ class MeetLoggerApp : Application() {
         super.onCreate()
         appContext = applicationContext
         FirebaseApp.initializeApp(this)
+        AppConfig.initialize()
         observeThemeSettings()
         // Try to register FCM at startup (works if user is already signed in)
         initFcmToken()

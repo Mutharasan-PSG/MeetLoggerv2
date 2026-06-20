@@ -1,12 +1,12 @@
 package com.meetloggerv2.core.session
 
 import com.meetloggerv2.data.repository.IAuthRepository
-import com.meetloggerv2.core.session.SessionManager
 import javax.inject.Inject
 
 class AuthSession @Inject constructor(
     private val authRepository: IAuthRepository,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val sessionCleanup: ISessionCleanup
 ) {
     fun currentUserId(): String? = authRepository.getCurrentUser()?.uid
 
@@ -16,7 +16,9 @@ class AuthSession @Inject constructor(
 
     fun currentUserSubscription(): String = sessionManager.getUserDetails()?.subscription ?: "free"
 
-    fun signOut() {
+    suspend fun signOut() {
+        sessionCleanup.clearAllLocalData()
+        sessionManager.clearSession()
         authRepository.signOut()
     }
 }

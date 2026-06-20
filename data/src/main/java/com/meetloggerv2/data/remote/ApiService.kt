@@ -43,6 +43,12 @@ interface ApiService {
         @Path("userId") userId: String
     ): Response<List<Map<String, Any>>>
 
+    @GET("users/{userId}/history")
+    suspend fun listHistory(
+        @Header("Authorization") authorization: String,
+        @Path("userId") userId: String
+    ): Response<List<Map<String, Any>>>
+
     @GET("users/{userId}/files/{fileName}")
     suspend fun getFileDetails(
         @Header("Authorization") authorization: String,
@@ -55,14 +61,16 @@ interface ApiService {
         @Header("Authorization") authorization: String,
         @Path("userId") userId: String,
         @Path("fileName") fileName: String,
-        @Body request: Map<String, String>
+        @Body request: Map<String, String>,
+        @Query("target") target: String? = null
     ): Response<Map<String, String>>
 
     @DELETE("users/{userId}/files/{fileName}")
     suspend fun deleteFile(
         @Header("Authorization") authorization: String,
         @Path("userId") userId: String,
-        @Path("fileName") fileName: String
+        @Path("fileName") fileName: String,
+        @Query("target") target: String? = null
     ): Response<Map<String, String>>
 
     @POST("users/{userId}/files/{fileName}/copy")

@@ -1,8 +1,6 @@
 package com.meetloggerv2.data.repository
 
-import android.net.Uri
 import com.meetloggerv2.data.remote.ApiService
-import com.meetloggerv2.data.remote.RetrofitClient
 import com.meetloggerv2.core.network.NetworkResult
 import com.meetloggerv2.core.network.SafeApiCall
 import com.google.firebase.auth.FirebaseAuth
@@ -24,28 +22,10 @@ class AudioRepository(
     private val apiService: ApiService
 ) : IAudioRepository, SafeApiCall {
 
-    private val storage: com.google.firebase.storage.FirebaseStorage by lazy { com.google.firebase.storage.FirebaseStorage.getInstance() }
+    // Auth is retained client-side only to mint the Firebase ID token that
+    // authorizes every backend REST call. Raw audio is read/written exclusively
+    // through the backend presigned-URL and download endpoints.
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
-
-    override fun uploadAudioToStorage(userId: String, fileName: String, uri: Uri, onComplete: (String?, Exception?) -> Unit) {
-        val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
-        val metadata = com.google.firebase.storage.storageMetadata { contentType = "audio/mpeg" }
-
-        storageRef.putFile(uri, metadata)
-            .addOnSuccessListener {
-                storageRef.downloadUrl.addOnSuccessListener { downloadUri ->
-                    onComplete(downloadUri.toString(), null)
-                }.addOnFailureListener { onComplete(null, it) }
-            }
-            .addOnFailureListener { onComplete(null, it) }
-    }
-
-    override fun deleteAudioFromStorage(userId: String, fileName: String, onComplete: (Boolean, Exception?) -> Unit) {
-        val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
-        storageRef.delete()
-            .addOnSuccessListener { onComplete(true, null) }
-            .addOnFailureListener { onComplete(false, it) }
-    }
 
     override suspend fun uploadAudioToBackend(
         file: File,
@@ -81,16 +61,6 @@ class AudioRepository(
                 userNameBody
             )
         }
-    }
-
-    override fun listAudioFiles(userId: String, onComplete: (List<String>?, Exception?) -> Unit) {
-        val storageRef = storage.reference.child("AudioFiles/$userId/")
-        storageRef.listAll()
-            .addOnSuccessListener { listResult ->
-                val names = listResult.items.map { it.name }
-                onComplete(names, null)
-            }
-            .addOnFailureListener { onComplete(null, it) }
     }
 
     override fun downloadAudioBytes(userId: String, fileName: String, onComplete: (ByteArray?, Exception?) -> Unit) {
@@ -140,13 +110,6 @@ class AudioRepository(
                 onComplete(null, Exception(result.message ?: "Failed to get playback URL"))
             }
         }
-    }
-
-    override fun uploadAudioBytes(userId: String, fileName: String, bytes: ByteArray, onComplete: (Boolean, Exception?) -> Unit) {
-        val storageRef = storage.reference.child("AudioFiles/$userId/$fileName")
-        storageRef.putBytes(bytes)
-            .addOnSuccessListener { onComplete(true, null) }
-            .addOnFailureListener { onComplete(false, it) }
     }
 
     override suspend fun getUploadUrl(userId: String, fileName: String): NetworkResult<String> {

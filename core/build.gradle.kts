@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore)
     implementation("com.google.firebase:firebase-storage:22.0.1")
+    implementation(libs.firebase.config)
 
     // Hilt DI
     implementation(libs.hilt.android)

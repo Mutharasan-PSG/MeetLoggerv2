@@ -8,6 +8,7 @@ import com.meetloggerv2.core.session.AuthSession
 import com.meetloggerv2.core.network.NetworkResult
 import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
@@ -110,16 +111,21 @@ class ReportViewModel @Inject constructor(
         _uiState.value = ReportUiState.Loading("Deleting...")
         
         viewModelScope.launch {
-            var successCount = 0
+            val deleted = mutableListOf<String>()
             fileNames.forEach { name ->
-                val result = fileRepository.deleteFileOnBackend(userId, name)
+                val result = fileRepository.deleteFileOnBackend(userId, name, "file")
                 if (result is NetworkResult.Success) {
-                    successCount++
+                    deleted.add(name)
                 }
             }
-            if (successCount == fileNames.size) {
+            // Reflect the removal in the in-memory list BEFORE leaving the loading
+            // state, so the blocking loader stays up until the change is already on
+            // screen (closes the gap before the Room cache flow re-emits).
+            if (deleted.isNotEmpty()) {
+                _rawFiles.value = _rawFiles.value.filterNot { it.first in deleted }
+            }
+            if (deleted.size == fileNames.size) {
                 _uiState.value = ReportUiState.Idle
-                fetchFiles() // Refresh list
             } else {
                 _uiState.value = ReportUiState.Error("Some files failed to delete")
             }
@@ -131,11 +137,15 @@ class ReportViewModel @Inject constructor(
         _uiState.value = ReportUiState.Loading("Renaming...")
         
         viewModelScope.launch {
-            val result = fileRepository.renameFileOnBackend(userId, oldName, newName)
+            val result = fileRepository.renameFileOnBackend(userId, oldName, newName, "file")
             when (result) {
                 is NetworkResult.Success -> {
+                    // Rename in the in-memory list BEFORE leaving the loading state so
+                    // the loader stays up until the renamed item is already on screen.
+                    _rawFiles.value = _rawFiles.value.map { triple ->
+                        if (triple.first == oldName) Triple(newName, triple.second, triple.third) else triple
+                    }
                     _uiState.value = ReportUiState.Idle
-                    fetchFiles() // Refresh list
                 }
                 is NetworkResult.Error -> _uiState.value = ReportUiState.Error(result.message ?: "Rename failed")
                 else -> {}
@@ -152,7 +162,6 @@ class ReportViewModel @Inject constructor(
             when (result) {
                 is NetworkResult.Success -> {
                     _uiState.value = ReportUiState.Idle
-                    fetchFiles() // Refresh list
                 }
                 is NetworkResult.Error -> _uiState.value = ReportUiState.Error(result.message ?: "Copy failed")
                 else -> {}

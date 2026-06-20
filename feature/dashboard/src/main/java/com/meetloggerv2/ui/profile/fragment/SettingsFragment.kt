@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import com.meetloggerv2.core.util.ToastHelper
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
@@ -74,16 +75,16 @@ class SettingsFragment : Fragment() {
                 showBiometricPrompt(enable)
             }
             BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
-                Toast.makeText(context, "No biometric features available on this device.", Toast.LENGTH_LONG).show()
+                ToastHelper.showLong(context, "No biometric features available on this device.")
             }
             BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
-                Toast.makeText(context, "Biometric features are currently unavailable.", Toast.LENGTH_LONG).show()
+                ToastHelper.showLong(context, "Biometric features are currently unavailable.")
             }
             BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                Toast.makeText(context, "Please set up fingerprint or screen lock in your system settings first.", Toast.LENGTH_LONG).show()
+                ToastHelper.showLong(context, "Please set up fingerprint or screen lock in your system settings first.")
             }
             else -> {
-                Toast.makeText(context, "Biometric lock is not supported on this device.", Toast.LENGTH_LONG).show()
+                ToastHelper.showLong(context, "Biometric lock is not supported on this device.")
             }
         }
     }
@@ -93,19 +94,19 @@ class SettingsFragment : Fragment() {
         val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 super.onAuthenticationError(errorCode, errString)
-                Toast.makeText(requireContext(), "Authentication error: $errString", Toast.LENGTH_SHORT).show()
+                ToastHelper.showShort(requireContext(), "Authentication error: $errString")
             }
 
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 super.onAuthenticationSucceeded(result)
                 viewModel.setBiometricLock(enable)
                 val statusText = if (enable) "App Lock enabled successfully!" else "App Lock disabled!"
-                Toast.makeText(requireContext(), statusText, Toast.LENGTH_SHORT).show()
+                ToastHelper.showShort(requireContext(), statusText)
             }
 
             override fun onAuthenticationFailed() {
                 super.onAuthenticationFailed()
-                Toast.makeText(requireContext(), "Authentication failed.", Toast.LENGTH_SHORT).show()
+                ToastHelper.showShort(requireContext(), "Authentication failed.")
             }
         })
 

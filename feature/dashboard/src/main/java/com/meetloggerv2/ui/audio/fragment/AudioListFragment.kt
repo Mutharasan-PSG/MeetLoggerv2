@@ -77,6 +77,7 @@ import com.meetloggerv2.ui.audio.util.AudioProcessingDialog
 import com.meetloggerv2.ui.audio.util.PlanLimitDialog
 import com.meetloggerv2.core.navigation.findNavigationRouter
 import com.meetloggerv2.core.session.AuthSession
+import com.meetloggerv2.core.config.AppConfig
 import javax.inject.Inject
 import com.meetloggerv2.ui.audio.viewmodel.AudioListViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -148,6 +149,7 @@ class AudioListFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MeetLoggerTheme {
+                    val coroutineScope = rememberCoroutineScope()
                     var showLimitDialog by remember { mutableStateOf(false) }
 
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -203,12 +205,15 @@ class AudioListFragment : Fragment() {
                                 viewModel.downloadAudioFile("$name.mp3", temp)
                             },
                             onSummarizeItem = { name ->
-                                val subscription = authSession.currentUserSubscription()
-                                val fileCount = viewModel.userFilesState.value.size
-                                if (subscription == "free" && fileCount >= 7) {
-                                    showLimitDialog = true
-                                } else {
-                                    showSpeakerSelectionState.value = name
+                                coroutineScope.launch {
+                                    AppConfig.ensureLimitValidated()
+                                    val subscription = authSession.currentUserSubscription()
+                                    val fileCount = viewModel.historyCountState.value
+                                    if (subscription == "free" && fileCount >= AppConfig.freePlanLimit) {
+                                        showLimitDialog = true
+                                    } else {
+                                        showSpeakerSelectionState.value = name
+                                    }
                                 }
                             }
                         )

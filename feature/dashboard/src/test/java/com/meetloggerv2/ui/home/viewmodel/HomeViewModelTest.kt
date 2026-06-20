@@ -3,14 +3,16 @@ package com.meetloggerv2.ui.home.viewmodel
 import android.app.Application
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.meetloggerv2.MainDispatcherRule
+import com.meetloggerv2.core.network.NetworkResult
 import com.meetloggerv2.core.session.AuthSession
+import com.meetloggerv2.core.session.SessionManager
 import com.meetloggerv2.data.local.CachedProfile
 import com.meetloggerv2.data.local.ProfileDataStore
 import com.meetloggerv2.data.repository.IFileRepository
 import com.google.firebase.Timestamp
-import com.google.firebase.firestore.ListenerRegistration
 import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.*
@@ -31,7 +33,8 @@ class HomeViewModelTest {
     private val application = mockk<Application>(relaxed = true)
     private val fileRepository = mockk<IFileRepository>(relaxed = true)
     private val authSession = mockk<AuthSession>()
-    private val listenerRegistration = mockk<ListenerRegistration>(relaxed = true)
+    private val sessionManager = mockk<SessionManager>(relaxed = true)
+    private val filesFlow = MutableStateFlow<List<Map<String, Any>>>(emptyList())
 
     private lateinit var viewModel: HomeViewModel
 
@@ -41,8 +44,9 @@ class HomeViewModelTest {
         coEvery { anyConstructed<ProfileDataStore>().getProfile() } returns null
         coEvery { anyConstructed<ProfileDataStore>().saveProfile(any(), any(), any(), any()) } just Runs
         every { authSession.currentUserId() } returns "user123"
-        
-        viewModel = HomeViewModel(application, fileRepository, authSession)
+        every { fileRepository.getHistoryFlow("user123") } returns filesFlow
+
+        viewModel = HomeViewModel(application, fileRepository, authSession, sessionManager)
     }
 
     @After
@@ -51,23 +55,21 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun fetchFiles_success_updatesFilesFlow() = runTest {
+    fun observeFiles_localCacheEmission_updatesFilesFlow() = runTest {
         val mockData = listOf(
             mapOf("fileName" to "file1.mp3", "status" to "processed", "timestamp_clientUpload" to Timestamp(1000, 0), "isCopy" to false),
             mapOf("fileName" to "file2.mp3", "status" to "processing", "timestamp_clientUpload" to Timestamp(2000, 0), "isCopy" to true)
         )
 
-        every { fileRepository.getUserFiles("user123", any(), any()) } answers {
-            val onUpdate = secondArg<(List<Map<String, Any>>) -> Unit>()
-            onUpdate(mockData)
-            listenerRegistration
-        }
+        // The backend refresh succeeds and the local cache flow emits the synced data.
+        coEvery { fileRepository.listHistoryFromBackend("user123") } returns NetworkResult.Success(mockData)
+        filesFlow.value = mockData
 
         viewModel.fetchFiles()
 
         viewModel.files.test {
             val items = awaitItem()
-            assertEquals(1, items.size)
+            assertEquals(2, items.size)
             assertEquals("file1.mp3", items[0].first)
             assertEquals("processed", items[0].second)
             assertEquals(Timestamp(1000, 0), items[0].third)
@@ -75,13 +77,9 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun fetchFiles_error_updatesErrorFlow() = runTest {
-        val errorMsg = "Failed to fetch files"
-        every { fileRepository.getUserFiles("user123", any(), any()) } answers {
-            val onError = thirdArg<(Exception) -> Unit>()
-            onError(Exception(errorMsg))
-            listenerRegistration
-        }
+    fun fetchFiles_backendError_updatesErrorFlow() = runTest {
+        val errorMsg = "Failed to fetch latest files"
+        coEvery { fileRepository.listHistoryFromBackend("user123") } returns NetworkResult.Error(errorMsg)
 
         viewModel.fetchFiles()
 
@@ -106,18 +104,20 @@ class HomeViewModelTest {
             assertEquals("photo_url", profile?.get("photoUrl"))
         }
 
-        verify(exactly = 0) { fileRepository.getUser(any(), any(), any()) }
+        // Cached hit must not trigger a backend profile fetch.
+        coVerify(exactly = 0) { fileRepository.getUserProfileFromBackend(any()) }
     }
 
     @Test
-    fun loadUserProfile_noCache_fetchesFromRepositoryAndSaves() = runTest {
+    fun loadUserProfile_noCache_fetchesFromBackendAndSaves() = runTest {
         coEvery { anyConstructed<ProfileDataStore>().getProfile() } returns null
-        val userData = mapOf("name" to "Jane Doe", "email" to "jane@example.com", "photoUrl" to "jane_photo")
-
-        every { fileRepository.getUser("user123", any(), any()) } answers {
-            val onSuccess = secondArg<(Map<String, Any>?) -> Unit>()
-            onSuccess(userData)
-        }
+        val userData = mapOf<String, Any>(
+            "name" to "Jane Doe",
+            "email" to "jane@example.com",
+            "photoUrl" to "jane_photo",
+            "subscription" to "free"
+        )
+        coEvery { fileRepository.getUserProfileFromBackend("user123") } returns NetworkResult.Success(userData)
 
         viewModel.loadUserProfile()
 

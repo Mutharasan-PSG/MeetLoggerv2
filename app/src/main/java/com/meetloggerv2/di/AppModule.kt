@@ -4,6 +4,7 @@ import android.content.Context
 import com.meetloggerv2.data.local.db.AppDatabase
 import com.meetloggerv2.data.local.db.UserDao
 import com.meetloggerv2.data.local.db.LocalFileDao
+import com.meetloggerv2.data.local.db.HistoryDao
 import com.meetloggerv2.data.local.SettingsDataStore
 import com.meetloggerv2.core.session.SessionManager
 import com.meetloggerv2.data.repository.IAuthRepository
@@ -20,6 +21,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+
+import com.meetloggerv2.core.session.ISessionCleanup
+import com.meetloggerv2.data.local.SessionCleanup
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -45,6 +49,12 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideHistoryDao(database: AppDatabase): HistoryDao {
+        return database.historyDao()
+    }
+
+    @Provides
+    @Singleton
     fun provideAuthRepository(apiService: ApiService): IAuthRepository {
         return AuthRepository(apiService)
     }
@@ -58,11 +68,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideFileRepository(
-        userDao: UserDao,
         localFileDao: LocalFileDao,
+        historyDao: HistoryDao,
         apiService: ApiService
     ): IFileRepository {
-        return FileRepository(userDao, localFileDao, apiService)
+        return FileRepository(localFileDao, historyDao, apiService)
     }
 
     @Provides
@@ -75,6 +85,12 @@ object AppModule {
     @Singleton
     fun provideSessionManager(@ApplicationContext context: Context): SessionManager {
         return SessionManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSessionCleanup(sessionCleanup: SessionCleanup): ISessionCleanup {
+        return sessionCleanup
     }
 
     @Provides

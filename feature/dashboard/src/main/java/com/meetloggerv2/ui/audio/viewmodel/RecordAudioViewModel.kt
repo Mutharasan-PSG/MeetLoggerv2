@@ -8,6 +8,7 @@ import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import androidx.work.*
 import com.meetloggerv2.core.media.AudioRecorderManager
+import com.meetloggerv2.core.network.NetworkResult
 import com.meetloggerv2.data.repository.IAudioRepository
 import com.meetloggerv2.data.repository.IFileRepository
 import com.meetloggerv2.data.work.AudioUploadWorker
@@ -51,16 +52,39 @@ class RecordAudioViewModel @Inject constructor(
     val userFiles: LiveData<List<String>> = _userFiles.asLiveData()
     val userFilesState: StateFlow<List<String>> = _userFiles.asStateFlow()
 
+    private val _historyCount = MutableStateFlow(0)
+    val historyCountState: StateFlow<Int> = _historyCount.asStateFlow()
+
     private val audioRecorder = AudioRecorderManager()
     private var recordTimerJob: Job? = null
 
     fun fetchUserFiles(userId: String) {
-        fileRepository.getUserFiles(userId, { dataList ->
-            val names = dataList.mapNotNull { it["fileName"] as? String }
-            _userFiles.value = names
-        }, {
-            _uiState.value = UiState.Error(it.message ?: "Failed to fetch files")
-        })
+        viewModelScope.launch {
+            fileRepository.getHistoryFlow(userId).collect { historyList ->
+                _historyCount.value = historyList.size
+            }
+        }
+        viewModelScope.launch {
+            fileRepository.listHistoryFromBackend(userId)
+        }
+        viewModelScope.launch {
+            when (val result = fileRepository.listFilesFromBackend(userId)) {
+                is NetworkResult.Success -> {
+                    _userFiles.value = result.data?.mapNotNull { it["fileName"] as? String } ?: emptyList()
+                }
+                is NetworkResult.Error -> {
+                    // Fall back to the local cache so the dialog still works offline.
+                    val cached = fileRepository.getCachedUserFiles(userId)
+                        .mapNotNull { it["fileName"] as? String }
+                    if (cached.isNotEmpty()) {
+                        _userFiles.value = cached
+                    } else {
+                        _uiState.value = UiState.Error(result.message ?: "Failed to fetch files")
+                    }
+                }
+                else -> {}
+            }
+        }
     }
 
     fun startRecording(outputFile: File) {
@@ -220,7 +244,7 @@ class RecordAudioViewModel @Inject constructor(
 
     fun deleteAudio(userId: String, fileName: String) {
         viewModelScope.launch {
-            fileRepository.deleteFileOnBackend(userId, fileName)
+            fileRepository.deleteFileOnBackend(userId, fileName, "audio")
         }
     }
 

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,7 @@ import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScale
+import com.meetloggerv2.core.config.AppConfig
 import com.meetloggerv2.core.theme.pressScaleClick
 import java.util.Currency
 import java.util.Locale
@@ -66,6 +68,10 @@ fun SubscriptionScreen(
     onBack: () -> Unit,
     onNavigateToTerms: () -> Unit
 ) {
+    LaunchedEffect(Unit) {
+        AppConfig.ensureLimitValidated()
+    }
+
     val locale = Locale.getDefault()
     val currency = remember {
         try {
@@ -294,8 +300,8 @@ fun SubscriptionScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    SubscriptionFeatureItem("Only 30 mins long file processing")
-                    SubscriptionFeatureItem("Upto 7 total recordings / uploads")
+                    SubscriptionFeatureItem("Only ${AppConfig.freePlanAudioLimitMinutes} mins long file processing")
+                    SubscriptionFeatureItem("Upto ${AppConfig.freePlanLimit} total recordings / uploads")
                     SubscriptionFeatureItem("Basic translations")
                     SubscriptionFeatureItem("Standard support")
                 }

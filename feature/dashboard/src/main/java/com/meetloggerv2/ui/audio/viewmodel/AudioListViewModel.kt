@@ -50,6 +50,9 @@ class AudioListViewModel @Inject constructor(
     // Keep userFiles LiveData exposed for dialog compatibility
     val userFiles: LiveData<List<String>> = _userFiles.asLiveData()
 
+    private val _historyCount = MutableStateFlow(0)
+    val historyCountState: StateFlow<Int> = _historyCount.asStateFlow()
+
     private val _audioEvent = MutableSharedFlow<Event<AudioEvent>>()
     val audioEvent: SharedFlow<Event<AudioEvent>> = _audioEvent.asSharedFlow()
 
@@ -139,6 +142,16 @@ class AudioListViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            fileRepository.getHistoryFlow(userId).collect { historyList ->
+                _historyCount.value = historyList.size
+            }
+        }
+
+        viewModelScope.launch {
+            fileRepository.listHistoryFromBackend(userId)
+        }
+
+        viewModelScope.launch {
             val result = audioRepository.listRawFilesFromBackend(userId)
             if (result is NetworkResult.Success) {
                 _rawAudioFiles.value = result.data?.map { it.substringBeforeLast(".") }?.sorted() ?: emptyList()
@@ -155,19 +168,20 @@ class AudioListViewModel @Inject constructor(
         _uiState.value = AudioUiState.Loading("Deleting...")
         
         viewModelScope.launch {
-            var successCount = 0
+            val deleted = mutableListOf<String>()
             names.forEach { name ->
-                val result = fileRepository.deleteFileOnBackend(userId, name)
+                val result = fileRepository.deleteFileOnBackend(userId, name, "audio")
                 if (result is NetworkResult.Success) {
-                    successCount++
+                    deleted.add(name)
                 }
             }
-            if (successCount == names.size) {
-                // Update the in-memory list immediately so the change shows
-                // instantly; the fetch below just reconciles with the server.
-                _rawAudioFiles.value = _rawAudioFiles.value.filterNot { it in names }
+            // Update the in-memory list BEFORE leaving the loading state, so the
+            // blocking loader stays up until the deletion is already on screen.
+            if (deleted.isNotEmpty()) {
+                _rawAudioFiles.value = _rawAudioFiles.value.filterNot { it in deleted }
+            }
+            if (deleted.size == names.size) {
                 _uiState.value = AudioUiState.Idle
-                fetchAudioFiles()
             } else {
                 _uiState.value = AudioUiState.Error("Some files failed to delete")
             }
@@ -179,16 +193,14 @@ class AudioListViewModel @Inject constructor(
         _uiState.value = AudioUiState.Loading("Renaming...")
         
         viewModelScope.launch {
-            val result = fileRepository.renameFileOnBackend(userId, oldName, newName)
+            val result = fileRepository.renameFileOnBackend(userId, oldName, newName, "audio")
             when (result) {
                 is NetworkResult.Success -> {
-                    // Rename in the in-memory list immediately for an instant UI
-                    // update; the fetch below just reconciles with the server.
+                    // Rename in the in-memory list immediately for an instant UI update.
                     _rawAudioFiles.value = _rawAudioFiles.value
                         .map { if (it == oldName) newName else it }
                         .sorted()
                     _uiState.value = AudioUiState.Idle
-                    fetchAudioFiles()
                 }
                 is NetworkResult.Error -> _uiState.value = AudioUiState.Error(result.message ?: "Rename failed")
                 else -> {}

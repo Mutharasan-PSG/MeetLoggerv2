@@ -68,6 +68,13 @@ class AudioUploadWorker(
             return@withContext Result.failure(workDataOf("error" to "Local file does not exist"))
         }
 
+        // Optimistically record this file in the Home history so it appears as
+        // "processing"/"saved" the instant the upload starts — before the blob
+        // upload and metadata round-trips complete.
+        val optimisticStatus = if (action == ACTION_PROCESS) "processing" else "saved"
+        fileRepository.insertLocalHistory(userId, fileName, optimisticStatus)
+        var metadataSaved = false
+
         try {
             // Stage 1: Uploading to Firebase Storage via Signed URL
             setProgress(workDataOf(PROGRESS_STAGE to "Requesting upload permission..."))
@@ -110,6 +117,15 @@ class AudioUploadWorker(
 
             val serverFileName = if (metaResult is NetworkResult.Success) (metaResult.data ?: fileName) else fileName
 
+            metadataSaved = true
+            // The backend now holds the authoritative history entry. If it
+            // de-duplicated the name, drop the optimistic row; then sync so Home
+            // shows the real entry. Upsert sync won't disturb other entries.
+            if (serverFileName != fileName) {
+                fileRepository.removeLocalHistory(userId, fileName)
+            }
+            fileRepository.listHistoryFromBackend(userId)
+
             // Stage 3: Send to Backend if Processing
             if (action == ACTION_PROCESS) {
                 setProgress(workDataOf(PROGRESS_STAGE to "Backend processing..."))
@@ -141,6 +157,11 @@ class AudioUploadWorker(
             if (runAttemptCount < 3) {
                 Result.retry()
             } else {
+                // Upload ultimately failed before the backend recorded it: drop the
+                // optimistic Home entry so it doesn't linger forever as "processing".
+                if (!metadataSaved) {
+                    try { fileRepository.removeLocalHistory(userId, fileName) } catch (_: Exception) {}
+                }
                 Result.failure(workDataOf("error" to (e.message ?: "Unknown error")))
             }
         }

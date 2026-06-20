@@ -37,4 +37,8 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setBiometricLock(enabled: Boolean) {
         context.settingsDataStore.edit { it[KEY_BIOMETRIC_LOCK] = enabled }
     }
+
+    suspend fun clear() {
+        context.settingsDataStore.edit { it.clear() }
+    }
 }

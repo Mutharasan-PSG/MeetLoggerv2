@@ -4,10 +4,11 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.meetloggerv2.MainDispatcherRule
 import com.meetloggerv2.core.session.AuthSession
 import com.meetloggerv2.data.repository.IFileRepository
+import com.meetloggerv2.core.network.NetworkResult
 import com.google.firebase.Timestamp
-import com.google.firebase.firestore.ListenerRegistration
 import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.*
@@ -27,13 +28,14 @@ class ReportViewModelTest {
 
     private val fileRepository = mockk<IFileRepository>(relaxed = true)
     private val authSession = mockk<AuthSession>()
-    private val listenerRegistration = mockk<ListenerRegistration>(relaxed = true)
+    private val filesFlow = MutableStateFlow<List<Map<String, Any>>>(emptyList())
 
     private lateinit var viewModel: ReportViewModel
 
     @Before
     fun setUp() {
         every { authSession.currentUserId() } returns "user123"
+        every { fileRepository.getFilesFlow("user123") } returns filesFlow
         viewModel = ReportViewModel(fileRepository, authSession)
     }
 
@@ -49,11 +51,10 @@ class ReportViewModelTest {
             mapOf("fileName" to "meeting2.mp3", "status" to "processing", "timestamp_clientUpload" to Timestamp(2000, 0))
         )
 
-        every { fileRepository.getUserFiles("user123", any(), any()) } answers {
-            val onUpdate = secondArg<(List<Map<String, Any>>) -> Unit>()
-            onUpdate(mockData)
-            listenerRegistration
-        }
+        coEvery { fileRepository.listFilesFromBackend("user123") } returns NetworkResult.Success(mockData)
+
+        // Emit local DB files flow
+        filesFlow.value = mockData
 
         viewModel.fetchFiles()
 
@@ -68,11 +69,7 @@ class ReportViewModelTest {
     @Test
     fun fetchFiles_error_updatesUiStateToError() = runTest {
         val errorMsg = "Failed to fetch files"
-        every { fileRepository.getUserFiles("user123", any(), any()) } answers {
-            val onError = thirdArg<(Exception) -> Unit>()
-            onError(Exception(errorMsg))
-            listenerRegistration
-        }
+        coEvery { fileRepository.listFilesFromBackend("user123") } returns NetworkResult.Error(errorMsg)
 
         viewModel.fetchFiles()
 
@@ -90,13 +87,7 @@ class ReportViewModelTest {
             mapOf("fileName" to "monthly_review.mp3", "status" to "processed", "timestamp_clientUpload" to Timestamp(2000, 0))
         )
 
-        every { fileRepository.getUserFiles("user123", any(), any()) } answers {
-            val onUpdate = secondArg<(List<Map<String, Any>>) -> Unit>()
-            onUpdate(mockData)
-            listenerRegistration
-        }
-
-        viewModel.fetchFiles()
+        filesFlow.value = mockData
 
         viewModel.setQuery("weekly")
 
@@ -111,10 +102,7 @@ class ReportViewModelTest {
     fun deleteFiles_success_setsStateToIdle() = runTest {
         val fileNames = listOf("file1.mp3", "file2.mp3")
         
-        every { fileRepository.deleteFile("user123", any(), any(), any()) } answers {
-            val onSuccess = thirdArg<() -> Unit>()
-            onSuccess()
-        }
+        coEvery { fileRepository.deleteFileOnBackend("user123", any(), "file") } returns NetworkResult.Success(Unit)
 
         viewModel.deleteFiles(fileNames)
 
@@ -123,15 +111,12 @@ class ReportViewModelTest {
             assertTrue(state is ReportViewModel.ReportUiState.Idle)
         }
 
-        verify(exactly = 2) { fileRepository.deleteFile("user123", any(), any(), any()) }
+        coVerify(exactly = 2) { fileRepository.deleteFileOnBackend("user123", any(), "file") }
     }
 
     @Test
     fun renameFile_success_setsStateToIdle() = runTest {
-        every { fileRepository.renameFile("user123", "old.mp3", "new.mp3", any(), any()) } answers {
-            val onSuccess = args[3] as () -> Unit
-            onSuccess()
-        }
+        coEvery { fileRepository.renameFileOnBackend("user123", "old.mp3", "new.mp3", "file") } returns NetworkResult.Success(Unit)
 
         viewModel.renameFile("old.mp3", "new.mp3")
 
@@ -143,14 +128,7 @@ class ReportViewModelTest {
 
     @Test
     fun copyFile_success_setsStateToIdle() = runTest {
-        every { fileRepository.copyFile("user123", "old.mp3", "new.mp3", any(), any()) } answers {
-            val onSuccess = args[3] as () -> Unit
-            onSuccess()
-        }
-        every { fileRepository.updateFileContent("user123", "new.mp3", mapOf("isCopy" to true), any(), any()) } answers {
-            val onSuccess = args[3] as () -> Unit
-            onSuccess()
-        }
+        coEvery { fileRepository.copyFileOnBackend("user123", "old.mp3", "new.mp3") } returns NetworkResult.Success("new.mp3")
 
         viewModel.copyFile("old.mp3", "new.mp3")
 
@@ -163,17 +141,14 @@ class ReportViewModelTest {
     @Test
     fun fetchFileDetails_success_emitsEventAndSetsStateToIdle() = runTest {
         val fileDetails = mapOf("Response" to "**Summary** of meeting")
-        every { fileRepository.getFileDetails("user123", "file.mp3", any(), any()) } answers {
-            val onSuccess = thirdArg<(Map<String, Any>?) -> Unit>()
-            onSuccess(fileDetails)
-        }
+        coEvery { fileRepository.getFileDetailsFromBackend("user123", "file.mp3") } returns NetworkResult.Success(fileDetails)
 
         viewModel.reportEvent.test {
             viewModel.fetchFileDetails("file.mp3")
             val event = awaitItem().getContentIfNotHandled()
             assertNotNull(event)
             assertTrue(event is ReportViewModel.ReportEvent.FetchDetailsSuccess)
-            assertEquals("Summary of meeting", (event as ReportViewModel.ReportEvent.FetchDetailsSuccess).content)
+            assertEquals("**Summary** of meeting", (event as ReportViewModel.ReportEvent.FetchDetailsSuccess).content)
         }
 
         viewModel.uiState.test {

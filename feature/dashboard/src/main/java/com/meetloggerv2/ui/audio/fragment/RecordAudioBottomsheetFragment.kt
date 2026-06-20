@@ -56,6 +56,7 @@ import com.meetloggerv2.core.R
 import com.meetloggerv2.core.media.AudioPlayerManager
 import com.meetloggerv2.core.network.NetworkMonitor
 import com.meetloggerv2.core.session.AuthSession
+import com.meetloggerv2.core.config.AppConfig
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
@@ -412,24 +413,28 @@ class RecordAudioBottomsheetFragment : BottomSheetDialogFragment() {
     }
 
     private fun checkAndRequestPermissions() {
-        val subscription = authSession.currentUserSubscription()
-        if (subscription == "free" && viewModel.userFilesState.value.size >= 7) {
-            Toast.makeText(context, "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
-            dismiss()
-            return
-        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            AppConfig.ensureLimitValidated()
+            val subscription = authSession.currentUserSubscription()
+            val limit = AppConfig.freePlanLimit
+            if (subscription == "free" && viewModel.historyCountState.value >= limit) {
+                Toast.makeText(context, "Free plan limit: You can only have up to $limit recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                dismiss()
+                return@launch
+            }
 
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1002)
-        } else {
-            if (!isRecordingState.value && !isPausedState.value) {
-                startRecording()
-            } else if (isPausedState.value) {
-                viewModel.resumeRecording()
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1002)
             } else {
-                viewModel.pauseRecording()
+                if (!isRecordingState.value && !isPausedState.value) {
+                    startRecording()
+                } else if (isPausedState.value) {
+                    viewModel.resumeRecording()
+                } else {
+                    viewModel.pauseRecording()
+                }
             }
         }
     }

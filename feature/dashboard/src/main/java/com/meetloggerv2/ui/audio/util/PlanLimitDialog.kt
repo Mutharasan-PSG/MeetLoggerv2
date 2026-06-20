@@ -20,6 +20,7 @@ import androidx.compose.ui.window.Dialog
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.pressScale
+import com.meetloggerv2.core.config.AppConfig
 
 @Composable
 fun PlanLimitDialog(
@@ -68,8 +69,9 @@ fun PlanLimitDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // 3. Message Content
+                val limit = AppConfig.freePlanLimit
                 Text(
-                    text = "You have reached the free plan limit of 7 recordings. Upgrade to Pro to record unlimited sessions, enable automated emails, and unlock extended files.",
+                    text = "You have reached the free plan limit of $limit recordings. Upgrade to Pro to record unlimited sessions, enable automated emails, and unlock extended files.",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

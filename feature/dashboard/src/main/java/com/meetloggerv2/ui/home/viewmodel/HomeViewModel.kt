@@ -12,6 +12,7 @@ import com.meetloggerv2.data.model.User
 import com.meetloggerv2.data.repository.IFileRepository
 import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,6 +50,13 @@ class HomeViewModel @Inject constructor(
 
     private val profileDataStore = ProfileDataStore(application)
 
+    companion object {
+        // Poll faster while a file is still processing so the status flips
+        // promptly; back off when everything is settled to save battery/data.
+        private const val POLL_INTERVAL_ACTIVE_MS = 5_000L
+        private const val POLL_INTERVAL_IDLE_MS = 12_000L
+    }
+
     init {
         observeFiles()
     }
@@ -56,7 +64,9 @@ class HomeViewModel @Inject constructor(
     private fun observeFiles() {
         val userId = authSession.currentUserId() ?: return
         viewModelScope.launch {
-            fileRepository.getFilesFlow(userId).collect { dataList ->
+            // Home reads the dedicated history track, not the file documents, so
+            // it is retained independently of rename/delete/copy on other pages.
+            fileRepository.getHistoryFlow(userId).collect { dataList ->
                 val tripleList = dataList.mapNotNull { data ->
                     val file = ProcessedFile.fromMap(data) ?: return@mapNotNull null
                     Triple(file.fileName, file.status, file.timestamp)
@@ -87,12 +97,43 @@ class HomeViewModel @Inject constructor(
     fun refreshFilesFromServer(userId: String) {
         viewModelScope.launch {
             _isRefreshing.value = true
-            val result = fileRepository.listFilesFromBackend(userId)
+            val result = fileRepository.listHistoryFromBackend(userId)
             if (result is NetworkResult.Error) {
                 _error.value = result.message ?: "Failed to fetch latest files"
             }
             _isRefreshing.value = false
             _isInitialLoading.value = false
+        }
+    }
+
+    /**
+     * Keeps the file list in sync with the backend while the Home screen is
+     * visible. Call from the fragment inside repeatOnLifecycle(STARTED) so it is
+     * cancelled automatically when Home leaves the screen.
+     *
+     * Polls quickly while any file is still in progress so that newly uploaded
+     * files and the processing -> processed transition appear without reopening
+     * the screen, and backs off once everything is settled. This is a quiet
+     * refresh: it does not toggle the pull-to-refresh spinner and only surfaces
+     * an error when there is nothing on screen, to avoid toast spam.
+     */
+    suspend fun autoRefreshLoop() {
+        val userId = authSession.currentUserId() ?: return
+        while (true) {
+            val result = fileRepository.listHistoryFromBackend(userId)
+            when (result) {
+                is NetworkResult.Error -> if (_files.value.isEmpty()) {
+                    _error.value = result.message ?: "Failed to fetch latest files"
+                }
+                else -> _error.value = null
+            }
+            _isInitialLoading.value = false
+            // Only "processing" is transient; "saved"/"processed" are terminal, so
+            // don't keep fast-polling for them.
+            val hasPending = _files.value.any { (_, status, _) ->
+                status.equals("processing", ignoreCase = true)
+            }
+            delay(if (hasPending) POLL_INTERVAL_ACTIVE_MS else POLL_INTERVAL_IDLE_MS)
         }
     }
 

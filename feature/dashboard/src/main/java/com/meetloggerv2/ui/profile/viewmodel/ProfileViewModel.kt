@@ -142,16 +142,20 @@ class ProfileViewModel @Inject constructor(
 
     fun signOut() {
         _signOutState.value = SignOutState.Loading
-        authSession.signOut()
-        googleSignInClient.signOut().addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                sessionManager.clearSession()
-                viewModelScope.launch {
-                    profileDataStore.clear()
-                    _signOutState.value = SignOutState.Success
+        _userProfile.value = null
+        viewModelScope.launch {
+            try {
+                authSession.signOut()
+                googleSignInClient.signOut().addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        _signOutState.value = SignOutState.Success
+                    } else {
+                        // All local user data is successfully cleared, so set state to Success even if Google sign-out fails
+                        _signOutState.value = SignOutState.Success
+                    }
                 }
-            } else {
-                _signOutState.value = SignOutState.Error("Google sign out failed")
+            } catch (e: Exception) {
+                _signOutState.value = SignOutState.Error(e.message ?: "Sign out failed")
             }
         }
     }

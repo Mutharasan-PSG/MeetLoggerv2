@@ -1,34 +1,28 @@
 package com.meetloggerv2.data.repository
 
-import com.meetloggerv2.data.model.User
-import com.meetloggerv2.data.local.db.UserDao
 import com.meetloggerv2.data.local.db.LocalFileDao
-import com.meetloggerv2.data.local.db.UserEntity
 import com.meetloggerv2.data.local.db.LocalFileEntity
+import com.meetloggerv2.data.local.db.HistoryDao
+import com.meetloggerv2.data.local.db.HistoryEntity
 import kotlinx.coroutines.flow.map
 import com.meetloggerv2.core.network.NetworkResult
 import com.meetloggerv2.core.network.SafeApiCall
 import com.meetloggerv2.data.remote.ApiService
 import com.meetloggerv2.data.remote.FileUpdateRequest
-import com.meetloggerv2.data.remote.RetrofitClient
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.*
 import javax.inject.Inject
 
 class FileRepository @Inject constructor(
-    private val userDao: UserDao,
     private val localFileDao: LocalFileDao,
+    private val historyDao: HistoryDao,
     private val apiService: ApiService
 ) : IFileRepository, SafeApiCall {
 
-    private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
+    // Auth is retained client-side only to mint the Firebase ID token that
+    // authorizes every backend REST call. No direct Firestore/Storage access.
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
 
     private suspend fun getFirebaseIdToken(): String = suspendCancellableCoroutine { continuation ->
@@ -76,6 +70,50 @@ class FileRepository @Inject constructor(
         }
     }
 
+    override suspend fun listHistoryFromBackend(userId: String): NetworkResult<List<Map<String, Any>>> {
+        return safeApiCall {
+            val firebaseToken = getFirebaseIdToken()
+            val response = apiService.listHistory("Bearer $firebaseToken", userId)
+            if (response.isSuccessful && response.body() != null) {
+                try {
+                    val entities = response.body()!!.map { HistoryEntity.fromMap(userId, it) }
+                    historyDao.syncHistory(userId, entities)
+                } catch (e: Exception) {
+                    // Keep the cached history if the local sync fails; data is still returned.
+                }
+            }
+            response
+        }
+    }
+
+    override fun getHistoryFlow(userId: String): kotlinx.coroutines.flow.Flow<List<Map<String, Any>>> {
+        return historyDao.getHistoryFlow(userId).map { list ->
+            list.map { it.toMap() }
+        }
+    }
+
+    override suspend fun insertLocalHistory(userId: String, fileName: String, status: String) {
+        try {
+            historyDao.upsert(
+                HistoryEntity(
+                    fileName = fileName,
+                    userId = userId,
+                    status = status,
+                    timestampMillis = System.currentTimeMillis()
+                )
+            )
+        } catch (_: Exception) {
+            // Optimistic only; ignore local write failures.
+        }
+    }
+
+    override suspend fun removeLocalHistory(userId: String, fileName: String) {
+        try {
+            historyDao.deleteHistory(userId, fileName)
+        } catch (_: Exception) {
+        }
+    }
+
     override suspend fun getCachedUserFiles(userId: String): List<Map<String, Any>> {
         return try {
             localFileDao.getUserFiles(userId).map { it.toMap() }
@@ -101,34 +139,39 @@ class FileRepository @Inject constructor(
             response
         }
     }
-
-    override suspend fun deleteFileOnBackend(userId: String, fileName: String): NetworkResult<Unit> {
+    override suspend fun deleteFileOnBackend(userId: String, fileName: String, target: String?): NetworkResult<Unit> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
-            val response = apiService.deleteFile("Bearer $firebaseToken", userId, fileName)
+            val response = apiService.deleteFile("Bearer $firebaseToken", userId, fileName, target)
             if (response.isSuccessful) {
                 // Optimistically update the local cache so the list Flow reflects
                 // the change instantly, without waiting for a follow-up list fetch.
-                try { localFileDao.deleteFile(userId, fileName) } catch (_: Exception) {}
+                // Do not delete local cached record if we only deleted raw audio!
+                if (target != "audio") {
+                    try { localFileDao.deleteFile(userId, fileName) } catch (_: Exception) {}
+                }
                 retrofit2.Response.success(Unit)
             }
             else retrofit2.Response.error(response.code(), response.errorBody()!!)
         }
     }
 
-    override suspend fun renameFileOnBackend(userId: String, oldName: String, newName: String): NetworkResult<Unit> {
+    override suspend fun renameFileOnBackend(userId: String, oldName: String, newName: String, target: String?): NetworkResult<Unit> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
-            val response = apiService.renameFile("Bearer $firebaseToken", userId, oldName, mapOf("newName" to newName))
+            val response = apiService.renameFile("Bearer $firebaseToken", userId, oldName, mapOf("newName" to newName), target)
             if (response.isSuccessful) {
                 // Optimistically rename in the local cache for an instant UI update.
-                try {
-                    val existing = localFileDao.getFileDetails(userId, oldName)
-                    if (existing != null) {
-                        localFileDao.deleteFile(userId, oldName)
-                        localFileDao.insertFile(existing.copy(fileName = newName))
-                    }
-                } catch (_: Exception) {}
+                // Do not rename local cached record if we only renamed raw audio!
+                if (target != "audio") {
+                    try {
+                        val existing = localFileDao.getFileDetails(userId, oldName)
+                        if (existing != null) {
+                            localFileDao.deleteFile(userId, oldName)
+                            localFileDao.insertFile(existing.copy(fileName = newName))
+                        }
+                    } catch (_: Exception) {}
+                }
                 retrofit2.Response.success(Unit)
             }
             else retrofit2.Response.error(response.code(), response.errorBody()!!)
@@ -192,312 +235,4 @@ class FileRepository @Inject constructor(
             else retrofit2.Response.error(response.code(), response.errorBody()!!)
         }
     }
-
-    override fun getUserFiles(userId: String, onUpdate: (List<Map<String, Any>>) -> Unit, onError: (Exception) -> Unit): ListenerRegistration {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                val cached = localFileDao.getUserFiles(userId).map { it.toMap() }
-                withContext(Dispatchers.Main) {
-                    onUpdate(cached)
-                }
-            } catch (e: Exception) {
-                // Ignore local database errors for initial cache load
-            }
-        }
-
-        return firestore.collection("ProcessedDocs")
-            .document(userId)
-            .collection("UserFiles")
-            .orderBy("timestamp_clientUpload", Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    onError(error)
-                    return@addSnapshotListener
-                }
-                val files = snapshot?.documents?.mapNotNull { doc ->
-                    doc.data?.toMutableMap()?.apply { put("id", doc.id) }
-                } ?: emptyList()
-
-                scope.launch {
-                    try {
-                        val entities = files.map { LocalFileEntity.fromMap(userId, it) }
-                        localFileDao.clearUserFiles(userId)
-                        localFileDao.insertFiles(entities)
-
-                        val updatedCached = localFileDao.getUserFiles(userId).map { it.toMap() }
-                        withContext(Dispatchers.Main) {
-                            onUpdate(updatedCached)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            onError(e)
-                        }
-                    }
-                }
-            }
-    }
-
-    override fun getFileDetails(userId: String, fileName: String, onSuccess: (Map<String, Any>?) -> Unit, onError: (Exception) -> Unit) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                val cached = localFileDao.getFileDetails(userId, fileName)
-                if (cached != null) {
-                    withContext(Dispatchers.Main) {
-                        onSuccess(cached.toMap())
-                    }
-                }
-            } catch (e: Exception) {
-                // Ignore local read error
-            }
-        }
-
-        firestore.collection("ProcessedDocs")
-            .document(userId)
-            .collection("UserFiles")
-            .document(fileName)
-            .get()
-            .addOnSuccessListener { doc ->
-                val data = doc.data
-                if (data != null) {
-                    scope.launch {
-                        try {
-                            val entity = LocalFileEntity.fromMap(userId, data.toMutableMap().apply { put("fileName", fileName) })
-                            localFileDao.insertFile(entity)
-                            withContext(Dispatchers.Main) {
-                                onSuccess(entity.toMap())
-                            }
-                        } catch (e: Exception) {
-                            withContext(Dispatchers.Main) {
-                                onError(e)
-                            }
-                        }
-                    }
-                } else {
-                    onSuccess(null)
-                }
-            }
-            .addOnFailureListener { onError(it) }
-    }
-
-    override fun updateFileContent(userId: String, fileName: String, updates: Map<String, Any>, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                val existing = localFileDao.getFileDetails(userId, fileName)
-                if (existing != null) {
-                    val mergedData = existing.toMap().toMutableMap().apply {
-                        putAll(updates)
-                    }
-                    val updatedEntity = LocalFileEntity.fromMap(userId, mergedData)
-                    localFileDao.insertFile(updatedEntity)
-                }
-                withContext(Dispatchers.Main) {
-                    onSuccess()
-                }
-            } catch (e: Exception) {
-                // Ignore local save errors, prioritize remote sync success
-            }
-        }
-
-        firestore.collection("ProcessedDocs")
-            .document(userId)
-            .collection("UserFiles")
-            .document(fileName)
-            .update(updates)
-            .addOnSuccessListener {
-                // Already updated locally in background, if remote succeeds we do nothing more
-            }
-            .addOnFailureListener { onError(it) }
-    }
-
-    override fun deleteFile(userId: String, fileName: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                localFileDao.deleteFile(userId, fileName)
-                withContext(Dispatchers.Main) {
-                    onSuccess()
-                }
-            } catch (e: Exception) {
-                // Ignore local database error
-            }
-        }
-
-        firestore.collection("ProcessedDocs")
-            .document(userId)
-            .collection("UserFiles")
-            .document(fileName)
-            .delete()
-            .addOnFailureListener { onError(it) }
-    }
-
-    override fun renameFile(userId: String, oldFullName: String, newFullName: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                val existing = localFileDao.getFileDetails(userId, oldFullName)
-                if (existing != null) {
-                    val newEntity = existing.copy(fileName = newFullName)
-                    localFileDao.deleteFile(userId, oldFullName)
-                    localFileDao.insertFile(newEntity)
-                }
-            } catch (e: Exception) {
-                // Ignore local database error
-            }
-        }
-
-        val oldFileRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles").document(oldFullName)
-        val newFileRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles").document(newFullName)
-
-        oldFileRef.get().addOnSuccessListener { document ->
-            if (document.exists()) {
-                val data = document.data?.toMutableMap() ?: mutableMapOf()
-                data["fileName"] = newFullName
-                firestore.runTransaction { transaction ->
-                    transaction.set(newFileRef, data)
-                    transaction.delete(oldFileRef)
-                }.addOnSuccessListener { onSuccess() }
-                    .addOnFailureListener { onError(it) }
-            } else {
-                onSuccess()
-            }
-        }.addOnFailureListener { onError(it) }
-    }
-
-    override fun copyFile(userId: String, oldFullName: String, newFullName: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                val existing = localFileDao.getFileDetails(userId, oldFullName)
-                if (existing != null) {
-                    val copyEntity = existing.copy(fileName = newFullName, audioUrl = null, isCopy = true)
-                    localFileDao.insertFile(copyEntity)
-                }
-            } catch (e: Exception) {
-                // Ignore local database error
-            }
-        }
-
-        val oldDocRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles").document(oldFullName)
-        val newDocRef = firestore.collection("ProcessedDocs").document(userId).collection("UserFiles").document(newFullName)
-
-        oldDocRef.get().addOnSuccessListener { document ->
-            if (document.exists()) {
-                val newData = document.data?.toMutableMap() ?: mutableMapOf()
-                newData["fileName"] = newFullName
-                newData.remove("AudioLink")
-                newDocRef.set(newData).addOnSuccessListener { onSuccess() }
-                    .addOnFailureListener { onError(it) }
-            } else {
-                onError(Exception("File not found"))
-            }
-        }.addOnFailureListener { onError(it) }
-    }
-
-    override fun saveFileMetadata(userId: String, fileName: String, data: Map<String, Any>, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                val entity = LocalFileEntity.fromMap(userId, data.toMutableMap().apply { put("fileName", fileName) })
-                localFileDao.insertFile(entity)
-                withContext(Dispatchers.Main) {
-                    onSuccess()
-                }
-            } catch (e: Exception) {
-                // Ignore local database error
-            }
-        }
-
-        firestore.collection("ProcessedDocs")
-            .document(userId)
-            .collection("UserFiles")
-            .document(fileName)
-            .set(data)
-            .addOnFailureListener { onError(it) }
-    }
-    
-    override fun saveUser(user: User, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                userDao.insertUser(UserEntity.fromUser(user))
-                withContext(Dispatchers.Main) {
-                    onSuccess()
-                }
-            } catch (e: Exception) {
-                // Ignore local database error
-            }
-        }
-
-        firestore.collection("Users").document(user.id)
-            .set(user)
-            .addOnFailureListener { onError(it) }
-    }
-
-    override fun getUser(userId: String, onSuccess: (Map<String, Any>?) -> Unit, onError: (Exception) -> Unit) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                val cached = userDao.getUserById(userId)
-                if (cached != null) {
-                    withContext(Dispatchers.Main) {
-                        val userMap = mapOf(
-                            "name" to cached.name,
-                            "email" to cached.email,
-                            "photoUrl" to cached.photoUrl.orEmpty()
-                        )
-                        onSuccess(userMap)
-                    }
-                }
-            } catch (e: Exception) {
-                // Ignore local read error
-            }
-        }
-
-        firestore.collection("Users").document(userId)
-            .get()
-            .addOnSuccessListener { doc ->
-                val data = doc.data
-                if (data != null) {
-                    scope.launch {
-                        try {
-                            val name = data["name"] as? String ?: ""
-                            val email = data["email"] as? String ?: ""
-                            val photoUrl = data["photoUrl"] as? String
-                            userDao.insertUser(UserEntity(userId, name, email, photoUrl))
-                        } catch (e: Exception) {
-                            // Ignore local write error
-                        }
-                    }
-                    onSuccess(data)
-                } else {
-                    onSuccess(null)
-                }
-            }
-            .addOnFailureListener { onError(it) }
-    }
-
-    override fun checkUserExists(userId: String, onResult: (Boolean) -> Unit, onError: (Exception) -> Unit) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            try {
-                val cached = userDao.getUserById(userId)
-                if (cached != null) {
-                    withContext(Dispatchers.Main) {
-                        onResult(true)
-                    }
-                    return@launch
-                }
-            } catch (e: Exception) {
-                // Ignore local read error
-            }
-        }
-
-        firestore.collection("Users").document(userId)
-            .get()
-            .addOnSuccessListener { onResult(it.exists()) }
-            .addOnFailureListener { onError(it) }
-      }
 }

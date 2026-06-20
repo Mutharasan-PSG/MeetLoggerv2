@@ -45,6 +45,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.meetloggerv2.core.R
 import com.meetloggerv2.core.network.NetworkMonitor
 import com.meetloggerv2.core.session.AuthSession
+import com.meetloggerv2.core.config.AppConfig
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
@@ -76,31 +77,36 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
     private val audioPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
-                val subscription = authSession.currentUserSubscription()
-                if (subscription == "free") {
-                    if (viewModel.userFilesState.value.size >= 7) {
-                        Toast.makeText(context, "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
-                        dismiss()
-                        return@registerForActivityResult
-                    }
-                    val retriever = android.media.MediaMetadataRetriever()
-                    try {
-                        retriever.setDataSource(requireContext(), uri)
-                        val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
-                        val durationMs = durationStr?.toLongOrNull() ?: 0L
-                        if (durationMs > 1800000L) { // 30 minutes
-                            Toast.makeText(context, "Free plan limit: Files must be under 30 minutes.", Toast.LENGTH_LONG).show()
-                            return@registerForActivityResult
+                viewLifecycleOwner.lifecycleScope.launch {
+                    AppConfig.ensureLimitValidated()
+                    val subscription = authSession.currentUserSubscription()
+                    if (subscription == "free") {
+                        val limit = AppConfig.freePlanLimit
+                        if (viewModel.historyCountState.value >= limit) {
+                            Toast.makeText(context, "Free plan limit: You can only have up to $limit recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                            dismiss()
+                            return@launch
                         }
-                    } catch (e: Exception) {
-                        android.util.Log.e("UploadAudio", "Failed to retrieve audio duration: ${e.message}")
-                    } finally {
+                        val retriever = android.media.MediaMetadataRetriever()
                         try {
-                            retriever.release()
-                        } catch (ignored: Exception) {}
+                            retriever.setDataSource(requireContext(), uri)
+                            val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                            val durationMs = durationStr?.toLongOrNull() ?: 0L
+                            val audioLimitMins = AppConfig.freePlanAudioLimitMinutes
+                            if (durationMs > audioLimitMins * 60 * 1000L) { 
+                                Toast.makeText(context, "Free plan limit: Files must be under $audioLimitMins minutes.", Toast.LENGTH_LONG).show()
+                                return@launch
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("UploadAudio", "Failed to retrieve audio duration: ${e.message}")
+                        } finally {
+                            try {
+                                retriever.release()
+                            } catch (ignored: Exception) {}
+                        }
                     }
+                    selectedAudioUriState.value = uri
                 }
-                selectedAudioUriState.value = uri
             }
         }
     }
@@ -191,19 +197,23 @@ class UploadAudioBottomsheetFragment : BottomSheetDialogFragment() {
     }
 
     private fun checkAndRequestPermissions() {
-        val subscription = authSession.currentUserSubscription()
-        if (subscription == "free" && viewModel.userFilesState.value.size >= 7) {
-            Toast.makeText(context, "Free plan limit: You can only have up to 7 recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
-            dismiss()
-            return
-        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            AppConfig.ensureLimitValidated()
+            val subscription = authSession.currentUserSubscription()
+            val limit = AppConfig.freePlanLimit
+            if (subscription == "free" && viewModel.historyCountState.value >= limit) {
+                Toast.makeText(context, "Free plan limit: You can only have up to $limit recordings. Please upgrade to Pro.", Toast.LENGTH_LONG).show()
+                dismiss()
+                return@launch
+            }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1003)
-        } else {
-            showSpeakerSelection()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1003)
+            } else {
+                showSpeakerSelection()
+            }
         }
     }
 
