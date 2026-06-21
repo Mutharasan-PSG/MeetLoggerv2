@@ -29,8 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -60,6 +62,7 @@ import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.ShimmerItem
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
 import com.meetloggerv2.ui.audio.fragment.RecordAudioBottomsheetFragment
@@ -304,9 +307,13 @@ fun HomeScreenContent(
                         Column {
                             Text(
                                 text = "MeetLogger",
-                                fontSize = 26.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onBackground
+                                style = androidx.compose.ui.text.TextStyle(
+                                    brush = Brush.linearGradient(
+                                        listOf(GradientStart, GradientEnd)
+                                    ),
+                                    fontSize = 26.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
                             )
                         }
 
@@ -317,13 +324,25 @@ fun HomeScreenContent(
                                 com.meetloggerv2.core.util.AvatarGenerator.getAvatar(context, username)
                             }
 
-                            Card(
-                                shape = CircleShape,
+                            // Gradient-ringed avatar — clean account button with a
+                            // thin surface gap; press-scale gives the tap feedback.
+                            Box(
                                 modifier = Modifier
-                                    .size(38.dp)
+                                    .size(42.dp)
+                                    .pressScaleClick { onProfileClick() }
+                                    .background(
+                                        brush = Brush.linearGradient(
+                                            listOf(GradientStart, GradientEnd)
+                                        ),
+                                        shape = CircleShape
+                                    )
+                                    .padding(2.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surface,
+                                        shape = CircleShape
+                                    )
+                                    .padding(2.dp)
                                     .clip(CircleShape)
-                                    .pressScaleClick { onProfileClick() },
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 AndroidView(
                                     factory = { ctx ->
@@ -402,9 +421,15 @@ fun HomeScreenContent(
                             contentAlignment = Alignment.Center
                         ) {
                             EmptyStatePlaceholder(
-                                icon = Icons.Default.HourglassEmpty,
-                                title = "No activity yet",
-                                subtitle = "Status of recorded or uploaded files will appear here"
+                                icon = Icons.Default.Mic,
+                                title = "Capture your first meeting",
+                                subtitle = "Record a live meeting or upload an audio file — your minutes and activity will show up here.",
+                                primaryActionLabel = "Record Audio",
+                                primaryActionIcon = Icons.Default.Mic,
+                                onPrimaryAction = onShowRecordSheet,
+                                secondaryActionLabel = "Upload Audio",
+                                secondaryActionIcon = Icons.Default.Upload,
+                                onSecondaryAction = onShowUploadSheet
                             )
                         }
                     } else if (filteredFiles.isEmpty()) {
@@ -449,11 +474,11 @@ fun HomeScreenContent(
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 14.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.AudioFile,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(34.dp)
+                                        GradientIconBadge(
+                                            icon = Icons.Default.AudioFile,
+                                            size = 44.dp,
+                                            cornerRadius = 12.dp,
+                                            iconSize = 24.dp
                                         )
 
                                         Spacer(modifier = Modifier.width(16.dp))
@@ -557,7 +582,10 @@ fun HomeScreenContent(
             val fabWidth by animateDpAsState(targetValue = if (showAudioOptions) 50.dp else 110.dp, label = "fabWidth")
             val fabRotation by animateFloatAsState(targetValue = if (showAudioOptions) 180f else 0f, label = "fabRotation")
 
-            // Audio Action FAB Button (Premium Rounded Card with Horizontal Gradient)
+            // Audio Action FAB Button (Premium Rounded Card with Horizontal Gradient).
+            // Hidden on the empty state — the placeholder there already offers the
+            // Record / Upload actions; shown only once the list has content.
+            if (!showEmptyState) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -637,10 +665,11 @@ fun HomeScreenContent(
                     }
                 }
             }
+            }
 
             // Options Overlay
             AnimatedVisibility(
-                visible = showAudioOptions,
+                visible = showAudioOptions && !showEmptyState,
                 enter = fadeIn(animationSpec = tween(250)),
                 exit = fadeOut(animationSpec = tween(200))
             ) {
@@ -740,48 +769,229 @@ fun HomeScreenContent(
     }
 }
 
+/**
+ * A modern, layered hero icon for empty states: a gradient-filled badge holding a
+ * white glyph, sitting on a softly breathing radial halo with a faint outer ring,
+ * and gently floating so the screen feels alive rather than flat.
+ */
+@Composable
+fun EmptyStateHeroIcon(icon: ImageVector) {
+    val transition = rememberInfiniteTransition(label = "heroIcon")
+    val haloScale by transition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "haloScale"
+    )
+    val haloAlpha by transition.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "haloAlpha"
+    )
+    val floatY by transition.animateFloat(
+        initialValue = -5f,
+        targetValue = 5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floatY"
+    )
+
+    val primary = MaterialTheme.colorScheme.primary
+
+    Box(
+        modifier = Modifier
+            .size(150.dp)
+            .graphicsLayer { translationY = floatY },
+        contentAlignment = Alignment.Center
+    ) {
+        // Breathing radial glow behind the badge
+        Box(
+            modifier = Modifier
+                .size(150.dp)
+                .graphicsLayer {
+                    scaleX = haloScale
+                    scaleY = haloScale
+                    alpha = haloAlpha
+                }
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(primary.copy(alpha = 0.22f), Color.Transparent)
+                    ),
+                    shape = CircleShape
+                )
+        )
+        // Faint outer ring for depth
+        Box(
+            modifier = Modifier
+                .size(112.dp)
+                .background(primary.copy(alpha = 0.06f), CircleShape)
+        )
+        // Gradient badge with white glyph
+        Surface(
+            modifier = Modifier.size(86.dp),
+            shape = RoundedCornerShape(26.dp),
+            color = Color.Transparent,
+            shadowElevation = 10.dp
+        ) {
+            Box(
+                modifier = Modifier.background(
+                    Brush.linearGradient(listOf(GradientStart, GradientEnd))
+                ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun EmptyStatePlaceholder(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    primaryActionLabel: String? = null,
+    primaryActionIcon: ImageVector? = null,
+    onPrimaryAction: (() -> Unit)? = null,
+    secondaryActionLabel: String? = null,
+    secondaryActionIcon: ImageVector? = null,
+    onSecondaryAction: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier.padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Surface(
-            modifier = Modifier.size(100.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(56.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
+        EmptyStateHeroIcon(icon = icon)
+        Spacer(modifier = Modifier.height(28.dp))
         Text(
             text = title,
-            fontSize = 18.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = subtitle,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            lineHeight = 20.sp
+            lineHeight = 21.sp,
+            modifier = Modifier.widthIn(max = 300.dp)
         )
+
+        EmptyStateActions(
+            primaryActionLabel = primaryActionLabel,
+            primaryActionIcon = primaryActionIcon,
+            onPrimaryAction = onPrimaryAction,
+            secondaryActionLabel = secondaryActionLabel,
+            secondaryActionIcon = secondaryActionIcon,
+            onSecondaryAction = onSecondaryAction
+        )
+    }
+}
+
+/**
+ * Optional call-to-action buttons rendered under an empty-state placeholder so a
+ * first-time user is invited to start an operation instead of facing a dead end.
+ */
+@Composable
+fun EmptyStateActions(
+    primaryActionLabel: String?,
+    primaryActionIcon: ImageVector?,
+    onPrimaryAction: (() -> Unit)?,
+    secondaryActionLabel: String?,
+    secondaryActionIcon: ImageVector?,
+    onSecondaryAction: (() -> Unit)?
+) {
+    if (primaryActionLabel == null || onPrimaryAction == null) return
+
+    Spacer(modifier = Modifier.height(28.dp))
+    Column(
+        modifier = Modifier.widthIn(max = 300.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .pressScaleClick { onPrimaryAction() },
+            shape = RoundedCornerShape(16.dp),
+            color = Color.Transparent,
+            shadowElevation = 4.dp
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Brush.linearGradient(listOf(GradientStart, GradientEnd))),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (primaryActionIcon != null) {
+                        Icon(
+                            imageVector = primaryActionIcon,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = primaryActionLabel,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
+            }
+        }
+
+        if (secondaryActionLabel != null && onSecondaryAction != null) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .pressScaleClick { onSecondaryAction() },
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (secondaryActionIcon != null) {
+                            Icon(
+                                imageVector = secondaryActionIcon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(
+                            text = secondaryActionLabel,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -859,33 +1069,67 @@ fun RowScope.BottomNavItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        // Top highlighter line spanning the section width (modern style).
+        // Top highlighter line spanning the section width (modern style),
+        // tinted with the brand gradient so the active state carries the
+        // app's accent without colouring the whole bar.
         Box(
             modifier = Modifier
                 .fillMaxWidth(indicatorFraction)
                 .height(4.dp)
                 .clip(RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
-                .background(MaterialTheme.colorScheme.primary)
+                .background(Brush.linearGradient(listOf(GradientStart, GradientEnd)))
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
+        // Selected icon carries the brand gradient (drawn as a SrcAtop overlay
+        // over the opaque glyph); unselected keeps the flat animated tint.
+        val iconBrush = Brush.linearGradient(listOf(GradientStart, GradientEnd))
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = color,
-            modifier = Modifier.size(28.dp)
+            tint = if (selected) Color.Black else color,
+            modifier = Modifier
+                .size(28.dp)
+                .then(
+                    if (selected) {
+                        // alpha < 1f forces an offscreen layer so SrcAtop only
+                        // paints the glyph pixels, not the full icon bounds.
+                        Modifier
+                            .graphicsLayer { alpha = 0.99f }
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(brush = iconBrush, blendMode = BlendMode.SrcAtop)
+                            }
+                    } else {
+                        Modifier
+                    }
+                )
         )
 
         Spacer(modifier = Modifier.height(5.dp))
 
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = color,
-            maxLines = 1
-        )
+        // Selected label shares the brand gradient with the icon; unselected
+        // keeps the flat animated tint.
+        if (selected) {
+            Text(
+                text = label,
+                style = androidx.compose.ui.text.TextStyle(
+                    brush = iconBrush,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 1
+            )
+        } else {
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = color,
+                maxLines = 1
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
     }

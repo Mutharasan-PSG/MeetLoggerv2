@@ -4,20 +4,38 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -29,6 +47,7 @@ import com.meetloggerv2.core.theme.AppStrings
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
+import com.meetloggerv2.core.theme.pressScaleClick
 import com.meetloggerv2.ui.login.fragment.TermsPolicyBottomSheetFragment
 
 class IntroActivity : AppCompatActivity() {
@@ -60,6 +79,31 @@ fun IntroScreen(
     onShowTerms: () -> Unit,
     onShowPolicy: () -> Unit
 ) {
+    val brandGradient = Brush.linearGradient(colors = listOf(GradientStart, GradientEnd))
+
+    // Entrance animation: content fades/slides up, logo scales in with a soft bounce.
+    var startAnim by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { startAnim = true }
+
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (startAnim) 1f else 0f,
+        animationSpec = tween(durationMillis = 700, easing = EaseOutCubic),
+        label = "contentAlpha"
+    )
+    val contentOffset by animateFloatAsState(
+        targetValue = if (startAnim) 0f else 40f,
+        animationSpec = tween(durationMillis = 700, easing = EaseOutCubic),
+        label = "contentOffset"
+    )
+    val logoScale by animateFloatAsState(
+        targetValue = if (startAnim) 1f else 0.7f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "logoScale"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -68,71 +112,98 @@ fun IntroScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Bottom
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Push everything to the bottom
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.weight(1.1f))
 
-            // Slogan positioned just above the logo
+            // Hero logo
+            Image(
+                painter = painterResource(id = R.drawable.launchlogo),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(118.dp)
+                    .scale(logoScale)
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // App name with brand gradient
             Text(
-                text = AppStrings.APP_SLOGAN,
-                fontSize = 26.sp,
-                textAlign = TextAlign.Start,
+                text = AppStrings.APP_NAME,
+                style = TextStyle(
+                    brush = brandGradient,
+                    fontSize = 38.sp,
+                    fontWeight = FontWeight.ExtraBold
+                ),
+                modifier = Modifier
+                    .alpha(contentAlpha)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Slogan / tagline
+            Text(
+                text = AppStrings.APP_SLOGAN.replace("\n", " "),
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 36.sp,
+                lineHeight = 24.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .alpha(contentAlpha)
             )
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Logo and App Name group
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(
-                    painter = painterResource(id = R.drawable.launchlogo),
-                    contentDescription = null,
-                    modifier = Modifier.size(110.dp)
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = AppStrings.APP_NAME,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Action Button
-            Surface(
-                onClick = onGetStarted,
+            // Feature highlights — tells a first-time user what the app does
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = Color.Transparent
+                    .alpha(contentAlpha),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                FeatureItem(icon = Icons.Filled.Mic, label = "Record")
+                FeatureItem(icon = Icons.Filled.AutoAwesome, label = "AI Minutes")
+                FeatureItem(icon = Icons.Filled.Description, label = "Documents")
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // CTA
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(58.dp)
+                    .absoluteOffset(y = contentOffset.dp)
+                    .alpha(contentAlpha)
+                    .pressScaleClick { onGetStarted() },
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Transparent,
+                shadowElevation = 6.dp
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(GradientStart, GradientEnd)
-                            )
-                        ),
+                        .background(brandGradient),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = AppStrings.BTN_GET_STARTED,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = AppStrings.BTN_GET_STARTED,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -156,6 +227,7 @@ fun IntroScreen(
 
             ClickableText(
                 text = annotatedString,
+                modifier = Modifier.alpha(contentAlpha),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -171,8 +243,41 @@ fun IntroScreen(
                         }
                 }
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
+
+@Composable
+private fun FeatureItem(icon: ImageVector, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(
+            modifier = Modifier.size(58.dp),
+            shape = RoundedCornerShape(18.dp),
+            color = Color.Transparent,
+            shadowElevation = 6.dp
+        ) {
+            Box(
+                modifier = Modifier.background(
+                    Brush.linearGradient(listOf(GradientStart, GradientEnd))
+                ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

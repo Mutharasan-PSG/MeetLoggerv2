@@ -44,6 +44,7 @@ import com.meetloggerv2.core.network.NetworkUtil
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
 import com.meetloggerv2.ui.login.viewmodel.LoginViewModel
@@ -106,21 +107,13 @@ class ForgotPasswordActivity : AppCompatActivity() {
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 val isDark = MaterialTheme.colorScheme.onSurface == Color.White
-                                Surface(
-                                    modifier = Modifier.size(80.dp),
+                                GradientIconBadge(
+                                    icon = Icons.Default.MarkEmailRead,
+                                    size = 80.dp,
                                     shape = CircleShape,
-                                    color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.MarkEmailRead,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(40.dp)
-                                        )
-                                    }
-                                }
+                                    iconSize = 40.dp,
+                                    shadowElevation = 8.dp
+                                )
 
                                 Spacer(modifier = Modifier.height(20.dp))
 

@@ -36,6 +36,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.meetloggerv2.core.util.ToastHelper
 import com.meetloggerv2.core.theme.MeetLoggerTheme
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
 import com.meetloggerv2.ui.profile.viewmodel.SettingsViewModel
@@ -562,11 +563,11 @@ fun ToggleSettingRow(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
+        GradientIconBadge(
+            icon = icon,
+            size = 44.dp,
+            cornerRadius = 12.dp,
+            iconSize = 24.dp
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -592,7 +593,12 @@ fun SelectionSettingRow(icon: ImageVector, title: String, value: String, onClick
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        GradientIconBadge(
+            icon = icon,
+            size = 44.dp,
+            cornerRadius = 12.dp,
+            iconSize = 24.dp
+        )
         Spacer(modifier = Modifier.width(16.dp))
         Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         Spacer(modifier = Modifier.width(8.dp))
@@ -665,7 +671,6 @@ fun ActionSettingRow(
             }
         }
     } else {
-        val tintColor = MaterialTheme.colorScheme.primary
         val titleColor = MaterialTheme.colorScheme.onSurface
         Row(
             modifier = Modifier
@@ -674,7 +679,12 @@ fun ActionSettingRow(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = tintColor, modifier = Modifier.size(24.dp))
+            GradientIconBadge(
+                icon = icon,
+                size = 44.dp,
+                cornerRadius = 12.dp,
+                iconSize = 24.dp
+            )
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = titleColor)

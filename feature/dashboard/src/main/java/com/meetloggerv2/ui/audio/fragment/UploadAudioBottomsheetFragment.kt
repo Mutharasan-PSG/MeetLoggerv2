@@ -48,6 +48,7 @@ import com.meetloggerv2.core.session.AuthSession
 import com.meetloggerv2.core.config.AppConfig
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
@@ -346,21 +347,13 @@ fun UploadAudioScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val isDark = MaterialTheme.colorScheme.onSurface == Color.White
-                    Surface(
-                        modifier = Modifier.size(56.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = if (selectedUri != null) Icons.Default.AudioFile else Icons.Default.Backup,
-                                contentDescription = null,
-                                tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    }
+                    GradientIconBadge(
+                        icon = if (selectedUri != null) Icons.Default.AudioFile else Icons.Default.Backup,
+                        size = 56.dp,
+                        cornerRadius = 14.dp,
+                        iconSize = 28.dp,
+                        shadowElevation = 6.dp
+                    )
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -466,20 +459,12 @@ fun UploadAudioScreen(
                         .fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        modifier = Modifier.size(48.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.GraphicEq,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
+                    GradientIconBadge(
+                        icon = Icons.Default.GraphicEq,
+                        size = 48.dp,
+                        cornerRadius = 14.dp,
+                        iconSize = 24.dp
+                    )
 
                     Spacer(modifier = Modifier.width(16.dp))
 

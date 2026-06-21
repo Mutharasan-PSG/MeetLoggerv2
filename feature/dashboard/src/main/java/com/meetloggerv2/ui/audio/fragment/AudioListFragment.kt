@@ -72,9 +72,13 @@ import com.meetloggerv2.core.theme.ShimmerItem
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
+import com.meetloggerv2.ui.home.fragment.EmptyStateActions
+import com.meetloggerv2.ui.home.fragment.EmptyStateHeroIcon
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.ui.components.PremiumAudioPlayer
 import com.meetloggerv2.ui.audio.util.AudioProcessingDialog
 import com.meetloggerv2.ui.audio.util.PlanLimitDialog
+import com.meetloggerv2.ui.audio.util.ProcessingStartedDialog
 import com.meetloggerv2.core.navigation.findNavigationRouter
 import com.meetloggerv2.core.session.AuthSession
 import com.meetloggerv2.core.config.AppConfig
@@ -96,6 +100,9 @@ class AudioListFragment : Fragment() {
 
     private val isOnlineState = mutableStateOf(true)
     private var showSpeakerSelectionState = mutableStateOf<String?>(null)
+    // Shows the "Processing Started" pop-up after a summarize is submitted to the
+    // backend, consistent with the record/upload bottom sheets (replaces a toast).
+    private val showProcessingStartedState = mutableStateOf(false)
 
     // Progress/Overlay states
     private var isProcessingState = mutableStateOf(false)
@@ -215,6 +222,12 @@ class AudioListFragment : Fragment() {
                                         showSpeakerSelectionState.value = name
                                     }
                                 }
+                            },
+                            onShowRecordSheet = {
+                                RecordAudioBottomsheetFragment().show(parentFragmentManager, "RecordAudioSheet")
+                            },
+                            onShowUploadSheet = {
+                                UploadAudioBottomsheetFragment().show(parentFragmentManager, "UploadAudioSheet")
                             }
                         )
 
@@ -240,6 +253,12 @@ class AudioListFragment : Fragment() {
                                     showLimitDialog = false
                                     findNavigationRouter()?.navigateToSubscriptions()
                                 }
+                            )
+                        }
+
+                        if (showProcessingStartedState.value) {
+                            ProcessingStartedDialog(
+                                onDismiss = { showProcessingStartedState.value = false }
                             )
                         }
                     }
@@ -360,7 +379,7 @@ class AudioListFragment : Fragment() {
                             }
                             is AudioListViewModel.AudioUiState.Processed -> {
                                 hideProgress()
-                                Toast.makeText(context, "Ready!", Toast.LENGTH_SHORT).show()
+                                showProcessingStartedState.value = true
                             }
                         }
                     }
@@ -482,7 +501,9 @@ fun AudioListScreen(
     onSeekPlayback: (Int) -> Unit,
     onDownloadItem: (String) -> Unit,
     onShareItem: (String) -> Unit,
-    onSummarizeItem: (String) -> Unit
+    onSummarizeItem: (String) -> Unit,
+    onShowRecordSheet: () -> Unit,
+    onShowUploadSheet: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -728,7 +749,13 @@ fun AudioListScreen(
                                 EmptyStatePlaceholder(
                                     icon = Icons.Default.Mic,
                                     title = "No recordings yet",
-                                    subtitle = "Recorded or uploaded audio files will appear here"
+                                    subtitle = "Record a live meeting or upload an audio file to get started.",
+                                    primaryActionLabel = "Record Audio",
+                                    primaryActionIcon = Icons.Default.Mic,
+                                    onPrimaryAction = onShowRecordSheet,
+                                    secondaryActionLabel = "Upload Audio",
+                                    secondaryActionIcon = Icons.Default.Upload,
+                                    onSecondaryAction = onShowUploadSheet
                                 )
                             } else {
                                 Text(
@@ -797,20 +824,12 @@ fun AudioListScreen(
                                             )
                                             Spacer(modifier = Modifier.width(16.dp))
                                         } else {
-                                            Surface(
-                                                modifier = Modifier.size(44.dp),
-                                                shape = RoundedCornerShape(12.dp),
-                                                color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.AudioFile,
-                                                        contentDescription = null,
-                                                        tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                }
-                                            }
+                                            GradientIconBadge(
+                                                icon = Icons.Default.AudioFile,
+                                                size = 44.dp,
+                                                cornerRadius = 12.dp,
+                                                iconSize = 24.dp
+                                            )
                                             Spacer(modifier = Modifier.width(16.dp))
                                         }
 
@@ -1123,43 +1142,45 @@ fun EmptyStatePlaceholder(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    primaryActionLabel: String? = null,
+    primaryActionIcon: ImageVector? = null,
+    onPrimaryAction: (() -> Unit)? = null,
+    secondaryActionLabel: String? = null,
+    secondaryActionIcon: ImageVector? = null,
+    onSecondaryAction: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier.padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        val isDark = MaterialTheme.colorScheme.onSurface == Color.White
-        Surface(
-            modifier = Modifier.size(100.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(56.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
+        EmptyStateHeroIcon(icon = icon)
+        Spacer(modifier = Modifier.height(28.dp))
         Text(
             text = title,
-            fontSize = 18.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = subtitle,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            lineHeight = 20.sp
+            lineHeight = 21.sp,
+            modifier = Modifier.widthIn(max = 300.dp)
+        )
+
+        EmptyStateActions(
+            primaryActionLabel = primaryActionLabel,
+            primaryActionIcon = primaryActionIcon,
+            onPrimaryAction = onPrimaryAction,
+            secondaryActionLabel = secondaryActionLabel,
+            secondaryActionIcon = secondaryActionIcon,
+            onSecondaryAction = onSecondaryAction
         )
     }
 }

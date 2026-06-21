@@ -61,6 +61,7 @@ import com.meetloggerv2.core.theme.AppStrings
 import com.meetloggerv2.core.navigation.AppLayoutIds
 import com.meetloggerv2.core.export.DocumentExportManager
 import com.meetloggerv2.core.theme.GradientEnd
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScale
@@ -818,27 +819,13 @@ fun BottomActionItem(
             )
             .padding(vertical = 4.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.04f)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = imageVector,
-                contentDescription = label,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp)
-            )
-        }
+        GradientIconBadge(
+            icon = imageVector,
+            contentDescription = label,
+            size = 44.dp,
+            shape = CircleShape,
+            iconSize = 22.dp
+        )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
