@@ -3,6 +3,9 @@ package com.meetloggerv2.core.config
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.remoteConfigSettings
 import com.meetloggerv2.core.util.AppLogger
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -16,6 +19,18 @@ object AppConfig {
     private const val KEY_PRICE_EUR = "price_eur"
     private const val KEY_PRICE_GBP = "price_gbp"
     private const val KEY_PRICE_JPY = "price_jpy"
+
+    // --- Access gate keys (force-update / maintenance / per-user block) ---
+    private const val KEY_MIN_SUPPORTED_VERSION = "min_supported_version"
+    private const val KEY_MAINTENANCE_MODE = "maintenance_mode"
+    private const val KEY_MAINTENANCE_MESSAGE = "maintenance_message"
+    private const val KEY_BLOCKED_USER_IDS = "blocked_user_ids"
+    private const val KEY_UPDATE_URL = "update_url"
+
+    private const val DEFAULT_MAINTENANCE_MESSAGE =
+        "MeetLogger is undergoing scheduled maintenance. Please check back shortly."
+    private const val DEFAULT_UPDATE_URL =
+        "https://play.google.com/store/apps/details?id=com.meetloggerv2"
 
     @Volatile
     var freePlanLimit: Int = 7
@@ -49,8 +64,96 @@ object AppConfig {
     var priceJpy: String = "1490"
         private set
 
+    // --- Access gate values ---
+    @Volatile
+    var minSupportedVersion: Int = 1
+        private set
+
+    @Volatile
+    var maintenanceMode: Boolean = false
+        private set
+
+    @Volatile
+    var maintenanceMessage: String = DEFAULT_MAINTENANCE_MESSAGE
+        private set
+
+    @Volatile
+    var blockedUserIds: Set<String> = emptySet()
+        private set
+
+    @Volatile
+    var updateUrl: String = DEFAULT_UPDATE_URL
+        private set
+
     @Volatile
     private var lastFetchedTimeMillis: Long = 0
+
+    // Increments on every successful activate so live screens (e.g. HomeActivity)
+    // can re-evaluate the access gate in real-time when the console changes.
+    private val _configUpdates = MutableStateFlow(0)
+    val configUpdates: StateFlow<Int> = _configUpdates.asStateFlow()
+
+    /** Captures the current gate-relevant values for pure [AppGate] evaluation. */
+    fun snapshot(): GateConfig = GateConfig(
+        minSupportedVersion = minSupportedVersion,
+        maintenanceMode = maintenanceMode,
+        maintenanceMessage = maintenanceMessage,
+        blockedUserIds = blockedUserIds,
+        updateUrl = updateUrl,
+    )
+
+    /**
+     * Reads every Remote Config value off a freshly activated config into the
+     * cached fields, refreshes the fetch timestamp, and signals [configUpdates].
+     * Shared by the initial fetch, the real-time listener, and the suspending
+     * refetch so all paths stay in sync as keys are added.
+     */
+    private fun applyActivatedValues(remoteConfig: FirebaseRemoteConfig) {
+        freePlanLimit = remoteConfig.getLong(KEY_FREE_PLAN_LIMIT).toInt()
+        freePlanAudioLimitMinutes = remoteConfig.getLong(KEY_FREE_PLAN_AUDIO_LIMIT_MINUTES).toInt()
+        remoteConfigCacheMinutes = remoteConfig.getLong(KEY_REMOTE_CONFIG_CACHE_MINUTES).toInt()
+        priceUsd = remoteConfig.getString(KEY_PRICE_USD)
+        priceInr = remoteConfig.getString(KEY_PRICE_INR)
+        priceEur = remoteConfig.getString(KEY_PRICE_EUR)
+        priceGbp = remoteConfig.getString(KEY_PRICE_GBP)
+        priceJpy = remoteConfig.getString(KEY_PRICE_JPY)
+
+        minSupportedVersion = remoteConfig.getLong(KEY_MIN_SUPPORTED_VERSION).toInt()
+        maintenanceMode = remoteConfig.getBoolean(KEY_MAINTENANCE_MODE)
+        maintenanceMessage = remoteConfig.getString(KEY_MAINTENANCE_MESSAGE)
+            .ifBlank { DEFAULT_MAINTENANCE_MESSAGE }
+        blockedUserIds = parseBlockedUserIds(remoteConfig.getString(KEY_BLOCKED_USER_IDS))
+        updateUrl = remoteConfig.getString(KEY_UPDATE_URL).ifBlank { DEFAULT_UPDATE_URL }
+
+        lastFetchedTimeMillis = System.currentTimeMillis()
+        _configUpdates.value = _configUpdates.value + 1
+        AppLogger.d(
+            TAG,
+            "Remote Config applied. freePlanLimit=$freePlanLimit, " +
+                "minSupportedVersion=$minSupportedVersion, maintenanceMode=$maintenanceMode, " +
+                "blockedUserIds=${blockedUserIds.size}"
+        )
+    }
+
+    private fun parseBlockedUserIds(raw: String): Set<String> =
+        raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+
+    /** Keys that should trigger a re-activation when changed in the console. */
+    private val WATCHED_KEYS = setOf(
+        KEY_FREE_PLAN_LIMIT,
+        KEY_FREE_PLAN_AUDIO_LIMIT_MINUTES,
+        KEY_REMOTE_CONFIG_CACHE_MINUTES,
+        KEY_PRICE_USD,
+        KEY_PRICE_INR,
+        KEY_PRICE_EUR,
+        KEY_PRICE_GBP,
+        KEY_PRICE_JPY,
+        KEY_MIN_SUPPORTED_VERSION,
+        KEY_MAINTENANCE_MODE,
+        KEY_MAINTENANCE_MESSAGE,
+        KEY_BLOCKED_USER_IDS,
+        KEY_UPDATE_URL,
+    )
 
     /**
      * Initializes Remote Config defaults and attempts an initial fetch.
@@ -70,23 +173,20 @@ object AppConfig {
                 KEY_PRICE_INR to "849",
                 KEY_PRICE_EUR to "9.49",
                 KEY_PRICE_GBP to "7.99",
-                KEY_PRICE_JPY to "1490"
+                KEY_PRICE_JPY to "1490",
+                KEY_MIN_SUPPORTED_VERSION to 1,
+                KEY_MAINTENANCE_MODE to false,
+                KEY_MAINTENANCE_MESSAGE to DEFAULT_MAINTENANCE_MESSAGE,
+                KEY_BLOCKED_USER_IDS to "",
+                KEY_UPDATE_URL to DEFAULT_UPDATE_URL
             ))
 
             // Fetch and activate initial values asynchronously
             remoteConfig.fetchAndActivate()
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        freePlanLimit = remoteConfig.getLong(KEY_FREE_PLAN_LIMIT).toInt()
-                        freePlanAudioLimitMinutes = remoteConfig.getLong(KEY_FREE_PLAN_AUDIO_LIMIT_MINUTES).toInt()
-                        remoteConfigCacheMinutes = remoteConfig.getLong(KEY_REMOTE_CONFIG_CACHE_MINUTES).toInt()
-                        priceUsd = remoteConfig.getString(KEY_PRICE_USD)
-                        priceInr = remoteConfig.getString(KEY_PRICE_INR)
-                        priceEur = remoteConfig.getString(KEY_PRICE_EUR)
-                        priceGbp = remoteConfig.getString(KEY_PRICE_GBP)
-                        priceJpy = remoteConfig.getString(KEY_PRICE_JPY)
-                        lastFetchedTimeMillis = System.currentTimeMillis()
-                        AppLogger.d(TAG, "Initial Remote Config fetch succeeded. freePlanLimit = $freePlanLimit, freePlanAudioLimitMinutes = $freePlanAudioLimitMinutes, remoteConfigCacheMinutes = $remoteConfigCacheMinutes")
+                        applyActivatedValues(remoteConfig)
+                        AppLogger.d(TAG, "Initial Remote Config fetch succeeded.")
                     } else {
                         AppLogger.e(TAG, "Initial Remote Config fetch failed", task.exception)
                     }
@@ -96,26 +196,11 @@ object AppConfig {
             remoteConfig.addOnConfigUpdateListener(object : com.google.firebase.remoteconfig.ConfigUpdateListener {
                 override fun onUpdate(configUpdate: com.google.firebase.remoteconfig.ConfigUpdate) {
                     AppLogger.d(TAG, "Remote Config updated in real-time: ${configUpdate.updatedKeys}")
-                    if (configUpdate.updatedKeys.contains(KEY_FREE_PLAN_LIMIT) || 
-                        configUpdate.updatedKeys.contains(KEY_FREE_PLAN_AUDIO_LIMIT_MINUTES) ||
-                        configUpdate.updatedKeys.contains(KEY_REMOTE_CONFIG_CACHE_MINUTES) ||
-                        configUpdate.updatedKeys.contains(KEY_PRICE_USD) ||
-                        configUpdate.updatedKeys.contains(KEY_PRICE_INR) ||
-                        configUpdate.updatedKeys.contains(KEY_PRICE_EUR) ||
-                        configUpdate.updatedKeys.contains(KEY_PRICE_GBP) ||
-                        configUpdate.updatedKeys.contains(KEY_PRICE_JPY)) {
+                    if (configUpdate.updatedKeys.any { it in WATCHED_KEYS }) {
                         remoteConfig.activate().addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                freePlanLimit = remoteConfig.getLong(KEY_FREE_PLAN_LIMIT).toInt()
-                                freePlanAudioLimitMinutes = remoteConfig.getLong(KEY_FREE_PLAN_AUDIO_LIMIT_MINUTES).toInt()
-                                remoteConfigCacheMinutes = remoteConfig.getLong(KEY_REMOTE_CONFIG_CACHE_MINUTES).toInt()
-                                priceUsd = remoteConfig.getString(KEY_PRICE_USD)
-                                priceInr = remoteConfig.getString(KEY_PRICE_INR)
-                                priceEur = remoteConfig.getString(KEY_PRICE_EUR)
-                                priceGbp = remoteConfig.getString(KEY_PRICE_GBP)
-                                priceJpy = remoteConfig.getString(KEY_PRICE_JPY)
-                                lastFetchedTimeMillis = System.currentTimeMillis()
-                                AppLogger.d(TAG, "Real-time Remote Config activated. freePlanLimit = $freePlanLimit, freePlanAudioLimitMinutes = $freePlanAudioLimitMinutes, remoteConfigCacheMinutes = $remoteConfigCacheMinutes")
+                                applyActivatedValues(remoteConfig)
+                                AppLogger.d(TAG, "Real-time Remote Config activated.")
                             }
                         }
                     }
@@ -151,16 +236,8 @@ object AppConfig {
                     if (fetchTask.isSuccessful) {
                         remoteConfig.activate().addOnCompleteListener { activateTask ->
                             if (activateTask.isSuccessful) {
-                                freePlanLimit = remoteConfig.getLong(KEY_FREE_PLAN_LIMIT).toInt()
-                                freePlanAudioLimitMinutes = remoteConfig.getLong(KEY_FREE_PLAN_AUDIO_LIMIT_MINUTES).toInt()
-                                remoteConfigCacheMinutes = remoteConfig.getLong(KEY_REMOTE_CONFIG_CACHE_MINUTES).toInt()
-                                priceUsd = remoteConfig.getString(KEY_PRICE_USD)
-                                priceInr = remoteConfig.getString(KEY_PRICE_INR)
-                                priceEur = remoteConfig.getString(KEY_PRICE_EUR)
-                                priceGbp = remoteConfig.getString(KEY_PRICE_GBP)
-                                priceJpy = remoteConfig.getString(KEY_PRICE_JPY)
-                                lastFetchedTimeMillis = System.currentTimeMillis()
-                                AppLogger.d(TAG, "Refetch succeeded. freePlanLimit = $freePlanLimit, freePlanAudioLimitMinutes = $freePlanAudioLimitMinutes, remoteConfigCacheMinutes = $remoteConfigCacheMinutes")
+                                applyActivatedValues(remoteConfig)
+                                AppLogger.d(TAG, "Refetch succeeded.")
                                 continuation.resume(true)
                             } else {
                                 AppLogger.e(TAG, "Refetch: Activation failed", activateTask.exception)
@@ -178,4 +255,3 @@ object AppConfig {
         }
     }
 }
-

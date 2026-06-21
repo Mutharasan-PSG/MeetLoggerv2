@@ -1,6 +1,7 @@
 package com.meetloggerv2.ui.home.activity
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.FrameLayout
@@ -10,7 +11,9 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.meetloggerv2.core.navigation.NavigationRouter
 import com.meetloggerv2.core.navigation.AppLayoutIds
 import com.meetloggerv2.ui.audio.fragment.AudioListFragment
@@ -24,8 +27,18 @@ import com.meetloggerv2.ui.profile.fragment.SettingsFragment
 import com.meetloggerv2.ui.profile.fragment.SubscriptionFragment
 import com.meetloggerv2.ui.report.fragment.ReportFragment
 import com.meetloggerv2.MeetLoggerApp
+import com.meetloggerv2.BuildConfig
+import com.meetloggerv2.core.config.AppConfig
+import com.meetloggerv2.core.config.AppGate
+import com.meetloggerv2.core.config.GateResult
+import com.meetloggerv2.core.session.AuthSession
 import com.meetloggerv2.data.local.SettingsDataStore
+import com.meetloggerv2.ui.gate.BlockedScreen
+import com.meetloggerv2.ui.gate.ForceUpdateScreen
+import com.meetloggerv2.ui.gate.MaintenanceScreen
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
@@ -53,6 +66,8 @@ import com.meetloggerv2.core.ui.components.GradientIconBadge
 
 @AndroidEntryPoint
 class HomeActivity : AppCompatActivity(), NavigationRouter {
+
+    @Inject lateinit var authSession: AuthSession
 
     private lateinit var settingsDataStore: SettingsDataStore
     private var isAppUnlocked = false
@@ -91,6 +106,20 @@ class HomeActivity : AppCompatActivity(), NavigationRouter {
         }
         rootView.addView(lockScreenContainer)
 
+        // Access-gate overlay (force-update / maintenance / block). Added last so
+        // it sits on top of both the fragments and the biometric lock screen.
+        val gateContainer = FrameLayout(this).apply {
+            id = AppLayoutIds.GATE_CONTAINER
+            layoutParams = android.widget.RelativeLayout.LayoutParams(
+                android.widget.RelativeLayout.LayoutParams.MATCH_PARENT,
+                android.widget.RelativeLayout.LayoutParams.MATCH_PARENT
+            )
+            visibility = View.GONE
+            isClickable = true
+            isFocusable = true
+        }
+        rootView.addView(gateContainer)
+
         setContentView(rootView)
 
         // Register FCM token whenever HomeActivity opens (after login or app relaunch)
@@ -107,6 +136,79 @@ class HomeActivity : AppCompatActivity(), NavigationRouter {
                     navigateToHome()
                 }
             }
+        }
+
+        // Re-evaluate the access gate on every entry/foreground and react in
+        // real-time to Remote Config changes. The overlay simply covers the app
+        // when blocked and reveals it when allowed, independent of the fragment
+        // and lock-screen flow above.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AppConfig.ensureLimitValidated()
+                AppConfig.configUpdates.collect { applyGate(evaluateGate()) }
+            }
+        }
+    }
+
+    private fun evaluateGate(): GateResult {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        return AppGate.evaluate(AppConfig.snapshot(), BuildConfig.VERSION_CODE, uid)
+    }
+
+    private fun applyGate(result: GateResult) {
+        if (result is GateResult.Allowed) hideGate() else showGate(result)
+    }
+
+    private fun showGate(result: GateResult) {
+        val container = findViewById<FrameLayout>(AppLayoutIds.GATE_CONTAINER)
+        val composeView = ComposeView(this).apply {
+            setContent {
+                MeetLoggerTheme {
+                    when (result) {
+                        is GateResult.ForceUpdate -> ForceUpdateScreen(onUpdate = { openUpdateUrl(result.updateUrl) })
+                        is GateResult.Maintenance -> MaintenanceScreen(
+                            message = result.message,
+                            onRetry = { refreshAndApplyGate() },
+                        )
+                        GateResult.Blocked -> BlockedScreen(onSignOut = { signOutBlockedUser() })
+                        GateResult.Allowed -> {}
+                    }
+                }
+            }
+        }
+        container.removeAllViews()
+        container.addView(composeView)
+        container.visibility = View.VISIBLE
+    }
+
+    private fun hideGate() {
+        val container = findViewById<FrameLayout>(AppLayoutIds.GATE_CONTAINER)
+        container.removeAllViews()
+        container.visibility = View.GONE
+    }
+
+    private fun refreshAndApplyGate() {
+        lifecycleScope.launch {
+            AppConfig.ensureLimitValidated()
+            applyGate(evaluateGate())
+        }
+    }
+
+    private fun openUpdateUrl(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).setPackage("com.android.vending"))
+        } catch (e: Exception) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun signOutBlockedUser() {
+        lifecycleScope.launch {
+            authSession.signOut()
+            navigateToLogin()
         }
     }
 
