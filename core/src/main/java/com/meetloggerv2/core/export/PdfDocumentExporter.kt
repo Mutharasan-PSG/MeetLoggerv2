@@ -77,8 +77,16 @@ class PdfDocumentExporter : DocumentExporter {
                 continue
             }
 
-            // Check for Main uppercase titles
-            if ((currentLine == "SUMMARY OF THE CONTENT" || currentLine == "TRANSCRIPTION OF SPEAKERS") && !currentLine.contains("*")) {
+            // Premium meeting header card (single leading '#'): subtle rounded rectangle
+            // holding the centered title plus a row of highlighted chips (duration, members).
+            if (currentLine.startsWith("# ") && !currentLine.startsWith("## ")) {
+                val raw = currentLine.removePrefix("# ")
+                val headParts = raw.split("|||")
+                val titleText = headParts[0].trim()
+                val chips = if (headParts.size > 1)
+                    headParts[1].split("||").map { it.trim() }.filter { it.isNotEmpty() }
+                else emptyList()
+
                 while (consecutiveNewlines < 2) {
                     currentY += lineHeight
                     consecutiveNewlines++
@@ -90,7 +98,97 @@ class PdfDocumentExporter : DocumentExporter {
                         currentY = marginTop
                     }
                 }
-                
+
+                val padTop = 14f
+                val padBottom = 4f
+                val titleSize = 19f
+                val chipSize = 10f
+                val hasChips = chips.isNotEmpty()
+                val gap = 16f
+                val chipH = chipSize + 10f
+                val cardHeight = if (hasChips) {
+                    padTop + titleSize + gap + chipH + padBottom
+                } else {
+                    padTop + titleSize + padBottom
+                }
+
+                if (currentY + cardHeight > pageHeight - marginBottom) {
+                    document.finishPage(page)
+                    pageNumber++
+                    page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                    canvas = page.canvas
+                    currentY = marginTop
+                }
+
+                val cardTop = currentY - 4f
+                val cardRight = pageWidth - marginRight
+                val cardBottom = cardTop + cardHeight
+
+                val cardBgPaint = Paint().apply {
+                    color = Color.argb((255 * 0.06f).toInt(), 0x43, 0x61, 0xEE)
+                    style = Paint.Style.FILL
+                    isAntiAlias = true
+                }
+                val cardBorderPaint = Paint().apply {
+                    color = Color.argb((255 * 0.18f).toInt(), 0x43, 0x61, 0xEE)
+                    style = Paint.Style.STROKE
+                    strokeWidth = 1f
+                    isAntiAlias = true
+                }
+                canvas.drawRoundRect(marginLeft, cardTop, cardRight, cardBottom, 16f, 16f, cardBgPaint)
+                canvas.drawRoundRect(marginLeft, cardTop, cardRight, cardBottom, 16f, 16f, cardBorderPaint)
+
+                // Title (centered)
+                boldPrimaryPaint.textSize = titleSize
+                val titleW = boldPrimaryPaint.measureText(titleText)
+                val titleBaseline = cardTop + padTop + titleSize
+                canvas.drawText(titleText, ((pageWidth - titleW) / 2f).coerceAtLeast(marginLeft), titleBaseline, boldPrimaryPaint)
+
+                // Chips (centered row of individually highlighted pills)
+                if (hasChips) {
+                    boldPrimaryPaint.textSize = chipSize
+                    val chipPadX = 10f
+                    val chipGap = 8f
+                    val widths = chips.map { boldPrimaryPaint.measureText(it) + chipPadX * 2 }
+                    val totalW = widths.sum() + chipGap * (chips.size - 1)
+                    var cx = ((pageWidth - totalW) / 2f).coerceAtLeast(marginLeft)
+                    val chipTop = titleBaseline + gap
+                    val chipTextBaseline = chipTop + chipSize + 2f
+                    val chipBgPaint = Paint().apply {
+                        color = Color.argb((255 * 0.12f).toInt(), 0x43, 0x61, 0xEE)
+                        style = Paint.Style.FILL
+                        isAntiAlias = true
+                    }
+                    for (i in chips.indices) {
+                        val w = widths[i]
+                        canvas.drawRoundRect(cx, chipTop, cx + w, chipTop + chipH, 9f, 9f, chipBgPaint)
+                        canvas.drawText(chips[i], cx + chipPadX, chipTextBaseline, boldPrimaryPaint)
+                        cx += w + chipGap
+                    }
+                }
+                boldPrimaryPaint.textSize = 11f
+
+                currentY = cardBottom + lineHeight * 1.5f
+                consecutiveNewlines = 2
+                isDecisionsSection = false
+                isTranscriptionSection = false
+                continue
+            }
+
+            // Check for Main uppercase titles
+            if ((currentLine == "SUMMARY OF THE MEETING" || currentLine == "SUMMARY OF THE CONTENT" || currentLine == "TRANSCRIPTION OF SPEAKERS") && !currentLine.contains("*")) {
+                while (consecutiveNewlines < 2) {
+                    currentY += lineHeight
+                    consecutiveNewlines++
+                    if (currentY > pageHeight - marginBottom) {
+                        document.finishPage(page)
+                        pageNumber++
+                        page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+                        canvas = page.canvas
+                        currentY = marginTop
+                    }
+                }
+
                 boldPrimaryPaint.textSize = 15f
                 canvas.drawText(currentLine, marginLeft, currentY, boldPrimaryPaint)
                 currentY += lineHeight * 1.5f

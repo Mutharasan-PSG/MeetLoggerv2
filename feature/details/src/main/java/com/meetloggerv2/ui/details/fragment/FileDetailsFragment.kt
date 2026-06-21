@@ -191,7 +191,12 @@ class FileDetailsFragment : Fragment() {
 
     private fun saveContentToUri(uri: Uri, format: String) {
         try {
-            val content = pendingExportContent ?: viewModel.fileDetails.value?.get("Response") as? String ?: ""
+            val rawContent = pendingExportContent ?: viewModel.fileDetails.value?.get("Response") as? String ?: ""
+            val fd = viewModel.fileDetails.value
+            val title = fd?.get("Title") as? String
+            val durationMinutes = (fd?.get("DurationMinutes") as? Number)?.toInt() ?: 0
+            val memberCount = (fd?.get("MemberCount") as? Number)?.toInt() ?: 0
+            val content = prependTitleHeader(rawContent, title, durationMinutes, memberCount)
             requireContext().contentResolver.openOutputStream(uri)?.use { os ->
                 exportManager.export(content, format, os)
             }
@@ -207,10 +212,15 @@ class FileDetailsFragment : Fragment() {
         val cleanName = fileName?.substringBeforeLast(".") ?: "share"
         val exporter = exportManager.getExporter(format) ?: return
         val ext = exporter.fileExtension.removePrefix(".")
+        val fd = viewModel.fileDetails.value
+        val title = fd?.get("Title") as? String
+        val durationMinutes = (fd?.get("DurationMinutes") as? Number)?.toInt() ?: 0
+        val memberCount = (fd?.get("MemberCount") as? Number)?.toInt() ?: 0
+        val titledContent = prependTitleHeader(content, title, durationMinutes, memberCount)
         try {
             val temp = File(requireContext().cacheDir, "$cleanName.$ext")
             FileOutputStream(temp).use { os ->
-                exportManager.export(content, format, os)
+                exportManager.export(titledContent, format, os)
             }
             startActivity(
                 Intent.createChooser(
@@ -295,7 +305,8 @@ fun FileDetailsScreenContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = fileName?.substringBeforeLast(".") ?: "Details",
+                        text = (fileDetails?.get("Title") as? String)?.takeIf { it.isNotBlank() }
+                            ?: fileName?.substringBeforeLast(".") ?: "Details",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         maxLines = 1,
@@ -505,6 +516,15 @@ fun FileDetailsScreenContent(
                         )
                     } else {
                         var textLayoutResult by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+                        // Premium meeting header card (title + duration/member chips), shown only when
+                        // viewing (not while editing) so the title never becomes editable body text.
+                        if (!isContentTranslated) {
+                            MeetingTitleCard(
+                                title = (fileDetails?.get("Title") as? String)?.takeIf { it.isNotBlank() },
+                                durationMinutes = (fileDetails?.get("DurationMinutes") as? Number)?.toInt() ?: 0,
+                                memberCount = (fileDetails?.get("MemberCount") as? Number)?.toInt() ?: 0
+                            )
+                        }
                         val annotatedText = parsePremiumDocument(
                             text = editedText,
                             primaryColor = MaterialTheme.colorScheme.primary,
@@ -837,6 +857,81 @@ fun BottomActionItem(
     }
 }
 
+/** Prepends the meeting title (+ optional duration/member chips) as a top-level
+ *  "# Title|||chip||chip" header for export rendering, without baking it into the
+ *  editable body. No-op when the title is blank or already present. */
+fun prependTitleHeader(content: String, title: String?, durationMinutes: Int = 0, memberCount: Int = 0): String {
+    if (title.isNullOrBlank()) return content
+    if (content.trimStart().startsWith("# ")) return content
+    val chips = mutableListOf<String>()
+    if (durationMinutes > 0) chips.add("Meeting Lasted: ~$durationMinutes min")
+    if (memberCount > 0) chips.add("Members: $memberCount ${if (memberCount == 1) "member" else "members"}")
+    val safeTitle = title.trim().replace("|", " ")
+    val headerLine = if (chips.isEmpty()) "# $safeTitle" else "# $safeTitle|||${chips.joinToString("||")}"
+    return "$headerLine\n\n$content"
+}
+
+/** Premium meeting header card: the auto-generated title inside a subtle rounded
+ *  rectangle, with approximate-duration and member-count chips below — styled like
+ *  the upload-audio format tags. */
+@Composable
+fun MeetingTitleCard(title: String?, durationMinutes: Int, memberCount: Int) {
+    if (title.isNullOrBlank()) return
+    val chips = buildList {
+        if (durationMinutes > 0) add("Meeting Lasted: ~$durationMinutes min")
+        if (memberCount > 0) add("Members: $memberCount ${if (memberCount == 1) "member" else "members"}")
+    }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 20.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title.trim(),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                lineHeight = 26.sp
+            )
+            if (chips.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    chips.forEach { MeetingChip(it) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MeetingChip(text: String) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            softWrap = false
+        )
+    }
+}
+
 fun parsePremiumDocument(
     text: String,
     primaryColor: Color,
@@ -859,8 +954,27 @@ fun parsePremiumDocument(
                 return@forEachIndexed
             }
             
+            // Premium meeting title (single leading '#'), rendered large and centered on top
+            if (currentLine.startsWith("# ") && !currentLine.startsWith("## ")) {
+                val titleText = currentLine.removePrefix("# ").substringBefore("|||").trim()
+                while (consecutiveNewlines < 2) {
+                    append("\n")
+                    consecutiveNewlines++
+                }
+                pushStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = TextAlign.Center))
+                pushStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, color = primaryColor, letterSpacing = 0.3.sp))
+                append(titleText)
+                pop() // SpanStyle
+                pop() // ParagraphStyle
+                append("\n")
+                consecutiveNewlines = 1
+                isDecisionsSection = false
+                isTranscriptionSection = false
+                return@forEachIndexed
+            }
+
             // Check for Main uppercase titles
-            if ((currentLine == "SUMMARY OF THE CONTENT" || currentLine == "TRANSCRIPTION OF SPEAKERS") && !currentLine.contains("*")) {
+            if ((currentLine == "SUMMARY OF THE MEETING" || currentLine == "SUMMARY OF THE CONTENT" || currentLine == "TRANSCRIPTION OF SPEAKERS") && !currentLine.contains("*")) {
                 // Ensure exactly one blank line before (which means 2 consecutive newlines)
                 while (consecutiveNewlines < 2) {
                     append("\n")
@@ -898,6 +1012,8 @@ fun parsePremiumDocument(
                     headerText.contains("DECISIONS", ignoreCase = true) -> "🤝 "
                     headerText.contains("ACTIONS", ignoreCase = true) -> "⚡ "
                     headerText.contains("POINTS", ignoreCase = true) || headerText.contains("TAKEAWAYS", ignoreCase = true) -> "🎯 "
+                    headerText.contains("TALK-TIME", ignoreCase = true) || headerText.contains("CONTRIBUTION", ignoreCase = true) -> "📊 "
+                    headerText.contains("SENTIMENT", ignoreCase = true) || headerText.contains("TONE", ignoreCase = true) -> "😊 "
                     headerText.contains("TRANSCRIPTION", ignoreCase = true) || headerText.contains("SPEAKERS", ignoreCase = true) -> "🗣️ "
                     else -> "💡 "
                 }

@@ -196,9 +196,10 @@ class AudioListViewModel @Inject constructor(
             val result = fileRepository.renameFileOnBackend(userId, oldName, newName, "audio")
             when (result) {
                 is NetworkResult.Success -> {
+                    val serverName = result.data ?: newName
                     // Rename in the in-memory list immediately for an instant UI update.
                     _rawAudioFiles.value = _rawAudioFiles.value
-                        .map { if (it == oldName) newName else it }
+                        .map { if (it == oldName) serverName else it }
                         .sorted()
                     _uiState.value = AudioUiState.Idle
                 }
