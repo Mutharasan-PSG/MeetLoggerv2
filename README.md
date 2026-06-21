@@ -25,6 +25,15 @@ MeetLogger V2 is a secure, enterprise-grade Android application designed for the
 3. Synchronize Gradle dependencies.
 4. Build and run the app on a connected mobile device or emulator.
 
+## Testing
+
+The project has a comprehensive unit testing suite coverage (>210 tests) running on the JVM. For full details on tests, mock configurations, and target test cases, check out the [Unit Testing Documentation](file:///Users/mutharasan/StudioProjects/MeetLoggerv2/TESTING.md).
+
+To run all unit tests in the client app:
+```bash
+./gradlew testDebugUnitTest
+```
+
 ## License & Ownership
 
 This project is owned and maintained by **Mutharasan** ([GitHub Profile](https://github.com/Mutharasan-PSG)).

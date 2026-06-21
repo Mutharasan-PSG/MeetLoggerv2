@@ -68,6 +68,7 @@ import com.meetloggerv2.core.export.DocumentExportManager
 import com.meetloggerv2.core.navigation.findNavigationRouter
 import com.meetloggerv2.core.network.NetworkMonitor
 import com.meetloggerv2.core.theme.GradientEnd
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScale
@@ -550,7 +551,10 @@ fun ReportScreenContent(
                                 EmptyStatePlaceholder(
                                     icon = Icons.Default.Description,
                                     title = "No summaries yet",
-                                    subtitle = "Summarized files will show up here once processed"
+                                    subtitle = "Pick a recording and generate AI minutes — your summaries will appear here.",
+                                    primaryActionLabel = "Go to Recordings",
+                                    primaryActionIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                                    onPrimaryAction = onOpenAudioList
                                 )
                             } else {
                                 Text(
@@ -623,20 +627,13 @@ fun ReportScreenContent(
                                             )
                                             Spacer(modifier = Modifier.width(16.dp))
                                         } else {
-                                            Surface(
-                                                modifier = Modifier.size(44.dp),
-                                                shape = RoundedCornerShape(12.dp),
-                                                color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Description,
-                                                        contentDescription = "docImage",
-                                                        tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                }
-                                            }
+                                            GradientIconBadge(
+                                                icon = Icons.Default.Description,
+                                                contentDescription = "docImage",
+                                                size = 44.dp,
+                                                cornerRadius = 12.dp,
+                                                iconSize = 24.dp
+                                            )
                                             Spacer(modifier = Modifier.width(16.dp))
                                         }
 
@@ -1038,48 +1035,164 @@ fun ReportScreenContent(
     }
 }
 
+/**
+ * A modern, layered hero icon for empty states: a gradient-filled badge holding a
+ * white glyph, sitting on a softly breathing radial halo with a faint outer ring,
+ * and gently floating so the screen feels alive rather than flat.
+ */
+@Composable
+private fun EmptyStateHeroIcon(icon: ImageVector) {
+    val transition = rememberInfiniteTransition(label = "heroIcon")
+    val haloScale by transition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "haloScale"
+    )
+    val haloAlpha by transition.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "haloAlpha"
+    )
+    val floatY by transition.animateFloat(
+        initialValue = -5f,
+        targetValue = 5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floatY"
+    )
+
+    val primary = MaterialTheme.colorScheme.primary
+
+    Box(
+        modifier = Modifier
+            .size(150.dp)
+            .graphicsLayer { translationY = floatY },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(150.dp)
+                .graphicsLayer {
+                    scaleX = haloScale
+                    scaleY = haloScale
+                    alpha = haloAlpha
+                }
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(primary.copy(alpha = 0.22f), Color.Transparent)
+                    ),
+                    shape = CircleShape
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(112.dp)
+                .background(primary.copy(alpha = 0.06f), CircleShape)
+        )
+        Surface(
+            modifier = Modifier.size(86.dp),
+            shape = RoundedCornerShape(26.dp),
+            color = Color.Transparent,
+            shadowElevation = 10.dp
+        ) {
+            Box(
+                modifier = Modifier.background(
+                    Brush.linearGradient(listOf(GradientStart, GradientEnd))
+                ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun EmptyStatePlaceholder(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    primaryActionLabel: String? = null,
+    primaryActionIcon: ImageVector? = null,
+    onPrimaryAction: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier.padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        val isDark = MaterialTheme.colorScheme.onSurface == Color.White
-        Surface(
-            modifier = Modifier.size(100.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(56.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
+        EmptyStateHeroIcon(icon = icon)
+        Spacer(modifier = Modifier.height(28.dp))
         Text(
             text = title,
-            fontSize = 18.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = subtitle,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            lineHeight = 20.sp
+            lineHeight = 21.sp,
+            modifier = Modifier.widthIn(max = 300.dp)
         )
+
+        if (primaryActionLabel != null && onPrimaryAction != null) {
+            Spacer(modifier = Modifier.height(28.dp))
+            Surface(
+                modifier = Modifier
+                    .widthIn(max = 300.dp)
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .pressScaleClick { onPrimaryAction() },
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Transparent,
+                shadowElevation = 4.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Brush.linearGradient(listOf(GradientStart, GradientEnd))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (primaryActionIcon != null) {
+                            Icon(
+                                imageVector = primaryActionIcon,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(
+                            text = primaryActionLabel,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+        }
     }
 }

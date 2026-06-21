@@ -140,10 +140,11 @@ class ReportViewModel @Inject constructor(
             val result = fileRepository.renameFileOnBackend(userId, oldName, newName, "file")
             when (result) {
                 is NetworkResult.Success -> {
+                    val serverName = result.data ?: newName
                     // Rename in the in-memory list BEFORE leaving the loading state so
                     // the loader stays up until the renamed item is already on screen.
                     _rawFiles.value = _rawFiles.value.map { triple ->
-                        if (triple.first == oldName) Triple(newName, triple.second, triple.third) else triple
+                        if (triple.first == oldName) Triple(serverName, triple.second, triple.third) else triple
                     }
                     _uiState.value = ReportUiState.Idle
                 }

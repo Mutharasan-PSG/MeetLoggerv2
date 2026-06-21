@@ -116,13 +116,27 @@ class ReportViewModelTest {
 
     @Test
     fun renameFile_success_setsStateToIdle() = runTest {
-        coEvery { fileRepository.renameFileOnBackend("user123", "old.mp3", "new.mp3", "file") } returns NetworkResult.Success(Unit)
+        coEvery { fileRepository.renameFileOnBackend("user123", "old.mp3", "new.mp3", "file") } returns NetworkResult.Success("new.mp3")
 
         viewModel.renameFile("old.mp3", "new.mp3")
 
         viewModel.uiState.test {
             val state = awaitItem()
             assertTrue(state is ReportViewModel.ReportUiState.Idle)
+        }
+    }
+
+    @Test
+    fun renameFile_error_setsStateToError() = runTest {
+        val errorMsg = "Rename failed due to network"
+        coEvery { fileRepository.renameFileOnBackend("user123", "old.mp3", "new.mp3", "file") } returns NetworkResult.Error(errorMsg)
+
+        viewModel.renameFile("old.mp3", "new.mp3")
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertTrue(state is ReportViewModel.ReportUiState.Error)
+            assertEquals(errorMsg, (state as ReportViewModel.ReportUiState.Error).message)
         }
     }
 

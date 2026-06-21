@@ -23,8 +23,42 @@ class TxtDocumentExporter : DocumentExporter {
                 continue
             }
             
+            // Premium meeting header (single leading '#'): a boxed title with duration/member chips
+            if (currentLine.startsWith("# ") && !currentLine.startsWith("## ")) {
+                val raw = currentLine.removePrefix("# ")
+                val headParts = raw.split("|||")
+                val titleText = headParts[0].trim()
+                val chips = if (headParts.size > 1)
+                    headParts[1].split("||").map { it.trim() }.filter { it.isNotEmpty() }
+                else emptyList()
+
+                while (consecutiveNewlines < 2) {
+                    parsedLines.add("")
+                    consecutiveNewlines++
+                }
+
+                val boxWidth = 64
+                fun centerLine(s: String): String {
+                    val t = if (s.length > boxWidth) s.substring(0, boxWidth) else s
+                    val left = ((boxWidth - t.length) / 2).coerceAtLeast(0)
+                    return " ".repeat(left) + t
+                }
+                val border = "=".repeat(boxWidth)
+                parsedLines.add(border)
+                parsedLines.add(centerLine(titleText.uppercase()))
+                if (chips.isNotEmpty()) {
+                    parsedLines.add(centerLine(chips.joinToString("    ") { "[ $it ]" }))
+                }
+                parsedLines.add(border)
+                parsedLines.add("")
+                consecutiveNewlines = 2
+                isDecisionsSection = false
+                isTranscriptionSection = false
+                continue
+            }
+
             // Check for Main uppercase titles
-            if ((currentLine == "SUMMARY OF THE CONTENT" || currentLine == "TRANSCRIPTION OF SPEAKERS") && !currentLine.contains("*")) {
+            if ((currentLine == "SUMMARY OF THE MEETING" || currentLine == "SUMMARY OF THE CONTENT" || currentLine == "TRANSCRIPTION OF SPEAKERS") && !currentLine.contains("*")) {
                 while (consecutiveNewlines < 2) {
                     parsedLines.add("")
                     consecutiveNewlines++

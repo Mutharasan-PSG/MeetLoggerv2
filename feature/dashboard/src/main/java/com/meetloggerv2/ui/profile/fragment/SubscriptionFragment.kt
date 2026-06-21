@@ -35,6 +35,7 @@ import com.meetloggerv2.core.navigation.findNavigationRouter
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.config.AppConfig
 import com.meetloggerv2.core.theme.pressScaleClick
@@ -340,20 +341,12 @@ fun SubscriptionFeatureItem(text: String) {
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(20.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(12.dp)
-            )
-        }
+        GradientIconBadge(
+            icon = Icons.Default.Check,
+            size = 20.dp,
+            shape = CircleShape,
+            iconSize = 12.dp
+        )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = text,

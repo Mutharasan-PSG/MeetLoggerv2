@@ -52,6 +52,7 @@ import com.bumptech.glide.Glide
 import com.meetloggerv2.core.R
 import com.meetloggerv2.core.navigation.findNavigationRouter
 import com.meetloggerv2.core.theme.MeetLoggerTheme
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.ShimmerProfile
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
@@ -383,21 +384,13 @@ fun ProfileScreen(
                 ) {
                     // 1. Icon Badge
                     val isDark = MaterialTheme.colorScheme.onSurface == Color.White
-                    Surface(
-                        modifier = Modifier.size(80.dp),
+                    GradientIconBadge(
+                        icon = Icons.Default.ExitToApp,
+                        size = 80.dp,
                         shape = CircleShape,
-                        color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.ExitToApp,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
-                    }
+                        iconSize = 40.dp,
+                        shadowElevation = 8.dp
+                    )
 
                     Spacer(modifier = Modifier.height(20.dp))
 
@@ -492,22 +485,13 @@ fun ProfileOptionItem(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Square Icon Background
-            val isDark = MaterialTheme.colorScheme.onSurface == Color.White
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
+            // Square Icon Badge
+            GradientIconBadge(
+                icon = icon,
+                size = 48.dp,
+                cornerRadius = 14.dp,
+                iconSize = 24.dp
+            )
 
             Spacer(modifier = Modifier.width(16.dp))
 

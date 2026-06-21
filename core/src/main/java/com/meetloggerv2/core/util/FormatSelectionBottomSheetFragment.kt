@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.meetloggerv2.core.R
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScaleClick
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.ui.components.SheetHeader
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
@@ -186,21 +187,13 @@ fun FormatOptionItem(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Square Icon Background
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-            }
+            // Square Icon Badge
+            GradientIconBadge(
+                icon = icon,
+                size = 48.dp,
+                cornerRadius = 14.dp,
+                iconSize = 26.dp
+            )
 
             Spacer(modifier = Modifier.width(16.dp))
 

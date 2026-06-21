@@ -156,11 +156,12 @@ class FileRepository @Inject constructor(
         }
     }
 
-    override suspend fun renameFileOnBackend(userId: String, oldName: String, newName: String, target: String?): NetworkResult<Unit> {
+    override suspend fun renameFileOnBackend(userId: String, oldName: String, newName: String, target: String?): NetworkResult<String> {
         return safeApiCall {
             val firebaseToken = getFirebaseIdToken()
             val response = apiService.renameFile("Bearer $firebaseToken", userId, oldName, mapOf("newName" to newName), target)
-            if (response.isSuccessful) {
+            if (response.isSuccessful && response.body() != null) {
+                val returnedName = response.body()!!["newName"] ?: newName
                 // Optimistically rename in the local cache for an instant UI update.
                 // Do not rename local cached record if we only renamed raw audio!
                 if (target != "audio") {
@@ -168,11 +169,11 @@ class FileRepository @Inject constructor(
                         val existing = localFileDao.getFileDetails(userId, oldName)
                         if (existing != null) {
                             localFileDao.deleteFile(userId, oldName)
-                            localFileDao.insertFile(existing.copy(fileName = newName))
+                            localFileDao.insertFile(existing.copy(fileName = returnedName))
                         }
                     } catch (_: Exception) {}
                 }
-                retrofit2.Response.success(Unit)
+                retrofit2.Response.success(returnedName)
             }
             else retrofit2.Response.error(response.code(), response.errorBody()!!)
         }

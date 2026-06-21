@@ -39,6 +39,7 @@ import com.meetloggerv2.core.R
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.session.SessionManager
 import kotlinx.coroutines.delay
@@ -223,48 +224,39 @@ fun HelpSupportScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Subject
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = subject,
-                        onValueChange = {
-                            if (it.length <= subjectMaxLength) {
-                                subject = it
-                                if (subjectError) subjectError = false
-                            }
-                        },
-                        label = { Text("Subject") },
-                        enabled = !isSending,
-                        isError = subjectError,
-                        placeholder = { Text("What is this regarding?") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Next,
-                            keyboardType = KeyboardType.Password,
-                            autoCorrectEnabled = false
-                        ),
-                        visualTransformation = VisualTransformation.None,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
-                        )
+                OutlinedTextField(
+                    value = subject,
+                    onValueChange = {
+                        if (it.length <= subjectMaxLength) {
+                            subject = it
+                            if (subjectError) subjectError = false
+                        }
+                    },
+                    label = { Text("Subject") },
+                    enabled = !isSending,
+                    isError = subjectError,
+                    placeholder = { Text("What is this regarding?") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Next,
+                        keyboardType = KeyboardType.Password,
+                        autoCorrectEnabled = false
+                    ),
+                    visualTransformation = VisualTransformation.None,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
-                    
-                    if (subject.isNotEmpty()) {
-                        Text(
-                            text = "${subject.length}/$subjectMaxLength",
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(end = 16.dp, bottom = 12.dp),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (subject.length >= subjectMaxLength) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                    }
-                }
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -294,12 +286,17 @@ fun HelpSupportScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surface,
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            disabledContainerColor = MaterialTheme.colorScheme.surface,
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                            disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     )
 
-                    if (body.isNotEmpty()) {
+                    if (body.isNotEmpty() && !isSending) {
                         Text(
                             text = "${body.length}/$bodyMaxLength",
                             modifier = Modifier
@@ -368,22 +365,14 @@ fun HelpSupportScreen(
                             modifier = Modifier.padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // 1. Sent Icon with square-round background
-                            val isDark = MaterialTheme.colorScheme.onSurface == Color.White
-                            Surface(
-                                modifier = Modifier.size(100.dp),
-                                shape = RoundedCornerShape(24.dp),
-                                color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.DoneAll,
-                                        contentDescription = null,
-                                        tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(52.dp)
-                                    )
-                                }
-                            }
+                            // 1. Sent Icon with gradient badge
+                            GradientIconBadge(
+                                icon = Icons.Default.DoneAll,
+                                size = 100.dp,
+                                cornerRadius = 24.dp,
+                                iconSize = 52.dp,
+                                shadowElevation = 8.dp
+                            )
 
                             Spacer(modifier = Modifier.height(24.dp))
 

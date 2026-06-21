@@ -16,7 +16,7 @@ interface IFileRepository {
     suspend fun getCachedUserFiles(userId: String): List<Map<String, Any>>
     suspend fun getFileDetailsFromBackend(userId: String, fileName: String): NetworkResult<Map<String, Any>>
     suspend fun deleteFileOnBackend(userId: String, fileName: String, target: String? = null): NetworkResult<Unit>
-    suspend fun renameFileOnBackend(userId: String, oldName: String, newName: String, target: String? = null): NetworkResult<Unit>
+    suspend fun renameFileOnBackend(userId: String, oldName: String, newName: String, target: String? = null): NetworkResult<String>
     suspend fun copyFileOnBackend(userId: String, oldName: String, newName: String): NetworkResult<String>
     suspend fun saveAsNewCopyOnBackend(userId: String, fileName: String, data: Map<String, Any>): NetworkResult<String>
     suspend fun updateFileContentOnBackend(userId: String, fileName: String, updates: Map<String, Any>): NetworkResult<Unit>

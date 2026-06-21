@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.pressScaleClick
 
 /**
@@ -50,21 +51,13 @@ fun ProcessingStartedDialog(
                 val isDark = MaterialTheme.colorScheme.onSurface == Color.White
 
                 // 1. Icon badge
-                Surface(
-                    modifier = Modifier.size(80.dp),
+                GradientIconBadge(
+                    icon = Icons.Default.Autorenew,
+                    size = 80.dp,
                     shape = CircleShape,
-                    color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Autorenew,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-                }
+                    iconSize = 40.dp,
+                    shadowElevation = 8.dp
+                )
 
                 Spacer(modifier = Modifier.height(20.dp))
 

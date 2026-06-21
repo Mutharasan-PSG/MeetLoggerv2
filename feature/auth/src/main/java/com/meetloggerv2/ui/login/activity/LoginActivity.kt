@@ -63,6 +63,7 @@ import com.meetloggerv2.core.session.SessionManager
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.MeetLoggerTheme
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 import com.meetloggerv2.core.theme.pressScale
 import com.meetloggerv2.core.theme.pressScaleClick
 import com.meetloggerv2.data.model.User
@@ -242,22 +243,14 @@ class LoginActivity : AppCompatActivity() {
                                 modifier = Modifier.padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                // 1. Icon with square-round background (Premium Style)
-                                val isDark = MaterialTheme.colorScheme.onSurface == Color.White
-                                Surface(
-                                    modifier = Modifier.size(100.dp),
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = if (isDark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.MarkEmailRead,
-                                            contentDescription = null,
-                                            tint = if (isDark) Color.White else MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(52.dp)
-                                        )
-                                    }
-                                }
+                                // 1. Icon with brand-gradient badge (Premium Style)
+                                GradientIconBadge(
+                                    icon = Icons.Default.MarkEmailRead,
+                                    size = 100.dp,
+                                    cornerRadius = 24.dp,
+                                    iconSize = 52.dp,
+                                    shadowElevation = 8.dp
+                                )
 
                                 Spacer(modifier = Modifier.height(24.dp))
 

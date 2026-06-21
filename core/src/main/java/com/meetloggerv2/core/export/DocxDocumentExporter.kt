@@ -28,14 +28,62 @@ class DocxDocumentExporter : DocumentExporter {
                 continue
             }
             
-            // Check for Main uppercase titles
-            if ((currentLine == "SUMMARY OF THE CONTENT" || currentLine == "TRANSCRIPTION OF SPEAKERS") && !currentLine.contains("*")) {
+            // Premium meeting header (single leading '#'): centered title plus a row of
+            // highlighted chips (duration, members) inside a shaded card cell.
+            if (currentLine.startsWith("# ") && !currentLine.startsWith("## ")) {
+                val raw = currentLine.removePrefix("# ")
+                val headParts = raw.split("|||")
+                val titleText = headParts[0].trim()
+                val chips = if (headParts.size > 1)
+                    headParts[1].split("||").map { it.trim() }.filter { it.isNotEmpty() }
+                else emptyList()
+
                 while (consecutiveNewlines < 2) {
                     val para = document.createParagraph()
                     para.createRun().setText("")
                     consecutiveNewlines++
                 }
-                
+
+                // Single-cell table acts as the subtle rounded "card" background.
+                val table = document.createTable(1, 1)
+                val cell = table.getRow(0).getCell(0)
+                cell.color = "EEF1FE" // subtle primary tint
+
+                val titlePara = cell.paragraphs[0]
+                titlePara.alignment = ParagraphAlignment.CENTER
+                val titleRun = titlePara.createRun()
+                titleRun.isBold = true
+                titleRun.fontSize = 22
+                titleRun.color = "4361EE"
+                titleRun.setText(titleText)
+
+                if (chips.isNotEmpty()) {
+                    val chipPara = cell.addParagraph()
+                    chipPara.alignment = ParagraphAlignment.CENTER
+                    val chipRun = chipPara.createRun()
+                    chipRun.isBold = true
+                    chipRun.fontSize = 11
+                    chipRun.color = "4361EE"
+                    chipRun.setText(chips.joinToString("    ") { "[ $it ]" })
+                }
+
+                val titleSpacer = document.createParagraph()
+                titleSpacer.createRun().setText("")
+
+                consecutiveNewlines = 2
+                isDecisionsSection = false
+                isTranscriptionSection = false
+                continue
+            }
+
+            // Check for Main uppercase titles
+            if ((currentLine == "SUMMARY OF THE MEETING" || currentLine == "SUMMARY OF THE CONTENT" || currentLine == "TRANSCRIPTION OF SPEAKERS") && !currentLine.contains("*")) {
+                while (consecutiveNewlines < 2) {
+                    val para = document.createParagraph()
+                    para.createRun().setText("")
+                    consecutiveNewlines++
+                }
+
                 val para = document.createParagraph()
                 para.alignment = ParagraphAlignment.LEFT
                 val run = para.createRun()
@@ -160,8 +208,45 @@ class DocxDocumentExporter : DocumentExporter {
                     runSpeaker.color = "4361EE"
                     runSpeaker.setText("\u00A0$speakerName:\u00A0")
                     try {
+                        val domNode = runSpeaker.ctr.domNode
+                        val doc = domNode.ownerDocument
+                        
+                        // Find or create w:rPr node
+                        var rPrNode: org.w3c.dom.Node? = null
+                        val childNodes = domNode.childNodes
+                        for (idx in 0 until childNodes.length) {
+                            val child = childNodes.item(idx)
+                            if (child.nodeName == "w:rPr" || child.localName == "rPr") {
+                                rPrNode = child
+                                break
+                            }
+                        }
+                        if (rPrNode == null) {
+                            rPrNode = doc.createElementNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w:rPr")
+                            domNode.insertBefore(rPrNode, domNode.firstChild)
+                        }
+                        
+                        // Find or create w:shd node
+                        var shdNode: org.w3c.dom.Node? = null
+                        val rPrChildren = rPrNode.childNodes
+                        for (idx in 0 until rPrChildren.length) {
+                            val child = rPrChildren.item(idx)
+                            if (child.nodeName == "w:shd" || child.localName == "shd") {
+                                shdNode = child
+                                break
+                            }
+                        }
+                        if (shdNode == null) {
+                            shdNode = doc.createElementNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "w:shd")
+                            rPrNode.appendChild(shdNode)
+                        }
+                        
+                        // Set standard OpenXML shading fill color attribute
+                        val element = shdNode as org.w3c.dom.Element
+                        element.setAttribute("w:fill", "EEF1FE")
+                    } catch (e: Exception) {
                         runSpeaker.setTextHighlightColor("lightGray")
-                    } catch (e: Exception) {}
+                    }
                     
                     val runSpace = para.createRun()
                     runSpace.setText("\u00A0")

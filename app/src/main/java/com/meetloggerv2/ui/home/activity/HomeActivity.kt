@@ -49,6 +49,7 @@ import com.meetloggerv2.core.theme.GradientStart
 import com.meetloggerv2.core.theme.GradientEnd
 import com.meetloggerv2.core.theme.MeetLoggerTheme
 import com.meetloggerv2.core.theme.pressScaleClick
+import com.meetloggerv2.core.ui.components.GradientIconBadge
 
 @AndroidEntryPoint
 class HomeActivity : AppCompatActivity(), NavigationRouter {
@@ -259,25 +260,14 @@ fun AppLockScreen(onUnlockClick: () -> Unit) {
             verticalArrangement = Arrangement.Center
         ) {
             // Icon Badge
-            Surface(
-                modifier = Modifier
-                    .size(100.dp)
-                    .background(Color.Transparent),
+            GradientIconBadge(
+                icon = Icons.Default.Fingerprint,
+                contentDescription = "Fingerprint Lock",
+                size = 100.dp,
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Fingerprint,
-                        contentDescription = "Fingerprint Lock",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(56.dp)
-                    )
-                }
-            }
+                iconSize = 56.dp,
+                shadowElevation = 8.dp
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
 
